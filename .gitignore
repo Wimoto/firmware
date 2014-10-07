@@ -24,3 +24,4 @@
 *.sct
 JLinkLog.txt
 *.ini 
+*.uvproj
