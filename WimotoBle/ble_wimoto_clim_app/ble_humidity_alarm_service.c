@@ -807,6 +807,7 @@ uint16_t read_hum_level()
 
     twi_turn_ON();
     current_hum_level = eDRV_HTU21_MeasureHumidity();  /* Read Humidity from HTU21D sensor*/
+		simple_uart_putstring("HTU21D humidity measurement done\r\n");
     twi_turn_OFF(); 
 
     return current_hum_level;

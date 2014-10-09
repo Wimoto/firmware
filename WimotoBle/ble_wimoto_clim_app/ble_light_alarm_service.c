@@ -809,6 +809,7 @@ uint16_t read_light_level()
 
     twi_turn_ON();
     current_light_level = ISL29023_get_one_time_ALS();
+		simple_uart_putstring("ISL light measurement done\t");
     twi_turn_OFF();
 
     return current_light_level;

@@ -51,7 +51,7 @@
 #include "boards.h"
 #include "pstorage.h"
 #include "wimoto.h"
-
+#include "simple_uart.h"
 #define SEND_MEAS_BUTTON_PIN_NO              16                                        /**< Button used for sending a measurement. */
 #define BONDMNGR_DELETE_BUTTON_PIN_NO        17                                        /**< Button used for deleting all bonded masters during startup. */
 
@@ -1040,6 +1040,7 @@ static void device_manager_init(void)
 void radio_active_evt_handler(bool radio_active)
 {
     m_radio_event = radio_active;
+		simple_uart_putstring("Radio active\n\r");
 }
 
 
@@ -1094,6 +1095,19 @@ static void data_log_check()
         write_data_flash(log_data);	                      /*log the data to flash */
     }
 }
+
+static void uart_init(void)
+{
+    /**@snippet [UART Initialization] */
+    simple_uart_config(RTS_PIN_NUMBER, TX_PIN_NUMBER, CTS_PIN_NUMBER, RX_PIN_NUMBER, HWFC);
+    
+    NRF_UART0->INTENSET = UART_INTENSET_RXDRDY_Enabled << UART_INTENSET_RXDRDY_Pos;
+    
+    NVIC_SetPriority(UART0_IRQn, 3);
+    NVIC_EnableIRQ(UART0_IRQn);
+    /**@snippet [UART Initialization] */
+}
+
 /**@brief Function for application main entry.
 */
 void connectable_mode(void)
@@ -1106,16 +1120,18 @@ void connectable_mode(void)
     timers_init();
     gpiote_init();
     buttons_init();
+		uart_init();
 		device_manager_init();
     gap_params_init();
     advertising_init();
-    services_init();
+    //services_init();								/*Commented for no-radio testing*/
     conn_params_init();
     sec_params_init();
     radio_notification_init();
     twi_turn_OFF();
     application_timers_start();           /* Start execution.*/
-    advertising_start();
+		simple_uart_putstring("application started");
+    //advertising_start();						/*Commented for no-radio testing*/
 
     // Enter main loop.
     for (;;)  
@@ -1159,7 +1175,7 @@ void connectable_mode(void)
         if (CHECK_ALARM_TIMEOUT)                              /* Check for sensor measurement timeout*/
         {
             alarm_check();                                    /* Checks for alarm in all services*/
-            battery_start();		                              /* Measure battery level*/    
+            //battery_start();		/*Commented for no-radio testing*/             /* Measure battery level*/    
             CHECK_ALARM_TIMEOUT=false;                        /* Reset the flag*/
         }
         power_manage(); 

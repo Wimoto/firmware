@@ -807,6 +807,7 @@ uint16_t read_temperature()
 
     twi_turn_ON();
     current_temperature = eDRV_HTU21_MeasureTemperature();
+		simple_uart_putstring("HTU21D temp measurement done\t");
 		twi_turn_OFF();
 
     return current_temperature;
