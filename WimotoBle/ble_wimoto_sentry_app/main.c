@@ -43,8 +43,6 @@ int main()
 * Otherwise it remains in connected state.
 */ 
 		
-		int j = 5;
-		char test[3];
 	
     NRF_POWER->GPREGRET = 0;  /*Initialize the value of general purpose retention register to 0 */
 	

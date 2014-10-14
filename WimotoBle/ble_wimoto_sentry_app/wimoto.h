@@ -232,12 +232,12 @@
 #define MOVEMENT                                  0x00        /**< GPIO Pin value read if there is a movement*/
 
 #define MOVEMENT_GPIOTE_PIN                         11         /**< Select pin P0.04 for interfacing MMA7660 accelerometer INT1 interrupt pin>*/
-#define MOVEMENT_PINS_LOW_TO_HIGH_MASK            0x08000800  /**< Pin selection, so that a LOW to HIGH logic on chosen pin generates an interrupt  >*/
-#define MOVEMENT_PINS_HIGH_TO_LOW_MASK            0x08000800  /**< Pin selection, so that a HIGH to LOW logic on chosen pin generates an interrupt  >*/  //changed this to proper pin//
+#define MOVEMENT_PINS_LOW_TO_HIGH_MASK            0x00000800  /**< Pin selection, so that a LOW to HIGH logic on chosen pin generates an interrupt  >*/
+#define MOVEMENT_PINS_HIGH_TO_LOW_MASK            0x00000800  /**< Pin selection, so that a HIGH to LOW logic on chosen pin generates an interrupt  >*/  //changed this to proper pin//
 /*Pin for PIR detection GPIOTE. */      
 #define PIR_GPIOTE_PIN                               17         /**< Select pin P0.02 for interfacing digital PIR senor>*/
-#define PIR_PINS_LOW_TO_HIGH_MASK                 0x20020000  /**< Pin selection, so that a LOW to HIGH logic on chosen pin generates an interrupt  >*/
-#define PIR_PINS_HIGH_TO_LOW_MASK                 0x20020000  /**< Pin selection, so that a HIGH to LOW logic on chosen pin generates an interrupt  >*/       
+#define PIR_PINS_LOW_TO_HIGH_MASK                 0x00020000  /**< Pin selection, so that a LOW to HIGH logic on chosen pin generates an interrupt  >*/
+#define PIR_PINS_HIGH_TO_LOW_MASK                 0x00020000  /**< Pin selection, so that a HIGH to LOW logic on chosen pin generates an interrupt  >*/       
 #define DEFAULT_PIR_STATE_ON_PULLUP               0x00        /**< Default value on GPIO pin when PIR sensor when not generating interrupt (ACTIVE HIGH SENSOR)*/             
 #define PIR_DETECTION                             0x01        /**< Default value on GPIO pin when PIR sensor has generated interrupt(ACTIVE HIGH SENSOR)*/
 

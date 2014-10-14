@@ -150,7 +150,7 @@ bool MMA7660_config_standby_and_initialize()
     Mode_Reg_Val = MMA7660_read_register (MMA7660_MODE_REG);
     if (false == MMA7660_write_to_reg (MMA7660_MODE_REG,(Mode_Reg_Val | MMA7660_ENABLE_ACTIVE_MODE))) {simple_uart_putstring((const uint8_t *)"active mode messed up \r\r"); return false;}
 		
-		//simple_uart_putstring((const uint8_t *)"Everything initialized fine.\r\r\r");
+		simple_uart_putstring((const uint8_t *)"Everything initialized fine.\r\r\r");
     return true;
 
 }

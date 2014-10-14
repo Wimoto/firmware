@@ -67,7 +67,7 @@
 
 #define DEVICE_NAME                          "Wimoto_Sentry"                             /**< Name of device. Will be included in the advertising data. */
 #define MANUFACTURER_NAME                    "Wimoto"                                   /**< Manufacturer. Will be passed to Device Information Service. */
-#define MODEL_NUM                            "Wimoto"                                   /**< Model number. Will be passed to Device Information Service. */
+#define MODEL_NUM                            "Wimoto_Sentry"                                   /**< Model number. Will be passed to Device Information Service. */
 #define MANUFACTURER_ID                      0x1122334455                               /**< Manufacturer ID, part of System ID. Will be passed to Device Information Service. */
 #define ORG_UNIQUE_ID                        0x667788                                   /**< Organizational Unique ID, part of System ID. Will be passed to Device Information Service. */
 

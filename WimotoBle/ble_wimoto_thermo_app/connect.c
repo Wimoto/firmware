@@ -1055,6 +1055,8 @@ void connectable_mode(void)
     // Start execution.
     application_timers_start();    
     advertising_start();
+	
+
 
     // Enter main loop.
      for (;;)
