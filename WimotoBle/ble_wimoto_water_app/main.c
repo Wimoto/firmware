@@ -29,14 +29,12 @@
 #include "wimoto_sensors.h"
 #include "wimoto.h"
 
-bool 	  BROADCAST_MODE = false;									/* Flag used to switch between broadcast and connectable modes*/
 
 int main()
 {
     /*
 * The loop starts with conectable_mode().  
 * Once the connected Peripheral device sets the switch mode characteristic and disconnects,
-* then the BROADCAST_MODE flag is set to true and enters broadcast_mode().  
 * Otherwise it remains in connected state.
 */ 
 
@@ -45,6 +43,6 @@ int main()
     for(;;)
     {			
         connectable_mode();   /* Advertise water parameter alarm service */	
-        broadcast_mode();     /* Broadcast water parameters  */
+       
     }		
 }	

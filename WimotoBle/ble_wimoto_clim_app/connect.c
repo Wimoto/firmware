@@ -14,7 +14,8 @@
 * Sherin    	   11/29/2013     Added Time sync characteristic to the profile
 * Sherin 		     01/20/2014     Changed datalogging interval to 15 minutes, included one more page for data logging
 * Hariprasad C R 05/01/2014     Chaneged the clock source to LFCLKSRC_RC in ble_stack_init()
-* sruthi.k.s     01/10/2014     migrated to soft device 7.0.0 and SDK 6.1.0
+* sruthi.k.s     10/01/2014     Migrated to soft device 7.0.0 and SDK 6.1.0
+* sruthiraj			 10/10/2014     Added concurrent broadcast of sensor data  in active connection
 */
 
 #include <stdint.h>
@@ -59,7 +60,7 @@
 #define CONNECTED_LED_PIN_NO								 LED_1																		 /**<  LED for the indication of connection>*/
 #define ASSERT_LED_PIN_NO										 LED_1																		 /**<  LED for the indication of assertion>*/
 
-#define DEVICE_NAME                          "Wimoto_Test_F"                          /**< Name of device. Will be included in the advertising data. */
+#define DEVICE_NAME                          "Wimoto_Test_F"                           /**< Name of device. Will be included in the advertising data. */
 #define MANUFACTURER_NAME                    "Wimoto"                                  /**< Manufacturer. Will be passed to Device Information Service. */
 #define MODEL_NUM                            "Wimoto_Climate"                          /**< Model number. Will be passed to Device Information Service. */
 #define MANUFACTURER_ID                      0x1122334455                              /**< Manufacturer ID, part of System ID. Will be passed to Device Information Service. */
@@ -105,7 +106,6 @@
 
 #define FLASH_PAGE_SYS_ATTR                 (BLE_FLASH_PAGE_END - 3)                    /**< Flash page used for bond manager system attribute information. */
 #define FLASH_PAGE_BOND                     (BLE_FLASH_PAGE_END - 1)                    /**< Flash page used for bond manager bonding information. */
-
 #define DEAD_BEEF                            0xDEADBEEF                                 /**< Value used as error code on stack dump, can be used to identify stack location on stack unwind. */
 
 static uint16_t                              m_conn_handle = BLE_CONN_HANDLE_INVALID;   /**< Handle of the current connection. */
@@ -117,7 +117,7 @@ static ble_hums_t                            m_hums;                            
 static ble_device_t                          m_device;                                  /**< Structure used to identify the device management service. */
 static ble_dlogs_t                           m_dlogs;                                   /**< Structure used to identify the data logger service. */
 ble_bas_t                             			 bas;                                       /**< Structure used to identify the battery service. */
-uint8_t														        	 m_service;																	/**< varible for receiving the uuid type>**/
+uint8_t														        	 var_receive_uuid;													/**< varible for receiving the uuid type>**/
 
 static app_timer_id_t                        sensor_meas_timer;                         /**< Temperature measurement timer. */
 static app_timer_id_t                        real_time_timer;                           /**< Time keeping timer. */
@@ -133,7 +133,6 @@ bool                                         TIME_SET = false;                  
 bool                                         CHECK_ALARM_TIMEOUT=false;                 /**< Flag to indicate whether to check for alarm conditions*/
 bool                                         DATA_LOG_CHECK=false;
 
-extern bool 	                               BROADCAST_MODE;                            /**< Flag used to switch between broacast and connectable modes*/    
 extern bool                                  TEMPS_CONNECTED_STATE;                     /**< This flag indicates temperature service is in connected state*/
 extern bool                                  LIGHTS_CONNECTED_STATE;                    /**< This flag indicates light service is in connected state*/
 extern bool                                  HUMS_CONNECTED_STATE;                      /**< This flag indicates humidity service is in connected state*/
@@ -143,6 +142,8 @@ extern bool																	 DLOGS_CONNECTED_STATE;                     /**< Thi
 
 static bool                                  m_memory_access_in_progress = false;       /**< Flag to keep track of ongoing operations on persistent memory. */
 volatile bool                                m_radio_event = false;                     /*This flag indicates a radio event*/ 
+volatile bool                                ACTIVE_CONN_FLAG = false;                  /**<flag indicating active connection*/
+
 static dm_application_instance_t             m_app_handle;                              /**< Application identifier allocated by device manager */
 static void device_init(void);
 static void temps_init(void);
@@ -152,8 +153,25 @@ static void hums_init(void);
 static void bas_init(void);
 static void dlogs_init(void);
 void data_log_sys_event_handler(uint32_t sys_evt);																			/**<data log system event handler declaration>*/
+static void advertising_init(void);
 
 uint32_t buf[4];																																				/*buffer for flash write operation*/
+uint8_t				             temperature[2]   = {0x00,0x00};              /* Temperature value*/
+uint8_t				             light_level[2]   = {0x00,0x00};              /* Light value*/
+uint8_t				             htu_hum_level[2] = {0x00,0x00};              /* Humidity value*/
+
+#define ADC_REF_VOLTAGE_IN_MILLIVOLTS        1200                                      /**< Reference voltage (in milli volts) used by ADC while doing conversion. */
+#define ADC_PRE_SCALING_COMPENSATION         3                                         /**< The ADC is configured to use VDD with 1/3 prescaling as input. And hence the result of conversion is to be multiplied by 3 to get the actual value of the battery voltage.*/
+#define DIODE_FWD_VOLT_DROP_MILLIVOLTS       270                                       /**< Typical forward voltage drop of the diode (Part no: SD103ATW-7-F) that is connected in series with the voltage supply. This is the voltage drop when the forward current is 1mA. Source: Data sheet of 'SURFACE MOUNT SCHOTTKY BARRIER DIODE ARRAY' available at www.diodes.com. */
+
+/**@brief Macro to convert the result of ADC conversion in millivolts.
+*
+* @param[in]  ADC_VALUE   ADC result.
+* @retval     Result converted to millivolts.
+*/
+#define ADC_RESULT_IN_MILLI_VOLTS(ADC_VALUE)\
+    ((((ADC_VALUE) * ADC_REF_VOLTAGE_IN_MILLIVOLTS) / 255) * ADC_PRE_SCALING_COMPENSATION)
+		
 
 /**@brief Function for error handling, which is called when an error has occurred. 
 *
@@ -164,7 +182,7 @@ uint32_t buf[4];																																				/*buffer for flash write ope
 * @param[in] line_num    Line number where the handler is called.
 * @param[in] p_file_name Pointer to the file name. 
 */
-static void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
+void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
 {
     nrf_gpio_pin_set(ASSERT_LED_PIN_NO);
 
@@ -175,11 +193,98 @@ static void app_error_handler(uint32_t error_code, uint32_t line_num, const uint
     //                The flash write will happen EVEN if the radio is active, thus interrupting
     //                any communication.
     //                Use with care. Un-comment the line below to use.
-   // ble_debug_assert_handler(error_code, line_num, p_file_name);
+    ble_debug_assert_handler(error_code, line_num, p_file_name);
 
     // On assert, the system can only recover on reset
-    NVIC_SystemReset();
+   // NVIC_SystemReset();
 }
+
+
+/**@brief Assert macro callback function.
+*
+* @details This function will be called in case of an assert in the SoftDevice.
+*
+* @warning This handler is an example only and does not fit a final product. You need to analyze 
+*          how your product is supposed to react in case of Assert.
+* @warning On assert from the SoftDevice, the system can only recover on reset.
+*
+* @param[in]   line_num   Line number of the failing ASSERT call.
+* @param[in]   file_name  File name of the failing ASSERT call.
+*/
+void assert_nrf_callback(uint16_t line_num, const uint8_t * p_file_name)
+{
+    app_error_handler(DEAD_BEEF, line_num, p_file_name);
+}
+
+
+/* This function measures the battery voltage using the band gap as a reference.
+* 3.6 V will return 100 %, so depending on battery voltage, it might need scaling. */
+static uint32_t do_battery_measurement(void)
+{
+    uint8_t     adc_result;
+    uint16_t    batt_lvl_in_milli_volts;
+    uint8_t     percentage_batt_lvl;
+
+    NRF_ADC->CONFIG = ADC_CONFIG_RES_8bit << ADC_CONFIG_RES_Pos |
+    ADC_CONFIG_INPSEL_SupplyOneThirdPrescaling << ADC_CONFIG_INPSEL_Pos |
+    ADC_CONFIG_REFSEL_VBG << ADC_CONFIG_REFSEL_Pos;
+    NRF_ADC->ENABLE = 1;
+
+    NRF_ADC->TASKS_START = 1;
+    while(!NRF_ADC->EVENTS_END);
+    adc_result = NRF_ADC->RESULT;
+    NRF_ADC->ENABLE = 0;
+    batt_lvl_in_milli_volts = ADC_RESULT_IN_MILLI_VOLTS(adc_result) + DIODE_FWD_VOLT_DROP_MILLIVOLTS;
+
+    percentage_batt_lvl     = battery_level_in_percent(batt_lvl_in_milli_volts);
+
+    return percentage_batt_lvl;
+}
+
+
+/**@brief Function for initializing the non-connectable Advertising[broadcasting] functionality.
+*
+* @details Encodes the required broadcast data and passes it to the stack.      
+*/
+static void advertising_nonconn_init(void)
+{
+uint32_t                   err_code;
+    ble_advdata_t              advdata;
+    ble_advdata_service_data_t service_data[3];
+    uint8_t                    flags = BLE_GAP_ADV_FLAG_BR_EDR_NOT_SUPPORTED;
+    ble_advdata_manuf_data_t   manuf_specific_data;
+    uint8_t                    manuf_data_array[6];	
+
+    manuf_data_array[0] = temperature[0];
+    manuf_data_array[1] = temperature[1];
+    manuf_data_array[2] = light_level[0];
+    manuf_data_array[3] = light_level[1];
+    manuf_data_array[4] = htu_hum_level[0];
+    manuf_data_array[5] = htu_hum_level[1];
+
+    manuf_specific_data.company_identifier = COMPANY_IDENTIFER;     /* COMPANY IDENTIFIER */
+    manuf_specific_data.data.p_data = manuf_data_array;
+    manuf_specific_data.data.size = sizeof(manuf_data_array);
+
+    uint8_t battery              = do_battery_measurement();
+    service_data[0].service_uuid = BLE_UUID_BATTERY_SERVICE;
+    service_data[0].data.p_data  = &battery;
+    service_data[0].data.size    = sizeof(battery);
+
+    // Build and set advertising data
+    memset(&advdata, 0, sizeof(advdata));
+
+    advdata.name_type               = BLE_ADVDATA_FULL_NAME;
+    advdata.flags.size              = sizeof(flags);
+    advdata.flags.p_data            = &flags;
+    advdata.p_service_data_array    = service_data;
+    advdata.service_data_count      = 0;
+    advdata.p_manuf_specific_data   = &manuf_specific_data;
+
+    err_code = ble_advdata_set(&advdata, NULL);
+    APP_ERROR_CHECK(err_code);
+}
+
 
 /**@brief Function for performing check for the alarm condition.
 */
@@ -187,8 +292,8 @@ static void alarm_check(void)
 {
     uint32_t err_code;
 
-    err_code = ble_lights_level_alarm_check(&m_lights);  /* Check whether the light level is out of range*/
-    if ((err_code != NRF_SUCCESS) &&
+    err_code = ble_lights_level_alarm_check(&m_lights,&m_device);  /* Check whether the light level is out of range*/
+    if ((err_code != NRF_SUCCESS) &&															 /*passed device management service structure for getting time stamp in light service*/
             (err_code != NRF_ERROR_INVALID_STATE) &&
             (err_code != BLE_ERROR_NO_TX_BUFFERS) &&
             (err_code != BLE_ERROR_GATTS_SYS_ATTR_MISSING)
@@ -197,8 +302,8 @@ static void alarm_check(void)
         APP_ERROR_HANDLER(err_code);
     } 
 
-    err_code = ble_temps_level_alarm_check(&m_temps);    /* Check whether the temperature is out of range*/
-    if ((err_code != NRF_SUCCESS) &&
+    err_code = ble_temps_level_alarm_check(&m_temps,&m_device);    /* Check whether the temperature is out of range*/
+    if ((err_code != NRF_SUCCESS) &&															 /*passed device management service structure for getting time stamp in temperature service*/
             (err_code != NRF_ERROR_INVALID_STATE) &&
             (err_code != BLE_ERROR_NO_TX_BUFFERS) &&
             (err_code != BLE_ERROR_GATTS_SYS_ATTR_MISSING)
@@ -207,8 +312,8 @@ static void alarm_check(void)
         APP_ERROR_HANDLER(err_code);
     }
     
-    err_code = ble_hums_level_alarm_check(&m_hums);     /* Check whether the humidity level is out of range*/ 
-    if ((err_code != NRF_SUCCESS) &&
+    err_code = ble_hums_level_alarm_check(&m_hums,&m_device);     /* Check whether the humidity level is out of range*/ 
+    if ((err_code != NRF_SUCCESS) &&															/*passed device management service structure for getting time stamp in humidity service*/
             (err_code != NRF_ERROR_INVALID_STATE) &&
             (err_code != BLE_ERROR_NO_TX_BUFFERS) &&
             (err_code != BLE_ERROR_GATTS_SYS_ATTR_MISSING)
@@ -216,9 +321,13 @@ static void alarm_check(void)
     {
         APP_ERROR_HANDLER(err_code);
     } 
-
+		
+		//updating the advertise/broadcast data
+		if(ACTIVE_CONN_FLAG==false)               /* no active connection*/
+			advertising_init();                     
+		else																			/*an active connection exists*/
+			advertising_nonconn_init();	
 }
-
 
 
 /**@brief Function for performing a climate parmaters level measurement, and  check for the alarm condition.
@@ -250,6 +359,7 @@ static void climate_param_meas_timeout_handler(void * p_context)
 
 
 }
+
 
 /**@brief Function for performing time keeping. Exwcuted every second.
 */
@@ -308,6 +418,7 @@ static void real_time_timeout_handler(void * p_context)
     }
     
 }
+
 
 /**@brief Function for the Timer initialization.
 *
@@ -440,6 +551,43 @@ static void advertising_init(void)
     m_adv_params.fp          = BLE_GAP_ADV_FP_ANY;
     m_adv_params.interval    = APP_ADV_INTERVAL;
     m_adv_params.timeout     = APP_ADV_TIMEOUT_IN_SECONDS;
+		
+		// Build and set broadcast data
+		
+		ble_advdata_t              advdata1;
+    ble_advdata_service_data_t service_data[1];
+    ble_advdata_manuf_data_t   manuf_specific_data;
+    uint8_t                    manuf_data_array[6];	
+
+    manuf_data_array[0] = temperature[0];
+    manuf_data_array[1] = temperature[1];
+    manuf_data_array[2] = light_level[0];
+    manuf_data_array[3] = light_level[1];
+    manuf_data_array[4] = htu_hum_level[0];
+    manuf_data_array[5] = htu_hum_level[1];
+
+    manuf_specific_data.company_identifier = COMPANY_IDENTIFER;     /* COMPANY IDENTIFIER */
+    manuf_specific_data.data.p_data = manuf_data_array;
+    manuf_specific_data.data.size = sizeof(manuf_data_array);
+
+    uint8_t battery              = do_battery_measurement();
+    service_data[0].service_uuid = BLE_UUID_BATTERY_SERVICE;
+    service_data[0].data.p_data  = &battery;
+    service_data[0].data.size    = sizeof(battery);
+
+
+    // Build and set advertising data
+    memset(&advdata1, 0, sizeof(advdata1));
+
+    advdata1.name_type               = BLE_ADVDATA_FULL_NAME;
+    advdata1.flags.size              = sizeof(flags);
+    advdata1.flags.p_data            = &flags;
+    advdata1.p_service_data_array    = service_data;
+    advdata1.service_data_count      = 0;
+    advdata1.p_manuf_specific_data   = &manuf_specific_data;
+
+    err_code = ble_advdata_set(&advdata1, NULL);
+    APP_ERROR_CHECK(err_code);
 }
 
 
@@ -452,13 +600,13 @@ uint32_t services_init(void)
 		uint32_t   err_code;
 	  ble_uuid128_t base_uuid = CLIMATE_PROFILE_BASE_UUID;
   	// Add custom base UUID
-    err_code = sd_ble_uuid_vs_add(&base_uuid, &m_service);
+    err_code = sd_ble_uuid_vs_add(&base_uuid, &var_receive_uuid);
     if (err_code != NRF_SUCCESS)
     {
         return err_code;
     }
     temps_init();        /* Initialize temperature alarm service*/
-		lights_init();       /* Initialize light alarm service*/ 
+		lights_init();       /* Initialize light alarm service*/
 		hums_init();         /* Initialize humidity alarm service*/
 		dlogs_init();				 /* Initialize the data logger service*/
     device_init();       /* Initialize device management service*/
@@ -494,7 +642,6 @@ static void bas_init(void)
 }
 
 
-
 /**@brief Function for initializing temperature alarm service
 */
 static void temps_init(void)
@@ -524,11 +671,20 @@ static void temps_init(void)
     temps_init.climate_temperature_high_level[0]   = TEMP_DEFAULT_HIGH_VALUE_LOWER_BYTE;
     temps_init.climate_temperature_high_level[1]   = TEMP_DEFAULT_HIGH_VALUE_HIGHER_BYTE;
     temps_init.climate_temperature_alarm_set       = DEFAULT_ALARM_SET;
-    temps_init.climate_temperature_alarm           = RESET_ALARM;
-
+    //initializing temperature alarm with time stamp characteristics 
+		temps_init.temps_alarm_with_time_stamp[0]      = RESET_ALARM;
+		temps_init.temps_alarm_with_time_stamp[1]			 =0x00;
+		temps_init.temps_alarm_with_time_stamp[2]			 =0x00;
+		temps_init.temps_alarm_with_time_stamp[3]			 =0x00;
+		temps_init.temps_alarm_with_time_stamp[4]  		 =0x00;
+		temps_init.temps_alarm_with_time_stamp[5]			 =0x00;
+		temps_init.temps_alarm_with_time_stamp[6]			 =0x00;
+		temps_init.temps_alarm_with_time_stamp[7]			 =0x00;
+		
     err_code = ble_temps_init(&m_temps, &temps_init);
     APP_ERROR_CHECK(err_code);
 }
+
 
 /**@brief Function for initializing light alarm service*/
 static void lights_init(void)
@@ -559,7 +715,17 @@ static void lights_init(void)
     lights_init.climate_light_high_value[0]   = LIGHT_DEFAULT_HIGH_VALUE_LOWER_BYTE;
     lights_init.climate_light_high_value[1]   = LIGHT_DEFAULT_HIGH_VALUE_HIGHER_BYTE;
     lights_init.climate_light_alarm_set       = DEFAULT_ALARM_SET;
-    lights_init.climate_light_alarm           = RESET_ALARM;
+		
+		//initializing light alarm with time stamp characteristics
+		lights_init.lights_alarm_with_time_stamp[0]      = RESET_ALARM;
+		lights_init.lights_alarm_with_time_stamp[1]			 =0x00;
+		lights_init.lights_alarm_with_time_stamp[2]			 =0x00;
+		lights_init.lights_alarm_with_time_stamp[3]			 =0x00;
+		lights_init.lights_alarm_with_time_stamp[4]  		 =0x00;
+		lights_init.lights_alarm_with_time_stamp[5]			 =0x00;
+		lights_init.lights_alarm_with_time_stamp[6]			 =0x00;
+		lights_init.lights_alarm_with_time_stamp[7]			 =0x00;
+		
 
     err_code = ble_lights_init(&m_lights, &lights_init);
     APP_ERROR_CHECK(err_code);
@@ -596,12 +762,22 @@ static void hums_init(void)
     hums_init.climate_hum_high_value[0]   = HUM_DEFAULT_HIGH_VALUE_LOWER_BYTE;
     hums_init.climate_hum_high_value[1]   = HUM_DEFAULT_HIGH_VALUE_HIGHER_BYTE;
     hums_init.climate_hum_alarm_set       = DEFAULT_ALARM_SET;
-    hums_init.climate_hum_alarm           = RESET_ALARM;
+		
+		//initializing humidity alarm with time stamp characteristics
+		hums_init.hums_alarm_with_time_stamp[0]      = RESET_ALARM;
+		hums_init.hums_alarm_with_time_stamp[1]			 =0x00;
+		hums_init.hums_alarm_with_time_stamp[2]			 =0x00;
+		hums_init.hums_alarm_with_time_stamp[3]			 =0x00;
+		hums_init.hums_alarm_with_time_stamp[4]  		 =0x00;
+		hums_init.hums_alarm_with_time_stamp[5]			 =0x00;
+		hums_init.hums_alarm_with_time_stamp[6]			 =0x00;
+		hums_init.hums_alarm_with_time_stamp[7]			 =0x00;
 
     err_code = ble_hums_init(&m_hums, &hums_init);
     APP_ERROR_CHECK(err_code);
 
 }
+
 
 /**@brief Function for initializing data logger service*/
 static void dlogs_init(void)
@@ -633,6 +809,7 @@ static void dlogs_init(void)
 
 }
 
+
 /**@brief Function for initializing Device management alarm service*/
 static void device_init(void)
 {
@@ -658,7 +835,6 @@ static void device_init(void)
 
     // Set the default low value for DFU, Switch mode and time stamp charactristics 
     device_init.device_dfu_mode_set          = DEFAULT_ALARM_SET;
-    device_init.device_mode_switch_set       = DEFAULT_ALARM_SET;
 
 
     device_init.device_time_stamp_set[0] =  0x00;
@@ -780,6 +956,8 @@ static void conn_params_init(void)
     err_code = ble_conn_params_init(&cp_init);
     APP_ERROR_CHECK(err_code);
 }
+
+
 /**@brief Function for putting the chip in System OFF Mode
  */
 static void system_off_mode_enter(void)
@@ -802,6 +980,27 @@ static void system_off_mode_enter(void)
     APP_ERROR_CHECK(err_code);
 }
 
+
+/**@brief Start non_connectable advertising.
+*/
+static void advertising_nonconn_start(void)
+{
+    uint32_t err_code;
+    ble_gap_adv_params_t                  adv_params;
+	
+    // Initialise advertising parameters (used when starting advertising)
+    memset(&adv_params, 0, sizeof(adv_params));
+
+    adv_params.type        = BLE_GAP_ADV_TYPE_ADV_NONCONN_IND;
+    adv_params.p_peer_addr = NULL;                          
+    adv_params.fp          = BLE_GAP_ADV_FP_ANY;
+	  adv_params.interval    = 170;                     /* non connectable advertisements cannot be faster than 100ms.*/
+    adv_params.timeout     = APP_ADV_TIMEOUT_IN_SECONDS;
+		
+		err_code = sd_ble_gap_adv_start(&adv_params);
+		APP_ERROR_CHECK(err_code);
+
+}
 /**@brief Function for handling the Application's BLE Stack events.
 *
 * @param[in]   p_ble_evt   Bluetooth stack event.
@@ -818,6 +1017,11 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
         // Start detecting button presses
         err_code = app_button_enable();
         m_conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
+		
+				ACTIVE_CONN_FLAG=true;
+		
+				//starting non-connectable advertising
+				advertising_nonconn_start();
         break;
 
     case BLE_GAP_EVT_DISCONNECTED:
@@ -829,7 +1033,13 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
         err_code = app_button_disable();
         APP_ERROR_CHECK(err_code);
 
-        advertising_start();
+         //stop non-connectable advertising
+				sd_ble_gap_adv_stop();
+				
+				ACTIVE_CONN_FLAG=false;
+				
+				//connectable advertising starts
+		    advertising_start();
         break;
 
     case BLE_GAP_EVT_SEC_PARAMS_REQUEST:
@@ -1043,8 +1253,6 @@ void radio_active_evt_handler(bool radio_active)
 }
 
 
-
-
 /**@brief Function for initializing the Radio Notification events.
 */
 static void radio_notification_init(void)
@@ -1057,6 +1265,7 @@ static void radio_notification_init(void)
     APP_ERROR_CHECK(err_code);
 }
 
+
 /**@brief Function for the Power manager.
 */
 static void power_manage(void)
@@ -1064,6 +1273,8 @@ static void power_manage(void)
     uint32_t err_code = sd_app_evt_wait();
     APP_ERROR_CHECK(err_code);
 }
+
+
 /**@brief Function for creating log data.
 */
 static void create_log_data(uint32_t * data)
@@ -1082,6 +1293,7 @@ static void create_log_data(uint32_t * data)
 		data[3]=current_humidity_level;                                           /* Fouth word contains soil moisture level*/
 }
 
+
 /**@brief Function for checking whether to log data.
 */
 static void data_log_check()
@@ -1094,6 +1306,24 @@ static void data_log_check()
         write_data_flash(log_data);	                      /*log the data to flash */
     }
 }
+
+
+/* Turn OFF TWI if TWI is not using , considering power optimazation*/
+void twi_turn_OFF(void)
+{
+    NRF_TWI0->POWER = 0; 
+    NRF_TWI1->POWER = 0;
+}
+
+
+/* Turn ON TWI (used only after turning it OFF)*/
+void twi_turn_ON(void)
+{
+    NRF_TWI1->POWER = 1;
+    twi_master_init();
+}
+
+
 /**@brief Function for application main entry.
 */
 void connectable_mode(void)
@@ -1120,12 +1350,7 @@ void connectable_mode(void)
     // Enter main loop.
     for (;;)  
     {
-        if((BROADCAST_MODE) && (!TEMPS_CONNECTED_STATE) && (!LIGHTS_CONNECTED_STATE) && (!HUMS_CONNECTED_STATE)) /*If the broadcast mode flag is true and services are not connected stop advertising and exit*/
-        {                          
-            sd_ble_gap_adv_stop();		   	/* Stop advertising */
-            break;
-        }
-        
+       
         if(DFU_ENABLE && (!DEVICE_CONNECTED_STATE) && (!TEMPS_CONNECTED_STATE) && (!LIGHTS_CONNECTED_STATE) && (!HUMS_CONNECTED_STATE)) /*If the dfu enable flag is true and services are not connected go to the bootloader*/ 
         {
             sd_power_gpregret_set(1);     /* If DFU mode is enabled , set the value of general purpose retention register to 1*/

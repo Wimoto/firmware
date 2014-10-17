@@ -15,6 +15,7 @@
 * Sherin    		    12/10/2013     Added write events for value fields
 * Hariprasad        12/11/2013     Added 128bit Vendor specific  custom UUID's for the service and all characteristics 
 * sruthiraj         01/10/2014     Migrated to soft device 7.0.0 and SDK 6.1.0
+* Sruthi.k.s				10/17/2014		 Added time stamp with alarm services
 */
 
 #include "ble_waterp_alarm_service.h"
@@ -25,10 +26,12 @@
 #include "wimoto.h"
 #include "wimoto_sensors.h"
 
-extern bool  BROADCAST_MODE;                  /* broadcast mode flag, defined in main.c */
-extern bool 	WATERP_EVENT_FLAG;              /* This flag indicates whether there is an event on gpiote */
-bool     	    WATERPS_CONNECTED_STATE=false;  /* Indicates whether the water presence service is connected or not*/
-extern uint8_t	 m_service;
+extern bool 			WATERP_EVENT_FLAG;              /* This flag indicates whether there is an event on gpiote */
+bool     	    		WATERPS_CONNECTED_STATE=false;  /* Indicates whether the water presence service is connected or not*/
+extern uint8_t		var_receive_uuid;								/*variable to receive uuid*/
+extern uint8_t	  curr_waterpresence;             /* water presence value for broadcast*/
+
+
 /**@brief Function for handling the Connect event.
 *
 * @param[in]   p_waterps   water presence Service structure.
@@ -52,6 +55,7 @@ static void on_disconnect(ble_waterps_t * p_waterps, ble_evt_t * p_ble_evt)
     WATERPS_CONNECTED_STATE= false; 
     p_waterps->conn_handle = BLE_CONN_HANDLE_INVALID;
 }
+
 
 /**@brief Function for handling write events on values.
 *
@@ -195,6 +199,7 @@ void ble_waterps_on_ble_evt(ble_waterps_t * p_waterps, ble_evt_t * p_ble_evt)
 
 }
 
+
 /**@brief Function for adding the current water presence characteristics.
 *
 * @param[in]   p_waterps        water presence Service structure.
@@ -212,8 +217,8 @@ static uint32_t current_waterpresence_char_add(ble_waterps_t * p_waterps, const 
     ble_gatts_attr_md_t attr_md;
     static uint8_t      current_waterpresence;
 
-    current_waterpresence= nrf_gpio_pin_read(WATERP_GPIOTE_PIN);
-
+    current_waterpresence=nrf_gpio_pin_read(WATERP_GPIOTE_PIN);
+		
     if (p_waterps->is_notification_supported)
     {   
         memset(&cccd_md, 0, sizeof(cccd_md));
@@ -262,6 +267,7 @@ static uint32_t current_waterpresence_char_add(ble_waterps_t * p_waterps, const 
 
     return NRF_SUCCESS;
 }
+
 
 /**@brief Function for adding the water presence alarm set characteristics.
 *
@@ -325,6 +331,7 @@ static uint32_t waterpresence_alarm_set_char_add(ble_waterps_t * p_waterps, cons
     return NRF_SUCCESS;
 }
 
+
 /**@brief Function for adding the water presence alarm characteristics.
 *
 * @param[in]   p_waterps        water presence Service structure.
@@ -341,7 +348,9 @@ static uint32_t waterpresence_alarm_char_add(ble_waterps_t * p_waterps, const bl
     ble_gatts_attr_t    attr_char_value;
     ble_uuid_t          ble_uuid;
     ble_gatts_attr_md_t attr_md;
-    static uint8_t      water_waterpresence_alarm;
+	
+		/* array for receiving alarm with time stamp from water presence service structure*/
+    static uint8_t      waterps_alarm_with_time_stamp[8];
 
     // Add water presence alarm characteristic 
     if (p_waterps->is_notification_supported)
@@ -373,18 +382,25 @@ static uint32_t waterpresence_alarm_char_add(ble_waterps_t * p_waterps, const bl
     attr_md.rd_auth    = 0;
     attr_md.wr_auth    = 0;
     attr_md.vlen       = 0;
-
-
-    water_waterpresence_alarm = p_waterps_init->water_waterpresence_alarm;
+		
+		//assigning alarm with time stamp of water presence characteristics to alarm with time stamp array
+    waterps_alarm_with_time_stamp[0] = p_waterps_init->waterps_alarm_with_time_stamp[0];
+		waterps_alarm_with_time_stamp[1] = p_waterps_init->waterps_alarm_with_time_stamp[1];
+		waterps_alarm_with_time_stamp[2] = p_waterps_init->waterps_alarm_with_time_stamp[2];
+		waterps_alarm_with_time_stamp[3] = p_waterps_init->waterps_alarm_with_time_stamp[3];
+		waterps_alarm_with_time_stamp[4] = p_waterps_init->waterps_alarm_with_time_stamp[4];
+		waterps_alarm_with_time_stamp[5] = p_waterps_init->waterps_alarm_with_time_stamp[5];
+		waterps_alarm_with_time_stamp[6] = p_waterps_init->waterps_alarm_with_time_stamp[6];
+		waterps_alarm_with_time_stamp[7] = p_waterps_init->waterps_alarm_with_time_stamp[7];
 
     memset(&attr_char_value, 0, sizeof(attr_char_value));
 
     attr_char_value.p_uuid       = &ble_uuid;
     attr_char_value.p_attr_md    = &attr_md;
-    attr_char_value.init_len     = sizeof(uint8_t);
+    attr_char_value.init_len     = sizeof(waterps_alarm_with_time_stamp);
     attr_char_value.init_offs    = 0;
-    attr_char_value.max_len      = sizeof(uint8_t);
-    attr_char_value.p_value      = &water_waterpresence_alarm;
+    attr_char_value.max_len      = sizeof(waterps_alarm_with_time_stamp);
+    attr_char_value.p_value      = waterps_alarm_with_time_stamp;
 
     err_code = sd_ble_gatts_characteristic_add(p_waterps->service_handle, &char_md,
     &attr_char_value,
@@ -396,6 +412,7 @@ static uint32_t waterpresence_alarm_char_add(ble_waterps_t * p_waterps, const bl
 
     return NRF_SUCCESS;
 }
+
 
 /**@brief Function for initializing the water presence.
 *
@@ -411,8 +428,8 @@ uint32_t ble_waterps_init(ble_waterps_t * p_waterps, const ble_waterps_init_t * 
     ble_uuid_t ble_uuid;
     
     // Add service
-    ble_uuid.type = m_service;
-		p_waterps->uuid_type=m_service;
+    ble_uuid.type = var_receive_uuid;
+		p_waterps->uuid_type=var_receive_uuid;
     ble_uuid.uuid = WATER_PROFILE_WATERPS_SERVICE_UUID;
 
     // Initialize service structure
@@ -422,7 +439,7 @@ uint32_t ble_waterps_init(ble_waterps_t * p_waterps, const ble_waterps_init_t * 
     p_waterps->is_notification_supported      = p_waterps_init->support_notification;
 	
     p_waterps->water_waterpresence_alarm_set  = p_waterps_init->water_waterpresence_alarm_set;     
-    p_waterps->water_waterpresence_alarm      = p_waterps_init->water_waterpresence_alarm; 
+
 
 
     err_code = sd_ble_gatts_service_add(BLE_GATTS_SRVC_TYPE_PRIMARY, &ble_uuid, &p_waterps->service_handle);
@@ -453,34 +470,43 @@ uint32_t ble_waterps_init(ble_waterps_t * p_waterps, const ble_waterps_init_t * 
 
 }
 
+
 /**@brief Function reads and updates the current water presence and checks for alarm condition.
 *  Executes only when an event occurs on gpiote pin for water presence
 *
 * @param[in]   p_waterps        water presence  Service structure.
 *
+* @param[in]   p_device       Device management Service structure.
+*
 * @return      NRF_SUCCESS on success, otherwise an error code.
 */
-uint32_t ble_waterps_alarm_check(ble_waterps_t * p_waterps)
+uint32_t ble_waterps_alarm_check(ble_waterps_t * p_waterps,ble_device_t *p_device)
 {
     uint32_t err_code;
     uint8_t  current_waterpresence;       				/* Current water presence*/
-    uint8_t  alarm;
-    uint16_t len = sizeof(uint8_t);
+    uint8_t alarm[8]= {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
+    uint16_t len1 = sizeof(uint8_t);
+		uint16_t len	=8;	//length of alarm with time stamp characteristics
 
     current_waterpresence = nrf_gpio_pin_read(WATERP_GPIOTE_PIN);
 
+		/*copy the current waterpresence value for broadcast*/
+		curr_waterpresence =current_waterpresence;
+
+		bool     WATERPS_ALARM_SET_TIME_READ=false; 									  /*This flag for water presence service alarm set time read*/
+		bool     WATERPS_ALARM_RESET_TIME_STAMP=false;									/*This flag for water presence alarm reset read whether alarm set is 0x00 */
 
     if ((p_waterps->conn_handle != BLE_CONN_HANDLE_INVALID) && p_waterps->is_notification_supported)
     {
         ble_gatts_hvx_params_t hvx_params;
 
         memset(&hvx_params, 0, sizeof(hvx_params));
-        len = sizeof(uint8_t);
+
 
         hvx_params.handle   = p_waterps->current_waterp_handles.value_handle;
         hvx_params.type     = BLE_GATT_HVX_NOTIFICATION;
         hvx_params.offset   = 0;
-        hvx_params.p_len    = &len;
+        hvx_params.p_len    = &len1;
         hvx_params.p_data   = &current_waterpresence;
 
         err_code = sd_ble_gatts_hvx(p_waterps->conn_handle, &hvx_params);
@@ -497,20 +523,46 @@ uint32_t ble_waterps_alarm_check(ble_waterps_t * p_waterps)
     {
         if (nrf_gpio_pin_read(WATERP_GPIOTE_PIN)==WATER_NOT_PRESENT)
         {
-            alarm = SET_ALARM_NO_WATER;
+            alarm[0] = SET_ALARM_NO_WATER;
+						WATERPS_ALARM_SET_TIME_READ=true;
         }
         else 
         {
-            alarm = RESET_ALARM;	
+            alarm[0] = RESET_ALARM;	
         }
     }
     else
     {	
-        alarm = RESET_ALARM;								              /* Reset alarm to 0x00*/
-    }		
+        alarm[0] = RESET_ALARM;								              /* Reset alarm to 0x00*/
+				WATERPS_ALARM_RESET_TIME_STAMP=true;
+    }	
+		/*reading of time stamp from device management service structure whether the alarm set*/
+		if(WATERPS_ALARM_SET_TIME_READ)
+		{
+				alarm[1]=p_device->device_time_stamp_set[0];
+				alarm[2]=p_device->device_time_stamp_set[1];
+				alarm[3]=p_device->device_time_stamp_set[2];
+				alarm[4]=p_device->device_time_stamp_set[3];
+				alarm[5]=p_device->device_time_stamp_set[4];
+				alarm[6]=p_device->device_time_stamp_set[5];
+				alarm[7]=p_device->device_time_stamp_set[6];
+				WATERPS_ALARM_SET_TIME_READ=false;
+		}
+		/*resetting of alarm time to zero whether the alarm set characteristics set as zero*/
+		if(WATERPS_ALARM_RESET_TIME_STAMP)
+		{		
+				alarm[0]=0x00;
+				alarm[1]=0x00;
+				alarm[2]=0x00;
+				alarm[3]=0x00;
+				alarm[4]=0x00;
+				alarm[5]=0x00;
+				alarm[6]=0x00;
+				alarm[7]=0x00;
+				WATERPS_ALARM_RESET_TIME_STAMP=false;
+		}
 
-
-    if(alarm != p_waterps->water_waterpresence_alarm  )  	/* Check whether the alarm value has changed and send the change*/
+    if((alarm[0]!= 0)||(p_waterps->water_waterpresence_alarm_set == 0x00)) 	/*check whether the alarm sets as non zero or alarm set characteristics set as zero*/
     {	
 
          
@@ -522,16 +574,16 @@ uint32_t ble_waterps_alarm_check(ble_waterps_t * p_waterps)
             ble_gatts_hvx_params_t hvx_params;
 
             memset(&hvx_params, 0, sizeof(hvx_params));
-            len = sizeof(uint8_t);
+
 
             hvx_params.handle   = p_waterps->water_waterp_alarm_handles.value_handle;
             hvx_params.type     = BLE_GATT_HVX_NOTIFICATION;
             hvx_params.offset   = 0;
             hvx_params.p_len    = &len;
-            hvx_params.p_data   = &alarm;
+            hvx_params.p_data   = alarm;
 
             err_code = sd_ble_gatts_hvx(p_waterps->conn_handle, &hvx_params);
-						p_waterps->water_waterpresence_alarm  = alarm; 
+						p_waterps->waterps_alarm_with_time_stamp[0]  = alarm[0]; 
 
         }
         else

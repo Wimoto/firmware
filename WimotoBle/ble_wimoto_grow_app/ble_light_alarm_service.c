@@ -13,7 +13,8 @@
 * Change log:
 * Sherin    		    12/10/2013     Added write events for value fields
 * Hariprasad        12/11/2013     Added 128bit Vendor specific  custom UUID's for the service and all characteristics 
-* sruthi.k.s        01/10/2014     migrated to soft device 7.0.0 and SDK 6.1.0
+* Sruthi.k.s        10/01/2014     migrated to soft device 7.0.0 and SDK 6.1.0
+* Sruthi.k.s				10/17/2014		 Added time stamp with light alarm characteristics
 */
 
 #include "ble_light_alarm_service.h"
@@ -25,9 +26,10 @@
 #include "wimoto.h"
 
 bool   LIGHTS_CONNECTED_STATE=false;                  /* This flag indicates whether a client is connected to the peripheral or not*/
-extern bool 	  BROADCAST_MODE;                       /* Flag used to switch between broadcast and connectable modes defined in main.c*/
 extern bool 	  CHECK_ALARM_TIMEOUT;
-extern uint8_t	 m_service;
+extern uint8_t	 var_receive_uuid;										/*variable to receive uuid*/
+extern uint8_t		light_level[2];                    /*variable to store current light level value to broadcast*/
+
 
 /**@brief Function for handling the Connect event.
 *
@@ -53,6 +55,7 @@ static void on_disconnect(ble_lights_t * p_lights, ble_evt_t * p_ble_evt)
     p_lights->conn_handle = BLE_CONN_HANDLE_INVALID;
 }
 
+
 /**@brief Function for handling write events on values.
 *
 * @details This function will be called for all write events of light low, high values and alarm set 
@@ -62,6 +65,8 @@ static void write_evt_handler(void)
 {   
     CHECK_ALARM_TIMEOUT = true; 
 }
+
+
 /**@brief Function for handling the Write event.
 *
 * @param[in]   p_lights       Light Service structure.
@@ -340,7 +345,6 @@ static uint32_t current_light_level_char_add(ble_lights_t * p_lights, const ble_
 }
 
 
-
 /**@brief Function for adding the light_level low value characteristics.
 *
 * @param[in]   p_lights        Light Service structure.
@@ -402,6 +406,7 @@ static uint32_t light_low_value_char_add(ble_lights_t * p_lights, const ble_ligh
 
     return NRF_SUCCESS;
 }
+
 
 /**@brief Function for adding the light_level high value characteristics.
 *
@@ -467,6 +472,7 @@ static uint32_t light_high_value_char_add(ble_lights_t * p_lights, const ble_lig
     return NRF_SUCCESS;
 }
 
+
 /**@brief Function for adding the light_level alarm set characteristics.
 *
 * @param[in]   p_lights        Light Service structure.
@@ -530,6 +536,7 @@ static uint32_t light_alarm_set_char_add(ble_lights_t * p_lights, const ble_ligh
     return NRF_SUCCESS;
 }
 
+
 /**@brief Function for adding the light_level alarm characteristics.
 *
 * @param[in]   p_lights        Light Service structure.
@@ -546,7 +553,9 @@ static uint32_t light_alarm_char_add(ble_lights_t * p_lights, const ble_lights_i
     ble_gatts_attr_t    attr_char_value;
     ble_uuid_t          ble_uuid;
     ble_gatts_attr_md_t attr_md;
-    static uint8_t      climate_light_alarm;
+	
+		/* array for receiving alarm with time stamp from light service structure*/
+    static uint8_t      lights_alarm_with_time_stamp[8];
 
     // Add light_level high level characteristic 
     if (p_lights->is_notification_supported)
@@ -582,17 +591,24 @@ static uint32_t light_alarm_char_add(ble_lights_t * p_lights, const ble_lights_i
     attr_md.wr_auth    = 0;
     attr_md.vlen       = 0;
 
-
-    climate_light_alarm = p_lights_init->light_alarm;
+		//assigning alarm with time stamp of light characteristics to alarm with time stamp array
+    lights_alarm_with_time_stamp[0] = p_lights_init->lights_alarm_with_time_stamp[0];
+		lights_alarm_with_time_stamp[1] = p_lights_init->lights_alarm_with_time_stamp[1];
+		lights_alarm_with_time_stamp[2] = p_lights_init->lights_alarm_with_time_stamp[2];
+		lights_alarm_with_time_stamp[3] = p_lights_init->lights_alarm_with_time_stamp[3];
+		lights_alarm_with_time_stamp[4] = p_lights_init->lights_alarm_with_time_stamp[4];
+		lights_alarm_with_time_stamp[5] = p_lights_init->lights_alarm_with_time_stamp[5];
+		lights_alarm_with_time_stamp[6] = p_lights_init->lights_alarm_with_time_stamp[6];
+		lights_alarm_with_time_stamp[7] = p_lights_init->lights_alarm_with_time_stamp[7];
 
     memset(&attr_char_value, 0, sizeof(attr_char_value));
 
     attr_char_value.p_uuid       = &ble_uuid;
     attr_char_value.p_attr_md    = &attr_md;
-    attr_char_value.init_len     = sizeof(uint8_t);
+    attr_char_value.init_len     = sizeof(lights_alarm_with_time_stamp);
     attr_char_value.init_offs    = 0;
-    attr_char_value.max_len      = sizeof(uint8_t);
-    attr_char_value.p_value      = &climate_light_alarm;
+    attr_char_value.max_len      = sizeof(lights_alarm_with_time_stamp);
+    attr_char_value.p_value      = lights_alarm_with_time_stamp;
 
     err_code = sd_ble_gatts_characteristic_add(p_lights->service_handle, &char_md,
     &attr_char_value,
@@ -604,6 +620,7 @@ static uint32_t light_alarm_char_add(ble_lights_t * p_lights, const ble_lights_i
 
     return NRF_SUCCESS;
 }
+
 
 /**@brief Function for initializing the light_level.
 *
@@ -619,8 +636,8 @@ uint32_t ble_lights_init(ble_lights_t * p_lights, const ble_lights_init_t * p_li
     ble_uuid_t ble_uuid;
 
     // Add service
-    ble_uuid.type =m_service;
-		p_lights->uuid_type=m_service;
+    ble_uuid.type =var_receive_uuid;
+		p_lights->uuid_type=var_receive_uuid;
     ble_uuid.uuid = GROW_PROFILE_LIGHTS_SERVICE_UUID;
 
     // Initialize service structure
@@ -634,7 +651,6 @@ uint32_t ble_lights_init(ble_lights_t * p_lights, const ble_lights_init_t * p_li
     p_lights->light_high_level[0]    = p_lights_init->light_high_value[0];
     p_lights->light_high_level[1]    = p_lights_init->light_high_value[1];
     p_lights->light_alarm_set        = p_lights_init->light_alarm_set;
-    p_lights->light_alarm            = p_lights_init->light_alarm;
 
     err_code = sd_ble_gatts_service_add(BLE_GATTS_SRVC_TYPE_PRIMARY, &ble_uuid, &p_lights->service_handle);
     if (err_code != NRF_SUCCESS)
@@ -673,39 +689,45 @@ uint32_t ble_lights_init(ble_lights_t * p_lights, const ble_lights_init_t * p_li
 
 }
 
+
 /**@brief Function reads and updates the current light_level and checks for alarm condition.
 *
 * @param[in]   p_lights        Light Service structure.
 *
+* @param[in]   p_device        Device management service structure Service structure.
+*
 * @return      NRF_SUCCESS on success, otherwise an error code.
 */
-uint32_t ble_lights_level_alarm_check(ble_lights_t * p_lights)
+uint32_t ble_lights_level_alarm_check(ble_lights_t * p_lights,ble_device_t *p_device)
 {
     uint32_t err_code = NRF_SUCCESS;
     uint16_t current_light_level;
     uint8_t  current_light_level_array[2];
 
-    uint16_t light_level_low_value;					   /* Light low value set by user as uint16*/
+		bool     LIGHTS_ALARM_SET_TIME_READ=false; 									 /*This flag for light service alarm set time read*/
+		bool     LIGHTS_ALARM_RESET_TIME_STAMP=false;								 /*This flag for light alarm reset read whether alarm set is 0x00 */
+    
+		uint16_t light_level_low_value;					   /* Light low value set by user as uint16*/
     uint16_t light_level_high_value;				   /* Light low value set by user as uint16*/
 
     static uint16_t   previous_light_level = 0x00;
-    uint8_t alarm = 0x00;
-
+    uint8_t alarm[8]= {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
 
     uint16_t len1 = sizeof(current_light_level_array);
-    uint16_t len = sizeof(uint8_t);
-
+    uint16_t len  = 8;												//length of alarm with time stamp characteristics
 
     current_light_level = read_light_level();                                   /* Read the current light_level*/
-
-
+    
     if(current_light_level != previous_light_level)                             /* Check whether light_level value has changed*/
     {
         current_light_level_array[1] = current_light_level & LOWER_BYTE_MASK;   /* Convert the light_level to uint8_t array*/
         current_light_level_array[0]=  current_light_level >>8;
-
-        // Send value if connected and notifying
-
+				
+				/*copy the current light level value for broadcast*/
+				light_level[1]=current_light_level_array[1] ;
+				light_level[0]=current_light_level_array[0] ; 
+       
+				// Send value if connected and notifying
         if ((p_lights->conn_handle != BLE_CONN_HANDLE_INVALID) && p_lights->is_notification_supported)
         {
             ble_gatts_hvx_params_t hvx_params;
@@ -744,26 +766,53 @@ uint32_t ble_lights_level_alarm_check(ble_lights_t * p_lights)
     {
         if(current_light_level < light_level_low_value)
         {   
-            alarm = SET_ALARM_LOW;		     /* Set alarm to 01 if light_level is low */
+            alarm[0] = SET_ALARM_LOW;		     /* Set alarm to 01 if light_level is low */
+						LIGHTS_ALARM_SET_TIME_READ=true;
         }
 
         else if(current_light_level > light_level_high_value) 
         {   
-            alarm = SET_ALARM_HIGH;		     /* Set alarm to 02 if light_level is high */
+            alarm[0] = SET_ALARM_HIGH;		     /* Set alarm to 02 if light_level is high */
+						LIGHTS_ALARM_SET_TIME_READ=true;
         } 
 
         else
         {	
-            alarm = RESET_ALARM;		       /* Reset alarm to 0x00*/
+            alarm[0] = RESET_ALARM;		       /* Reset alarm to 0x00*/
         }	
     }
     else
     {	
-        alarm = RESET_ALARM;							 /* Reset alarm to 0x00*/
+        alarm[0] = RESET_ALARM;							 /* Reset alarm to 0x00*/
+				LIGHTS_ALARM_RESET_TIME_STAMP=true;
     }		
+		/*reading of time stamp from device management service structure whether the alarm set*/
+		if(LIGHTS_ALARM_SET_TIME_READ)
+		{
+				alarm[1]=p_device->device_time_stamp_set[0];
+				alarm[2]=p_device->device_time_stamp_set[1];
+				alarm[3]=p_device->device_time_stamp_set[2];
+				alarm[4]=p_device->device_time_stamp_set[3];
+				alarm[5]=p_device->device_time_stamp_set[4];
+				alarm[6]=p_device->device_time_stamp_set[5];
+				alarm[7]=p_device->device_time_stamp_set[6];
+				LIGHTS_ALARM_SET_TIME_READ=false;
+		}
+		/*resetting of alarm time to zero whether the alarm set characteristics set as zero*/
+		if(LIGHTS_ALARM_RESET_TIME_STAMP)
+		{		
+				alarm[0]=0x00;
+				alarm[1]=0x00;
+				alarm[2]=0x00;
+				alarm[3]=0x00;
+				alarm[4]=0x00;
+				alarm[5]=0x00;
+				alarm[6]=0x00;
+				alarm[7]=0x00;
+				LIGHTS_ALARM_RESET_TIME_STAMP=false;
+		}
 
-
-    if(alarm != p_lights->light_alarm )    /* Check whether the alarm value has changed and send the change*/
+    if((alarm[0]!= 0)||(p_lights->light_alarm_set == 0x00))   /*check whether the alarm sets as non zero or alarm set characteristics set as zero*/
     {	
         // Send value if connected and notifying
         if ((p_lights->conn_handle != BLE_CONN_HANDLE_INVALID) && p_lights->is_notification_supported)
@@ -776,10 +825,10 @@ uint32_t ble_lights_level_alarm_check(ble_lights_t * p_lights)
             hvx_params.type     = BLE_GATT_HVX_NOTIFICATION;
             hvx_params.offset   = 0;
             hvx_params.p_len    = &len;
-            hvx_params.p_data   = &alarm;
+            hvx_params.p_data   = alarm;
 
             err_code = sd_ble_gatts_hvx(p_lights->conn_handle, &hvx_params);
-						p_lights->light_alarm = alarm;
+						p_lights->lights_alarm_with_time_stamp[0] = alarm[0];
         }
         else
         {
@@ -789,7 +838,6 @@ uint32_t ble_lights_level_alarm_check(ble_lights_t * p_lights)
     }
     return err_code;
 }
-
 
 
 /**@brief Function to read light_level from tmp102.

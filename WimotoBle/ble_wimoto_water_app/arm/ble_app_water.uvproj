@@ -408,11 +408,6 @@
           <GroupName>Source Code</GroupName>
           <Files>
             <File>
-              <FileName>broadcast.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\broadcast.c</FilePath>
-            </File>
-            <File>
               <FileName>connect.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\connect.c</FilePath>
@@ -952,11 +947,6 @@
         <Group>
           <GroupName>Source Code</GroupName>
           <Files>
-            <File>
-              <FileName>broadcast.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\broadcast.c</FilePath>
-            </File>
             <File>
               <FileName>connect.c</FileName>
               <FileType>1</FileType>

@@ -22,7 +22,6 @@
 #include "ble_data_log_service.h"
 #include "app_error.h"
 
-extern bool 	  BROADCAST_MODE;               /*Flag to enable broadcast mode */
 extern bool 		ENABLE_DATA_LOG;							/*Flag to enable data logger */
 extern bool     READ_DATA;										/*flag to start reading data from flash*/
 extern bool 		START_DATA_READ;							/*flag to start data logging*/
@@ -41,7 +40,7 @@ bool     	      DLOGS_CONNECTED_STATE=false;  /*Indicates whether the data logge
 bool            done_read=false;              /*flag to indicate whether data logger reading is over*/ 
 
 extern ble_date_time_t m_time_stamp;          /*time stamp structure*/ 
-extern uint8_t	 m_service;
+extern uint8_t	 var_receive_uuid;
 bool                ret_sys_evt = false;
 extern uint32_t buf[4];											  /*buffer for flash write operation*/
 /**@brief Function for handling the Connect event.
@@ -482,8 +481,8 @@ uint32_t ble_dlogs_init(ble_dlogs_t * ble_dlogs, const ble_dlogs_init_t * ble_dl
     ble_uuid_t ble_uuid;
 	
     // Add service
-    ble_uuid.type =m_service; 
-		ble_dlogs->uuid_type=m_service;
+    ble_uuid.type =var_receive_uuid; 
+		ble_dlogs->uuid_type=var_receive_uuid;
     ble_uuid.uuid = SENTRY_PROFILE_DLOGS_SERVICE_UUID;
 
     // Initialize service structure

@@ -12,6 +12,7 @@
 * Change log
 * Sherin         12/10/2013       Added write event to value fields
 * sruthi.k.s     01/10/2014       Migrated to soft device 7.0.0 and SDK 6.1.0
+* Sruthi.k.s		 10/17/2014				Added time stamp with alarm service
 */
 
 #include <string.h>
@@ -24,13 +25,14 @@
 #include "ble_accelerometer_alarm_service.h"
 #include "simple_uart.h"
 
+extern   bool       	MOVEMENT_EVENT_FLAG;
+extern   bool 	      CLEAR_MOVE_ALARM;
+extern   uint8_t      movement_gpio_pin_val;
+bool 					        ACCELEROMETER_CONNECTED_STATE=false; /*Indicates whether the movement service is connected or not*/
+uint8_t               current_xyz_array[3];                /* Read value of X Y Z data*/
+extern   uint8_t	    var_receive_uuid;						/*variable to receive uuid*/
+extern 	 uint32_t     xyz_coordinates;           /*accelerometer value for broadcast*/
 
-extern bool 	MOVEMENT_EVENT_FLAG;
-extern bool 	CLEAR_MOVE_ALARM;
-extern uint8_t movement_gpio_pin_val;
-bool 					ACCELEROMETER_CONNECTED_STATE=false; /*Indicates whether the movement service is connected or not*/
-uint8_t       current_xyz_array[3];                /* Read value of X Y Z data*/
-extern uint8_t	 m_service;
 
 /**@brief Function for handling the Connect event.
 *
@@ -92,6 +94,8 @@ static void write_evt_handler (ble_movement_t * p_movement, ble_movement_write_e
         break;
     }
 }
+
+
 /**@brief Function for handling the Write event.
 *
 * @param[in]   p_movement  Movement Service structure.
@@ -275,6 +279,7 @@ void ble_movement_on_ble_evt(ble_movement_t * p_movement, ble_evt_t * p_ble_evt)
 
 }
 
+
 /**@brief Function for adding the current X Y Z data characteristics.
 *
 * @param[in]   p_movement      Movement Service structure.
@@ -340,6 +345,7 @@ static uint32_t current_xyz_coordinates_char_add(ble_movement_t * p_movement, co
 
     return NRF_SUCCESS;
 }
+
 
 /**@brief Function for adding the movement alarm set characteristics.
 *
@@ -479,6 +485,7 @@ static uint32_t movement_alarm_clear_char_add(ble_movement_t * p_movement, const
     return NRF_SUCCESS;
 }
 
+
 /**@brief Function for adding the movement alarm characteristics.
 *
 * @param[in]   p_movement       Movement Service structure.
@@ -495,7 +502,8 @@ static uint32_t movement_alarm_char_add(ble_movement_t * p_movement, const ble_m
     ble_gatts_attr_t    attr_char_value;
     ble_uuid_t          ble_uuid;
     ble_gatts_attr_md_t attr_md;
-    static uint8_t      movement_alarm;
+	//array to read time stamp withalarm characteristics
+    static uint8_t      move_alarm_with_time_stamp[8];
 
     // Add movement alarm characteristic 
     if (p_movement->is_notification_supported)
@@ -529,17 +537,24 @@ static uint32_t movement_alarm_char_add(ble_movement_t * p_movement, const ble_m
     attr_md.wr_auth    = 0;
     attr_md.vlen       = 0;
 
-
-    movement_alarm = p_movement_init->movement_alarm;
+		
+    move_alarm_with_time_stamp[0]= p_movement_init->move_alarm_with_time_stamp[0];
+		move_alarm_with_time_stamp[1]= p_movement_init->move_alarm_with_time_stamp[1];
+		move_alarm_with_time_stamp[2]= p_movement_init->move_alarm_with_time_stamp[2];
+		move_alarm_with_time_stamp[3]= p_movement_init->move_alarm_with_time_stamp[3];
+		move_alarm_with_time_stamp[4]= p_movement_init->move_alarm_with_time_stamp[4];
+		move_alarm_with_time_stamp[5]= p_movement_init->move_alarm_with_time_stamp[5];
+		move_alarm_with_time_stamp[6]= p_movement_init->move_alarm_with_time_stamp[6];
+		move_alarm_with_time_stamp[7]= p_movement_init->move_alarm_with_time_stamp[7];
 
     memset(&attr_char_value, 0, sizeof(attr_char_value));
 
     attr_char_value.p_uuid       = &ble_uuid;
     attr_char_value.p_attr_md    = &attr_md;
-    attr_char_value.init_len     = sizeof(uint8_t);
+    attr_char_value.init_len     = sizeof(move_alarm_with_time_stamp);
     attr_char_value.init_offs    = 0;
-    attr_char_value.max_len      = sizeof(uint8_t);
-    attr_char_value.p_value      = &movement_alarm;
+    attr_char_value.max_len      = sizeof(move_alarm_with_time_stamp);
+    attr_char_value.p_value      = move_alarm_with_time_stamp;
 
     err_code = sd_ble_gatts_characteristic_add(p_movement->service_handle, &char_md,
     &attr_char_value,
@@ -551,6 +566,7 @@ static uint32_t movement_alarm_char_add(ble_movement_t * p_movement, const ble_m
 
     return NRF_SUCCESS;
 }
+
 
 /**@brief Function for initializing the Movement service.
 *
@@ -564,8 +580,8 @@ uint32_t ble_movement_init(ble_movement_t * p_movement, const ble_movement_init_
 {
     uint32_t   err_code;
     ble_uuid_t ble_uuid;
-		ble_uuid.type = m_service ;
-		p_movement->uuid_type= m_service;
+		ble_uuid.type = var_receive_uuid ;
+		p_movement->uuid_type= var_receive_uuid;
     ble_uuid.uuid = SENTRY_PROFILE_MOVEMENT_SERVICE_UUID;
 
     // Initialize service structure
@@ -575,10 +591,7 @@ uint32_t ble_movement_init(ble_movement_t * p_movement, const ble_movement_init_
     p_movement->is_notification_supported = p_movement_init->support_notification;
     p_movement->movement_alarm_set        = p_movement_init->movement_alarm_set;
     p_movement->movement_alarm_clear      = p_movement_init->movement_alarm_clear;
-    p_movement->movement_alarm   		      = p_movement_init->movement_alarm;
-    
-		
-		
+  	
 
     err_code = sd_ble_gatts_service_add(BLE_GATTS_SRVC_TYPE_PRIMARY, &ble_uuid, &p_movement->service_handle);
     if (err_code != NRF_SUCCESS)
@@ -614,21 +627,25 @@ uint32_t ble_movement_init(ble_movement_t * p_movement, const ble_movement_init_
 
 }
 
+
 /**@brief Function reads and updates the current movement and checks for alarm condition.
 *  Executes only when an event occurs on gpiote pin for movement
 *
 * @param[in]   p_movement        Movement  Service structure.
 *
+* @param[in]   p_device     		Device management  Service structure.
+*
 * @return      NRF_SUCCESS on success, otherwise an error code.
 */
-uint32_t ble_movement_alarm_check(ble_movement_t * p_movement)
+uint32_t ble_movement_alarm_check(ble_movement_t * p_movement,ble_device_t *p_device)
 {
-    uint32_t err_code;       				      
+    uint32_t err_code;
+		bool     MOVEMENT_ALARM_SET_TIME_READ=false;	//flag to read the time stamp from de vice management service whether the alarm is on
 
-    uint8_t  alarm = 0x00;
+    uint8_t alarm[8]= {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
     uint32_t current_xyz;
 
-    uint16_t len = sizeof(uint8_t);
+    uint16_t len = 8;		//length of the time stamp with alarm
     uint16_t len1 = sizeof(current_xyz_array);  
 	
 		char output[20];
@@ -644,8 +661,11 @@ uint32_t ble_movement_alarm_check(ble_movement_t * p_movement)
 
     if(false == MMA7660_read_xyz_reg_one_time(&current_xyz))
 			return false;
-
-    twi_turn_OFF();
+		
+		//copy the current accelerometer value for broadcast
+		xyz_coordinates=current_xyz;
+  
+		twi_turn_OFF();
     current_xyz_array[0] = current_xyz;
     current_xyz_array[1] = current_xyz >> 8;  
     current_xyz_array[2] = current_xyz >> 16;
@@ -679,7 +699,7 @@ uint32_t ble_movement_alarm_check(ble_movement_t * p_movement)
 
 
     // Persist alarm ,if once alarm raised, so that alarm can be only reset if 'Alarm Clear' is set
-    if(p_movement->movement_alarm != 0x00)
+    if(p_movement->move_alarm_with_time_stamp[0]  != 0x00)
     {
         return NRF_SUCCESS;
     }			
@@ -690,11 +710,24 @@ uint32_t ble_movement_alarm_check(ble_movement_t * p_movement)
         // If the logic level on pin P0.04 is active low , which is the interrupt from the pin INT of mma7660, then set the alarm 
         if (movement_gpio_pin_val == MOVEMENT)
         {
-            alarm = SET_ALARM_FOR_MOVENMENT;
+            alarm[0] = SET_ALARM_FOR_MOVENMENT;
+						MOVEMENT_ALARM_SET_TIME_READ=true;
             movement_gpio_pin_val = 0x01;
         }
 
         MMA7660_ClearInterrupts();
+				
+		if(MOVEMENT_ALARM_SET_TIME_READ)
+		{
+				alarm[1]=p_device->device_time_stamp_set[0];
+				alarm[2]=p_device->device_time_stamp_set[1];
+				alarm[3]=p_device->device_time_stamp_set[2];
+				alarm[4]=p_device->device_time_stamp_set[3];
+				alarm[5]=p_device->device_time_stamp_set[4];
+				alarm[6]=p_device->device_time_stamp_set[5];
+				alarm[7]=p_device->device_time_stamp_set[6];
+				MOVEMENT_ALARM_SET_TIME_READ=false;
+		}
 
         // Send value if connected and notifying	
         if ((p_movement->conn_handle != BLE_CONN_HANDLE_INVALID) && p_movement->is_notification_supported)
@@ -707,10 +740,10 @@ uint32_t ble_movement_alarm_check(ble_movement_t * p_movement)
             hvx_params.type     = BLE_GATT_HVX_NOTIFICATION;
             hvx_params.offset   = 0;
             hvx_params.p_len    = &len;
-            hvx_params.p_data   = &alarm;
+            hvx_params.p_data   = alarm;
 
             err_code = sd_ble_gatts_hvx(p_movement->conn_handle, &hvx_params);
-						p_movement->movement_alarm = alarm; 
+						p_movement->move_alarm_with_time_stamp[0] = alarm[0]; 
         }
         else
         {
@@ -733,11 +766,12 @@ uint32_t ble_movement_alarm_check(ble_movement_t * p_movement)
 uint32_t reset_alarm(ble_movement_t * p_movement)
 {
     uint32_t err_code;
-    uint8_t  alarm = 0x00;
+    uint8_t  alarm[8]= {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
     uint8_t  clear_alarm = 0x00;
     uint16_t len = sizeof(uint8_t);
+		uint16_t len1=8;
 
-    p_movement->movement_alarm = alarm;
+    p_movement->move_alarm_with_time_stamp[0] = alarm[0];
     p_movement->movement_alarm_clear = clear_alarm;	
 
     // Send value if connected and notifying
@@ -751,8 +785,8 @@ uint32_t reset_alarm(ble_movement_t * p_movement)
         hvx_params.handle   = p_movement->movement_alarm_handles.value_handle;
         hvx_params.type     = BLE_GATT_HVX_NOTIFICATION;
         hvx_params.offset   = 0;
-        hvx_params.p_len    = &len;
-        hvx_params.p_data   = &alarm;
+        hvx_params.p_len    = &len1;
+        hvx_params.p_data   = alarm;
 
         err_code = sd_ble_gatts_hvx(p_movement->conn_handle, &hvx_params);
     }
@@ -793,4 +827,5 @@ uint32_t reset_alarm(ble_movement_t * p_movement)
 
     return NRF_SUCCESS;	
 }
+
 

@@ -14,7 +14,9 @@
 * Sherin 		     01/20/2014     Changed datalogging interval to 15 minutes, included one more page for data logging
 * Hariprasad C R 05/01/2014     Chaneged the clock source to LFCLKSRC_RC in ble_stack_init()
 * sruthi.k.s     01/10/2014     Migrated to soft device 7.0.0 and SDK 6.1.0
+* sruthiraj			 10/17/2014     Added concurrent broadcast of sensor data  in active connection
 */
+
 #include <stdint.h>
 #include <string.h>
 #include "device_manager.h"
@@ -46,17 +48,12 @@
 #include "ble_pir_alarm_service.h"
 #include "ble_accelerometer_alarm_service.h"
 #include <stdbool.h>
-//#include <stdint.h>
 #include "nrf_delay.h"
 #include "nrf_gpio.h"
 #include "boards.h"
 #include "battery.h"
 #include "pstorage.h"
-
 #include "simple_uart.h"
-
-
-
 
 #define SEND_MEAS_BUTTON_PIN_NO              16                                         /**< Button used for sending a measurement. */
 #define BONDMNGR_DELETE_BUTTON_PIN_NO        17                                         /**< Button used for deleting all bonded masters during startup. */
@@ -67,7 +64,7 @@
 
 #define DEVICE_NAME                          "Wimoto_Sentry"                             /**< Name of device. Will be included in the advertising data. */
 #define MANUFACTURER_NAME                    "Wimoto"                                   /**< Manufacturer. Will be passed to Device Information Service. */
-#define MODEL_NUM                            "Wimoto_Sentry"                                   /**< Model number. Will be passed to Device Information Service. */
+#define MODEL_NUM                            "Wimoto"                                   /**< Model number. Will be passed to Device Information Service. */
 #define MANUFACTURER_ID                      0x1122334455                               /**< Manufacturer ID, part of System ID. Will be passed to Device Information Service. */
 #define ORG_UNIQUE_ID                        0x667788                                   /**< Organizational Unique ID, part of System ID. Will be passed to Device Information Service. */
 
@@ -81,6 +78,7 @@
 #define SENTRY_LEVEL_MEAS_INTERVAL           APP_TIMER_TICKS(60000, APP_TIMER_PRESCALER)/**< sentry level measurement interval (ticks). */
 #define CONNECTED_MODE_TIMEOUT_INTERVAL      APP_TIMER_TICKS(30000, APP_TIMER_PRESCALER)/**< Connected mode timeout interval (ticks). */
 #define SECONDS_INTERVAL                     APP_TIMER_TICKS(1000, APP_TIMER_PRESCALER) /**< seconds measurement interval (ticks). */
+#define BROADCAST_INTERVAL       						 APP_TIMER_TICKS(1000, APP_TIMER_PRESCALER) /**< updating interval of broadcast data*/ 
 
 #define WATER_TYPE_AS_CHARACTERISTIC         0                                          /**< Determines if water type is given as characteristic (1) or as a field of measurement (0). */
 
@@ -140,12 +138,13 @@ bool                                         CHECK_ALARM_TIMEOUT=false;         
 bool                                         DATA_LOG_CHECK=false;
 bool                                         CLEAR_MOVE_ALARM=false;
 
-extern bool 	                               BROADCAST_MODE;                            /**< Flag used to switch between broadcast and connectable modes */    
 extern bool																	 DLOGS_CONNECTED_STATE;                     /**< Specifies data logger service is connected or not */
 extern bool  																 DFU_ENABLE;                                /**< This flag indicates DFU mode is enabled/not */       
 extern bool                                  DEVICE_CONNECTED_STATE;                    /**< This flag indicates device management service is in connected start or now */
 extern bool     	                           PIR_CONNECTED_STATE;                       /**< Flag indicates Passive INfrared alarm service is in connected start or now */
 extern bool                                  ACCELEROMETER_CONNECTED_STATE;             /**< Flag indicates accelerometer alarm service is in connected start or now */ 
+volatile bool                                ACTIVE_CONN_FLAG = false;                  /**<flag indicating active connection*/
+
 extern uint8_t  current_xyz_array[3];
 static dm_application_instance_t             m_app_handle;                              /**< Application identifier allocated by device manager */
 static bool                                  m_memory_access_in_progress = false;       /**< Flag to keep track of ongoing operations on persistent memory. */
@@ -156,9 +155,24 @@ static void dis_init(void);
 static void pir_init(void);
 static void movement_init(void);
 static void bas_init(void);
-uint8_t														        	 m_service;																	/**< varible for receiving the uuid type>**/
-
 void data_log_sys_event_handler(uint32_t sys_evt);																			/**<function definition of datalog event handler>*/
+static void advertising_init(void);
+uint8_t														        	 var_receive_uuid;    											/**< varible for receiving the uuid type>**/
+uint8_t				             curr_pir_presence;                              	/* water pir value for broadcast*/
+uint32_t                   xyz_coordinates;                                 /*accelerometer value for broadcast*/
+
+#define ADC_REF_VOLTAGE_IN_MILLIVOLTS        1200                                      /**< Reference voltage (in milli volts) used by ADC while doing conversion. */
+#define ADC_PRE_SCALING_COMPENSATION         3                                         /**< The ADC is configured to use VDD with 1/3 prescaling as input. And hence the result of conversion is to be multiplied by 3 to get the actual value of the battery voltage.*/
+#define DIODE_FWD_VOLT_DROP_MILLIVOLTS       270                                       /**< Typical forward voltage drop of the diode (Part no: SD103ATW-7-F) that is connected in series with the voltage supply. This is the voltage drop when the forward current is 1mA. Source: Data sheet of 'SURFACE MOUNT SCHOTTKY BARRIER DIODE ARRAY' available at www.diodes.com. */
+
+/**@brief Macro to convert the result of ADC conversion in millivolts.
+*
+* @param[in]  ADC_VALUE   ADC result.
+* @retval     Result converted to millivolts.
+*/
+#define ADC_RESULT_IN_MILLI_VOLTS(ADC_VALUE)\
+    ((((ADC_VALUE) * ADC_REF_VOLTAGE_IN_MILLIVOLTS) / 255) * ADC_PRE_SCALING_COMPENSATION)
+
 
 /**@brief Function for error handling, which is called when an error has occurred. 
 *
@@ -169,7 +183,7 @@ void data_log_sys_event_handler(uint32_t sys_evt);																			/**<functio
 * @param[in] line_num    Line number where the handler is called.
 * @param[in] p_file_name Pointer to the file name. 
 */
-static void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
+void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
 {
     nrf_gpio_pin_set(ASSERT_LED_PIN_NO);
 
@@ -180,11 +194,18 @@ static void app_error_handler(uint32_t error_code, uint32_t line_num, const uint
     //                The flash write will happen EVEN if the radio is active, thus interrupting
     //                any communication.
     //                Use with care. Un-comment the line below to use.
-    //ble_debug_assert_handler(error_code, line_num, p_file_name);
+  //  ble_debug_assert_handler(error_code, line_num, p_file_name);
 
     // On assert, the system can only recover on reset
     NVIC_SystemReset();
 }
+
+
+void assert_nrf_callback(uint16_t line_num, const uint8_t * p_file_name)
+{
+app_error_handler(DEAD_BEEF, line_num, p_file_name);
+}
+
 
 /**@brief Function for performing a Sentry Profile parameters level measurement, and  check for the alarm condition.
 */
@@ -262,6 +283,76 @@ static void real_time_timeout_handler(void * p_context)
 
 }
 
+
+/* This function measures the battery voltage using the bandgap as a reference.
+* 3.6 V will return 100 %, so depending on battery voltage */
+static uint32_t do_battery_measurement(void)
+{
+    uint8_t adc_result;
+    uint16_t    batt_lvl_in_milli_volts;
+    uint8_t     percentage_batt_lvl;
+
+    NRF_ADC->CONFIG = ADC_CONFIG_RES_8bit << ADC_CONFIG_RES_Pos |
+    ADC_CONFIG_INPSEL_SupplyOneThirdPrescaling << ADC_CONFIG_INPSEL_Pos |
+    ADC_CONFIG_REFSEL_VBG << ADC_CONFIG_REFSEL_Pos;
+    NRF_ADC->ENABLE = 1;
+
+    NRF_ADC->TASKS_START = 1;
+    while(!NRF_ADC->EVENTS_END);
+    adc_result = NRF_ADC->RESULT;
+    NRF_ADC->ENABLE = 0;
+
+    batt_lvl_in_milli_volts = ADC_RESULT_IN_MILLI_VOLTS(adc_result) + DIODE_FWD_VOLT_DROP_MILLIVOLTS;
+
+    percentage_batt_lvl     = battery_level_in_percent(batt_lvl_in_milli_volts);
+
+    return percentage_batt_lvl;
+}
+
+
+/**@brief Function for initializing the non-connectable Advertising[broadcasting] functionality.
+*
+* @details Encodes the required broadcast data and passes it to the stack.      
+*/
+static void advertising_nonconn_init(void)
+{
+		uint32_t                   err_code;
+    ble_advdata_t              advdata;
+    ble_advdata_service_data_t service_data[1];
+    uint8_t                    flags = BLE_GAP_ADV_FLAG_BR_EDR_NOT_SUPPORTED;
+    uint8_t                    battery;
+    ble_advdata_manuf_data_t   manuf_specific_data;
+    uint8_t                    manuf_data_array[4];
+
+    battery                      = do_battery_measurement();
+    service_data[0].service_uuid = BLE_UUID_BATTERY_SERVICE;
+    service_data[0].data.p_data  = &battery;
+    service_data[0].data.size    = sizeof(battery);
+
+    manuf_data_array[0] = xyz_coordinates;       
+    manuf_data_array[1] = xyz_coordinates >> 8;  
+    manuf_data_array[2] = xyz_coordinates >> 16 ;
+    manuf_data_array[3] = curr_pir_presence;                               			/* PIR alarm is 1 when an active high is at the pin P0.02*/
+
+    manuf_specific_data.company_identifier = COMPANY_IDENTIFER;                 /* COMPANY IDENTIFIER */
+    manuf_specific_data.data.p_data = manuf_data_array;
+    manuf_specific_data.data.size = sizeof(manuf_data_array);
+
+    // Build and set advertising data
+    memset(&advdata, 0, sizeof(advdata));
+
+    advdata.name_type               = BLE_ADVDATA_FULL_NAME;
+    advdata.flags.size              = sizeof(flags);
+    advdata.flags.p_data            = &flags;
+    advdata.p_service_data_array    = service_data;
+    advdata.service_data_count      = 1;
+    advdata.p_manuf_specific_data   = &manuf_specific_data;
+
+    err_code = ble_advdata_set(&advdata, NULL);
+    APP_ERROR_CHECK(err_code);
+}
+
+
 /**@brief Function for the Timer initialization.
 *
 * @details Initializes the timer module. This creates and starts application timers.
@@ -300,7 +391,7 @@ static void application_timers_start(void)
     // Start the time keeping timer
     err_code = app_timer_start(real_time_timer, SECONDS_INTERVAL, NULL);
     APP_ERROR_CHECK(err_code); 
-
+		
 }
 
 
@@ -394,6 +485,40 @@ static void advertising_init(void)
     m_adv_params.fp          = BLE_GAP_ADV_FP_ANY;
     m_adv_params.interval    = APP_ADV_INTERVAL;
     m_adv_params.timeout     = APP_ADV_TIMEOUT_IN_SECONDS;
+		
+		// Build and set broadcast data
+    ble_advdata_t              advdata1;
+    ble_advdata_service_data_t service_data[1];
+    uint8_t                    battery;
+    ble_advdata_manuf_data_t   manuf_specific_data;
+    uint8_t                    manuf_data_array[4];
+
+    battery                      = do_battery_measurement();
+    service_data[0].service_uuid = BLE_UUID_BATTERY_SERVICE;
+    service_data[0].data.p_data  = &battery;
+    service_data[0].data.size    = sizeof(battery);
+
+    manuf_data_array[0] = xyz_coordinates;       
+    manuf_data_array[1] = xyz_coordinates >> 8;  
+    manuf_data_array[2] = xyz_coordinates >> 16 ;
+    manuf_data_array[3] = curr_pir_presence;                               /* PIR alarm is 1 when an active high is at the pin P0.02*/
+
+    manuf_specific_data.company_identifier = COMPANY_IDENTIFER;                            /* COMPANY IDENTIFIER */
+    manuf_specific_data.data.p_data = manuf_data_array;
+    manuf_specific_data.data.size = sizeof(manuf_data_array);
+
+    memset(&advdata1, 0, sizeof(advdata1));
+
+    advdata1.name_type               = BLE_ADVDATA_FULL_NAME;
+    advdata1.flags.size              = sizeof(flags);
+    advdata1.flags.p_data            = &flags;
+    advdata1.p_service_data_array    = service_data;
+    advdata1.service_data_count      = 1;
+    advdata1.p_manuf_specific_data   = &manuf_specific_data;
+
+    err_code = ble_advdata_set(&advdata1, NULL);
+    APP_ERROR_CHECK(err_code);
+
 }
 
 
@@ -406,7 +531,7 @@ uint32_t services_init(void)
 		uint32_t   err_code;
 	  ble_uuid128_t base_uuid =SENTRY_PROFILE_BASE_UUID;
   	// Add custom base UUID
-    err_code = sd_ble_uuid_vs_add(&base_uuid, &m_service);
+    err_code = sd_ble_uuid_vs_add(&base_uuid, &var_receive_uuid);
     if (err_code != NRF_SUCCESS)
     {
         return err_code;
@@ -471,12 +596,22 @@ static void pir_init(void)
     pir_init.write_evt_handler    = NULL;
     pir_init.support_notification = true;
     pir_init.p_report_ref         = NULL; 
-    pir_init.pir_presence_alarm   = RESET_ALARM;
     pir_init.pir_alarm_set        = DEFAULT_ALARM_SET;
-
+	
+		//pir alarm with time stamp characteristics set as zero
+		pir_init.pir_alarm_with_time_stamp[0]      = RESET_ALARM;
+		pir_init.pir_alarm_with_time_stamp[1]			 =0x00;
+		pir_init.pir_alarm_with_time_stamp[2]			 =0x00;
+		pir_init.pir_alarm_with_time_stamp[3]			 =0x00;
+		pir_init.pir_alarm_with_time_stamp[4]  		 =0x00;
+		pir_init.pir_alarm_with_time_stamp[5]			 =0x00;
+		pir_init.pir_alarm_with_time_stamp[6]			 =0x00;
+		pir_init.pir_alarm_with_time_stamp[7]			 =0x00;
+		
     err_code = ble_pir_init(&m_pir, &pir_init);
     APP_ERROR_CHECK(err_code);
 }
+
 
 /**@brief Function for initializing Movement alarm service*/
 static void movement_init(void)
@@ -502,7 +637,16 @@ static void movement_init(void)
     movement_init.p_report_ref         = NULL; 
     movement_init.movement_alarm_set	 = DEFAULT_ALARM_SET; 
     movement_init.movement_alarm_clear = RESET_ALARM;
-    movement_init.movement_alarm       = RESET_ALARM;
+		
+    //movement alarm with time stamp characteristics set as zero
+		movement_init.move_alarm_with_time_stamp[0]      = RESET_ALARM;
+		movement_init.move_alarm_with_time_stamp[1]			 =0x00;
+		movement_init.move_alarm_with_time_stamp[2]			 =0x00;
+		movement_init.move_alarm_with_time_stamp[3]			 =0x00;
+		movement_init.move_alarm_with_time_stamp[4]  		 =0x00;
+		movement_init.move_alarm_with_time_stamp[5]			 =0x00;
+		movement_init.move_alarm_with_time_stamp[6]			 =0x00;
+		movement_init.move_alarm_with_time_stamp[7]			 =0x00;
 
     err_code = ble_movement_init(&m_movement, &movement_init);
     APP_ERROR_CHECK(err_code);
@@ -533,6 +677,7 @@ static void dis_init(void )
     APP_ERROR_CHECK(err_code);
 }
 
+
 /**@brief Function for initializing data logger service*/
 static void dlogs_init(void)
 {
@@ -562,6 +707,7 @@ static void dlogs_init(void)
     APP_ERROR_CHECK(err_code);
 
 }
+
 
 /**@brief Function for initializing Device management alarm service*/
 static void device_init(void)
@@ -616,6 +762,7 @@ static void sec_params_init(void)
     m_sec_params.max_key_size = SEC_PARAM_MAX_KEY_SIZE;
 }
 
+
 /**@brief Function for starting advertising.*/
 static void advertising_start(void)
 {
@@ -625,6 +772,7 @@ static void advertising_start(void)
 
     nrf_gpio_pin_set(ADVERTISING_LED_PIN_NO);
 }
+
 
 /**@brief Function for handling the Connection Parameters Module.
 *
@@ -646,6 +794,7 @@ static void on_conn_params_evt(ble_conn_params_evt_t * p_evt)
         APP_ERROR_CHECK(err_code);
     }
 }
+
 
 /**@brief Function for handling a Connection Parameters error.
 *
@@ -680,6 +829,28 @@ static void conn_params_init(void)
 }
 
 
+/**@brief Start non_connectable advertising.
+*/
+static void advertising_nonconn_start(void)
+{
+    uint32_t err_code;
+    ble_gap_adv_params_t                  adv_params;
+	
+    // Initialise advertising parameters (used when starting advertising)
+    memset(&adv_params, 0, sizeof(adv_params));
+
+    adv_params.type        = BLE_GAP_ADV_TYPE_ADV_NONCONN_IND;
+    adv_params.p_peer_addr = NULL;                          
+    adv_params.fp          = BLE_GAP_ADV_FP_ANY;
+	  adv_params.interval    = 170;                     /* non connectable advertisements cannot be faster than 100ms.*/
+    adv_params.timeout     = APP_ADV_TIMEOUT_IN_SECONDS;
+		
+		err_code = sd_ble_gap_adv_start(&adv_params);
+		APP_ERROR_CHECK(err_code);
+
+}
+
+
 /**@brief Function for handling the Application's BLE Stack events.
 *
 * @param[in]   p_ble_evt   Bluetooth stack event.
@@ -693,9 +864,15 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
     case BLE_GAP_EVT_CONNECTED:
         nrf_gpio_pin_set(CONNECTED_LED_PIN_NO);
         nrf_gpio_pin_clear(ADVERTISING_LED_PIN_NO);
-        // Start detecting button presses
+       
+				// Start detecting button presses
         err_code = app_button_enable();
         m_conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
+		
+				ACTIVE_CONN_FLAG=true;
+		
+				//starting non-connectable advertising
+				advertising_nonconn_start(); 
         break;
 
     case BLE_GAP_EVT_DISCONNECTED:
@@ -706,7 +883,14 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
         // Stop detecting button presses when not connected
         err_code = app_button_disable();
         APP_ERROR_CHECK(err_code);
-        advertising_start();
+        
+		    //stop non-connectable advertising
+				sd_ble_gap_adv_stop();
+				
+				ACTIVE_CONN_FLAG=false;
+				
+				//connectable advertising starts
+		    advertising_start();
         break;
 
     case BLE_GAP_EVT_SEC_PARAMS_REQUEST:
@@ -746,6 +930,8 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
 
     APP_ERROR_CHECK(err_code);
 }
+
+
 /**@brief Function for putting the chip in System OFF Mode
  */
 static void system_off_mode_enter(void)
@@ -790,6 +976,7 @@ static void on_sys_evt(uint32_t sys_evt)
     }
 }
 
+
 /**@brief Function for dispatching a BLE stack event to all modules with a BLE stack event handler.
 *
 * @details This function is called from the BLE Stack event interrupt handler after a BLE stack
@@ -809,6 +996,8 @@ static void ble_evt_dispatch(ble_evt_t * p_ble_evt)
     dm_ble_evt_handler(p_ble_evt);                            /*added for migrating to soft device 7.0.0 and SDK 6.1.0*/
     on_ble_evt(p_ble_evt);
 }
+
+
 /**@brief Function for dispatching a system event to interested modules.
  *
  * @details This function is called from the System event interrupt handler after a system
@@ -843,6 +1032,7 @@ static void ble_stack_init(void)
     err_code = softdevice_sys_evt_handler_set(sys_evt_dispatch);
     APP_ERROR_CHECK(err_code);
 }
+
 
 /**@brief Function for handling button events.
 *
@@ -928,6 +1118,7 @@ static void gpiote_init(void)
 
 }
 
+
 /**@brief Function for initializing button module.
 */
 static void buttons_init(void)
@@ -988,6 +1179,7 @@ static void device_manager_init(void)
     APP_ERROR_CHECK(err_code);
 }
 
+
 /**@brief Radio Notification event handler.
 */
 void radio_active_evt_handler(bool radio_active)
@@ -1044,12 +1236,27 @@ static void data_log_check()
         write_data_flash(log_data);	                      /*log the data to flash */
     }
 }
+
+/* Turn OFF TWI if TWI is not using , considering power optimization*/
+void twi_turn_OFF(void)
+{
+    NRF_TWI0->POWER = 0; 
+    NRF_TWI1->POWER = 0;
+}
+
+/* Turn ON TWI (used only after turning it OFF)*/
+void twi_turn_ON(void)
+{
+    NRF_TWI1->POWER = 1;
+    twi_master_init();
+}
+
 /**@brief Function for application main entry.
 */
 void connectable_mode(void)
 {
     uint32_t err_code;
-		char pinReading[10];
+//		char pinReading[10];
 
     // Initialization.
     ble_stack_init();
@@ -1076,13 +1283,6 @@ void connectable_mode(void)
     for (;;)
     {
 
-        // If the broadcast mode flag is true and services are not connected stop advertising and exit
-        if((BROADCAST_MODE) && (!PIR_CONNECTED_STATE) && (!ACCELEROMETER_CONNECTED_STATE)) 
-        {
-            sd_ble_gap_adv_stop();							  /* Stop advertising */
-            break;
-        }
-
         // If the dfu enable flag is true and services are not connected go to the bootloader 
         if(DFU_ENABLE && (!DEVICE_CONNECTED_STATE) && (!PIR_CONNECTED_STATE) && (!ACCELEROMETER_CONNECTED_STATE))  
         {
@@ -1096,16 +1296,21 @@ void connectable_mode(void)
         {
 
             // Check whether alarm has to be send to indicate pir presence 
-            err_code = ble_pir_alarm_check(&m_pir);             
-            if ((err_code != NRF_SUCCESS) &&
+            err_code = ble_pir_alarm_check(&m_pir,&m_device);             
+            if ((err_code != NRF_SUCCESS) &&									/*Passed device management service structure to pir service to get time stamp*/
                     (err_code != NRF_ERROR_INVALID_STATE) &&
                     (err_code != BLE_ERROR_NO_TX_BUFFERS) &&
                     (err_code != BLE_ERROR_GATTS_SYS_ATTR_MISSING)
                     )
             {
                 APP_ERROR_HANDLER(err_code);
-            }  
+            } 
 
+						//updating the advertise/broadcast data
+						if(ACTIVE_CONN_FLAG==false)               /* no active connection*/
+							advertising_init();                     
+						else																			/*an active connection exists*/
+							advertising_nonconn_init();
             PIR_EVENT_FLAG=false;				         /* Reset the gpiote event flag*/
 
         }
@@ -1119,7 +1324,7 @@ void connectable_mode(void)
         if(MOVEMENT_EVENT_FLAG) 
         {
             // Check whether alarm has to be send to indicate movement 
-            err_code = ble_movement_alarm_check(&m_movement);            
+            err_code = ble_movement_alarm_check(&m_movement,&m_device);   	/*Passed device management service structure to movement service to get time stamp*/         
             if ((err_code != NRF_SUCCESS) &&
                     (err_code != NRF_ERROR_INVALID_STATE) &&
                     (err_code != BLE_ERROR_NO_TX_BUFFERS) &&
@@ -1128,7 +1333,12 @@ void connectable_mode(void)
             {
                 APP_ERROR_HANDLER(err_code);
             }  
-
+						
+						//updating the advertise/broadcast data
+						if(ACTIVE_CONN_FLAG==false)               /* no active connection*/
+							advertising_init();                     
+						else																			/*an active connection exists*/
+							advertising_nonconn_init();
             MOVEMENT_EVENT_FLAG=false;					 /* Reset the gpiote event flag*/
         }
         if (DATA_LOG_CHECK)

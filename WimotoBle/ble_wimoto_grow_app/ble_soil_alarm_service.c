@@ -12,6 +12,7 @@
 * Sherin    		    12/10/2013     Added write events for value fields
 * Hariprasad        12/11/2013     Added 128bit Vendor specific  custom UUID's for the service and all characteristics 
 * sruthi.k.s        01/10/2014     migrated to soft device 7.0.0 and SDK 6.1.0
+* Sruthi.k.s				10/17/2014		 Added time stamp with soil moisture  alarm characteristics
 */
 
 #include "ble_soil_alarm_service.h"
@@ -21,11 +22,14 @@
 #include "app_util.h"
 #include "wimoto.h"
 #include "wimoto_sensors.h"
+#include "app_error.h"
 
 bool SOILS_CONNECTED_STATE=false;             /*This flag indicates whether a client is connected to the peripheral in soil moisture service*/
-extern bool 	  BROADCAST_MODE;               /*flag used to switch between broadcast and connectable modes defined in main.c*/
 extern bool 	  CHECK_ALARM_TIMEOUT;
-extern uint8_t	 m_service;
+extern uint8_t	 var_receive_uuid;								/*variable to receive uuid*/
+extern uint8_t  curr_soil_mois_level;            /*variable to store current Humidity value from htu21d to broadcast*/
+
+
 /**@brief Function for handling the Connect event.
 *
 * @param[in]   p_soils      soil moisture Service structure.
@@ -50,6 +54,7 @@ static void on_disconnect(ble_soils_t * p_soils, ble_evt_t * p_ble_evt)
     p_soils->conn_handle = BLE_CONN_HANDLE_INVALID;
 }
 
+
 /**@brief Function for handling write events on values.
 *
 * @details This function will be called for all write events of soil low, high values and alarm set 
@@ -59,6 +64,8 @@ static void write_evt_handler(void)
 {   
     CHECK_ALARM_TIMEOUT = true; 
 }
+
+
 /**@brief Function for handling the Write event.
 *
 * @param[in]   p_soils      Soil moisture Service structure.
@@ -266,6 +273,7 @@ void ble_soils_on_ble_evt(ble_soils_t * p_soils, ble_evt_t * p_ble_evt)
 
 }
 
+
 /**@brief Function for adding the current soil moisture level characteristics.
 *
 * @param[in]   p_soils        Soil moisture Service structure.
@@ -333,6 +341,7 @@ static uint32_t current_soil_mois_level_char_add(ble_soils_t * p_soils, const bl
     return NRF_SUCCESS;
 }
 
+
 /**@brief Function for adding the soil moisture low value characteristics.
 *
 * @param[in]   p_soils        Soil moisture Service structure.
@@ -395,6 +404,7 @@ static uint32_t soil_mois_low_value_char_add(ble_soils_t * p_soils, const ble_so
 
     return NRF_SUCCESS;
 }
+
 
 /**@brief Function for adding the soil moisture high value characteristics.
 *
@@ -459,6 +469,7 @@ static uint32_t soil_mois_high_value_char_add(ble_soils_t * p_soils, const ble_s
     return NRF_SUCCESS;
 }
 
+
 /**@brief Function for adding the soil moisture alarm set characteristics.
 *
 * @param[in]   p_soils        soil moisture Service structure.
@@ -522,6 +533,7 @@ static uint32_t soil_mois_alarm_set_char_add(ble_soils_t * p_soils, const ble_so
     return NRF_SUCCESS;
 }
 
+
 /**@brief Function for adding the soil moisture level alarm characteristics.
 *
 * @param[in]   p_soils       Soil moisture Service structure.
@@ -538,10 +550,10 @@ static uint32_t soil_mois_alarm_char_add(ble_soils_t * p_soils, const ble_soils_
     ble_gatts_attr_t    attr_char_value;
     ble_uuid_t          ble_uuid;
     ble_gatts_attr_md_t attr_md;
-    static uint8_t      soil_mois_alarm; 
+	
+		/* array for receiving alarm with time stamp from soil moisture service structure*/
+    static uint8_t      soil_alarm_with_time_stamp[8]; 
 
-
-    soil_mois_alarm = RESET_ALARM;             /* Initialize alarm to 0x00*/
     // Add soil moisture high level characteristic 
     if (p_soils->is_notification_supported)
     {
@@ -573,15 +585,24 @@ static uint32_t soil_mois_alarm_char_add(ble_soils_t * p_soils, const ble_soils_
     attr_md.wr_auth    = 0;
     attr_md.vlen       = 0;
 
-
+		//assigning alarm with time stamp of soil moisture characteristics to alarm with time stamp array
+    soil_alarm_with_time_stamp[0] = p_soils_init->soil_alarm_with_time_stamp[0];
+		soil_alarm_with_time_stamp[1] = p_soils_init->soil_alarm_with_time_stamp[1];
+		soil_alarm_with_time_stamp[2] = p_soils_init->soil_alarm_with_time_stamp[2];
+		soil_alarm_with_time_stamp[3] = p_soils_init->soil_alarm_with_time_stamp[3];
+		soil_alarm_with_time_stamp[4] = p_soils_init->soil_alarm_with_time_stamp[4];
+		soil_alarm_with_time_stamp[5] = p_soils_init->soil_alarm_with_time_stamp[5];
+		soil_alarm_with_time_stamp[6] = p_soils_init->soil_alarm_with_time_stamp[6];
+		soil_alarm_with_time_stamp[7] = p_soils_init->soil_alarm_with_time_stamp[7];
+		
     memset(&attr_char_value, 0, sizeof(attr_char_value));
 
     attr_char_value.p_uuid       = &ble_uuid;
     attr_char_value.p_attr_md    = &attr_md;
-    attr_char_value.init_len     = sizeof(uint8_t);
+    attr_char_value.init_len     = sizeof(soil_alarm_with_time_stamp);
     attr_char_value.init_offs    = 0;
-    attr_char_value.max_len      = sizeof(uint8_t);
-    attr_char_value.p_value      = &soil_mois_alarm;
+    attr_char_value.max_len      = sizeof(soil_alarm_with_time_stamp);
+    attr_char_value.p_value      = soil_alarm_with_time_stamp;
 
     err_code = sd_ble_gatts_characteristic_add(p_soils->service_handle, &char_md,
     &attr_char_value,
@@ -593,6 +614,7 @@ static uint32_t soil_mois_alarm_char_add(ble_soils_t * p_soils, const ble_soils_
 
     return NRF_SUCCESS;
 }
+
 
 /**@brief Function for initializing the soil moisture service.
 *
@@ -608,8 +630,8 @@ uint32_t ble_soils_init(ble_soils_t * p_soils, const ble_soils_init_t * p_soils_
     ble_uuid_t ble_uuid;
 
     // Add service
-    ble_uuid.type =m_service;
-		p_soils->uuid_type=m_service;
+    ble_uuid.type =var_receive_uuid;
+		p_soils->uuid_type=var_receive_uuid;
     ble_uuid.uuid = GROW_PROFILE_SOILS_SERVICE_UUID;
 
     // Initialize service structure
@@ -621,8 +643,6 @@ uint32_t ble_soils_init(ble_soils_t * p_soils, const ble_soils_init_t * p_soils_
     p_soils->soil_mois_low_level       = p_soils_init->soil_mois_low_value;
     p_soils->soil_mois_high_level      = p_soils_init->soil_mois_high_value;
     p_soils->soil_mois_alarm_set       = p_soils_init->soil_mois_alarm_set;
-    p_soils->soil_mois_alarm           = p_soils_init->soil_mois_alarm;
-
 
     err_code = sd_ble_gatts_service_add(BLE_GATTS_SRVC_TYPE_PRIMARY, &ble_uuid, &p_soils->service_handle);
     if (err_code != NRF_SUCCESS)
@@ -663,25 +683,33 @@ uint32_t ble_soils_init(ble_soils_t * p_soils, const ble_soils_init_t * p_soils_
 
 }
 
+
 /**@brief Function reads and updates the current soil moisture level and checks for alarm condition.
 *
 * @param[in]   p_soils        soil moisture  Service structure.
 *
+*	@param[in]   p_device        Device management service structure Service structure.
+*
 * @return      NRF_SUCCESS on success, otherwise an error code.
 */
-uint32_t ble_soils_level_alarm_check(ble_soils_t * p_soils)
+uint32_t ble_soils_level_alarm_check(ble_soils_t * p_soils,ble_device_t *p_device)
 {
     uint32_t err_code = NRF_SUCCESS;
     uint8_t current_soil_mois_level;
 
+		bool     SOIL_ALARM_SET_TIME_READ=false; 									 /*This flag for soil moisture service alarm set time read*/
+		bool     SOIL_ALARM_RESET_TIME_STAMP=false;								 /*This flag for soil moisture alarm reset read whether alarm set is 0x00 */
+	
     static uint16_t previous_soil_mois_level = 0x00;
-    uint8_t alarm = 0x00;
+    uint8_t alarm[8]= {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00}; 
 
 
-    uint16_t len = sizeof(uint8_t);
-
+    uint16_t len1 =sizeof(current_soil_mois_level);	
+		uint16_t len=8;	//length of alarm with time stamp characteristics
     current_soil_mois_level = read_soil_mois_level();         /* Read the current soil moisture level*/
-
+		
+		/*copy the current soil moisture level value for broadcast*/
+		curr_soil_mois_level=current_soil_mois_level;
 
     if(current_soil_mois_level != previous_soil_mois_level)   /* Check whether soil moisture value has changed*/
     {
@@ -695,7 +723,7 @@ uint32_t ble_soils_level_alarm_check(ble_soils_t * p_soils)
             hvx_params.handle   = p_soils->curr_soil_mois_level_handles.value_handle;
             hvx_params.type     = BLE_GATT_HVX_NOTIFICATION;
             hvx_params.offset   = 0;
-            hvx_params.p_len    = &len;
+            hvx_params.p_len    = &len1;
             hvx_params.p_data   = &current_soil_mois_level;
 
             err_code = sd_ble_gatts_hvx(p_soils->conn_handle, &hvx_params);
@@ -714,26 +742,54 @@ uint32_t ble_soils_level_alarm_check(ble_soils_t * p_soils)
 
         if(current_soil_mois_level < p_soils->soil_mois_low_level)
         {
-            alarm = SET_ALARM_LOW;		      /* Set alarm to 01 if soil moisture level is low */
+            alarm[0] = SET_ALARM_LOW;		      /* Set alarm to 01 if soil moisture level is low */
+						SOIL_ALARM_SET_TIME_READ=true;
         }
 
         else if(current_soil_mois_level > p_soils->soil_mois_high_level)
         {
-            alarm = SET_ALARM_HIGH;		    /* Set alarm to 02 if soil moisture level is high */
+            alarm[0] = SET_ALARM_HIGH;		    /* Set alarm to 02 if soil moisture level is high */
+						SOIL_ALARM_SET_TIME_READ=true;
         }                                   
         
         else                                
         {	                                  
-            alarm = RESET_ALARM;		        /* Reset alarm to 0x00*/
+            alarm[0] = RESET_ALARM;		        /* Reset alarm to 0x00*/
         }	                                  
     }                                       
     else                                    
     {	
-        alarm = RESET_ALARM;					      /* Reset alarm to 0x00*/
+        alarm[0] = RESET_ALARM;					      /* Reset alarm to 0x00*/
+				SOIL_ALARM_RESET_TIME_STAMP=true;
     }		
-
-
-    if(alarm != p_soils->soil_mois_alarm )  /* Check whether the alarm value has changed and send the change*/
+		
+		/*reading of time stamp from device management service structure whether the alarm set*/
+		if(SOIL_ALARM_SET_TIME_READ)
+		{
+				alarm[1]=p_device->device_time_stamp_set[0];
+				alarm[2]=p_device->device_time_stamp_set[1];
+				alarm[3]=p_device->device_time_stamp_set[2];
+				alarm[4]=p_device->device_time_stamp_set[3];
+				alarm[5]=p_device->device_time_stamp_set[4];
+				alarm[6]=p_device->device_time_stamp_set[5];
+				alarm[7]=p_device->device_time_stamp_set[6];
+				SOIL_ALARM_SET_TIME_READ=false;
+		}
+		
+		/*resetting of alarm time to zero whether the alarm set characteristics set as zero*/
+		if(SOIL_ALARM_RESET_TIME_STAMP)
+		{		
+				alarm[0]=0x00;
+				alarm[1]=0x00;
+				alarm[2]=0x00;
+				alarm[3]=0x00;
+				alarm[4]=0x00;
+				alarm[5]=0x00;
+				alarm[6]=0x00;
+				alarm[7]=0x00;
+				SOIL_ALARM_RESET_TIME_STAMP=false;
+		}
+    if((alarm[0]!= 0)||(p_soils->soil_mois_alarm_set == 0x00))  /*check whether the alarm sets as non zero or alarm set characteristics set as zero*/
     {	
 				// Send value if connected and notifying
         if ((p_soils->conn_handle != BLE_CONN_HANDLE_INVALID) && p_soils->is_notification_supported)
@@ -746,10 +802,11 @@ uint32_t ble_soils_level_alarm_check(ble_soils_t * p_soils)
             hvx_params.type     = BLE_GATT_HVX_NOTIFICATION;
             hvx_params.offset   = 0;
             hvx_params.p_len    = &len;
-            hvx_params.p_data   = &alarm;
+            hvx_params.p_data   = alarm;
 
             err_code = sd_ble_gatts_hvx(p_soils->conn_handle, &hvx_params);
-						p_soils->soil_mois_alarm = alarm;
+						p_soils->soil_alarm_with_time_stamp[0] = alarm[0];
+						
         }
         else
         {

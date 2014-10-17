@@ -25,8 +25,8 @@ bool   DEVICE_CONNECTED_STATE = false;                  /* This flag indicates w
 bool   DFU_ENABLE             = false;                  /* Flag to check whether DFU feature has been enabled or not*/
 extern ble_date_time_t m_time_stamp;                    /* Time stamp defined in connect.c. */
 extern bool TIME_SET;                                   /* Flag to start time updation, defined in connect.c*/
-extern bool BROADCAST_MODE;                             /*Flag used to switch between broadcast and connectable modes*/   
-extern uint8_t	 m_service;
+extern uint8_t	 var_receive_uuid;
+
 
 /**@brief Function for handling the Connect event.
 *
@@ -52,6 +52,7 @@ static void on_disconnect(ble_device_t * p_device, ble_evt_t * p_ble_evt)
     p_device->conn_handle = BLE_CONN_HANDLE_INVALID; 
 }
 
+
 /**@brief Function for handling the write event.
 *
 * @param[in]   p_device    Device Management Service structure.
@@ -72,16 +73,6 @@ static void write_evt_handler (ble_device_t * p_device, ble_device_write_evt_t *
             DFU_ENABLE = false;
         }	 
         break;
-    case BLE_DEVICE_SWITCH_MODE_WRITE:
-        if(p_device-> device_mode_switch_set!= 0x00)
-        { 
-            BROADCAST_MODE = true;
-        }	
-        else
-        {
-            BROADCAST_MODE = false;
-        }
-        break;   
     case BLE_DEVICE_TIME_STAMP_WRITE:
         TIME_SET = true;
         break;  
@@ -89,6 +80,7 @@ static void write_evt_handler (ble_device_t * p_device, ble_device_write_evt_t *
         break;
     }
 }
+
 
 /**@brief Function for handling the Write event.
 *
@@ -130,31 +122,7 @@ static void on_write(ble_device_t * p_device, ble_evt_t * p_ble_evt)
         } 
 
 
-        /*Write event for switch mode characteristics cccd*/
-
-        if (
-                (p_evt_write->handle == p_device->switch_mode_handles.cccd_handle)
-                &&
-                (p_evt_write->len == 2)
-                )
-        {   
-            // CCCD written, call application event handler
-            if (p_device->evt_handler != NULL)
-            {
-                ble_device_evt_t evt;
-
-                if (ble_srv_is_notification_enabled(p_evt_write->data))
-                {
-                    evt.evt_type = BLE_DEVICE_LOW_EVT_NOTIFICATION_ENABLED;
-                }
-                else
-                {
-                    evt.evt_type = BLE_DEVICE_LOW_EVT_NOTIFICATION_DISABLED;
-                }
-
-                p_device->evt_handler(p_device, &evt);
-            }
-        }
+       
         /*Write event for current time characteristics cccd*/
         if (
                 (p_evt_write->handle == p_device->time_stamp_handles.cccd_handle)
@@ -182,27 +150,6 @@ static void on_write(ble_device_t * p_device, ble_evt_t * p_ble_evt)
 
 
     }
-
-    /*Write event for mode switch char value.*/
-
-    if ( 
-            (p_evt_write->handle == p_device->switch_mode_handles.value_handle) 
-            && 
-            (p_evt_write->len == 1)
-            &&
-            (p_device->write_evt_handler != NULL)
-            )
-    {  
-        ble_device_write_evt_t evt;
-        evt.evt_type           = BLE_DEVICE_SWITCH_MODE_WRITE;
-
-        // update the service structure
-        p_device->device_mode_switch_set =   p_evt_write->data[0];
-
-        // call application event handler
-        p_device->write_evt_handler(p_device, &evt);
-    }
-
 
     /*Write event for mode dfu mode char value.*/
 
@@ -249,6 +196,8 @@ static void on_write(ble_device_t * p_device, ble_evt_t * p_ble_evt)
         p_device->write_evt_handler(p_device, &evt);
     }
 }
+
+
 void ble_device_on_ble_evt(ble_device_t * p_device, ble_evt_t * p_ble_evt)
 {
     switch (p_ble_evt->header.evt_id)
@@ -334,68 +283,6 @@ static uint32_t dfu_mode_char_add(ble_device_t * p_device, const ble_device_init
 }
 
 
-
-/**@brief Function for adding the characteristics to switch the mode from Peripheral to Broadcast.
-*
-* @param[in]   p_device       Device Management Service structure.
-* @param[in]   p_device_init  Information needed to initialize the service.
-*
-* @return      NRF_SUCCESS on success, otherwise an error code.
-*/
-static uint32_t switch_mode_char_add(ble_device_t * p_device, const ble_device_init_t * p_device_init)
-{
-    uint32_t            err_code;
-    ble_gatts_char_md_t char_md;
-    ble_gatts_attr_t    attr_char_value;
-    ble_uuid_t          ble_uuid;
-    ble_gatts_attr_md_t attr_md;
-    static uint8_t      switch_mode_char = 0x00;
-
-    memset(&char_md, 0, sizeof(char_md));
-
-    char_md.char_props.read   				= 1;                            
-		char_md.char_props.write					=	1;                           /*add fix for characteristic write issue*/
-		char_md.char_props.write_wo_resp 	= 1;                           /*add fix for characteristic write issue*/
-    char_md.char_props.notify 				= 0;
-    char_md.p_char_user_desc  				=	NULL;		
-    char_md.p_char_pf         				= NULL;
-    char_md.p_user_desc_md    				= NULL;
-    char_md.p_cccd_md         				= NULL;
-    char_md.p_sccd_md         				= NULL;
-
-    ble_uuid.type = p_device->uuid_type;
-    ble_uuid.uuid = CLIMATE_PROFILE_DEVICE_SWITCH_MODE_CHAR_UUID;       
-
-    memset(&attr_md, 0, sizeof(attr_md));
-
-    attr_md.read_perm  = p_device_init->device_char_attr_md.read_perm;
-    attr_md.write_perm = p_device_init->device_char_attr_md.write_perm;
-    attr_md.vloc       = BLE_GATTS_VLOC_USER;
-    attr_md.rd_auth    = 0;
-    attr_md.wr_auth    = 0;
-    attr_md.vlen       = 0;
-
-    memset(&attr_char_value, 0, sizeof(attr_char_value));
-
-    attr_char_value.p_uuid       = &ble_uuid;
-    attr_char_value.p_attr_md    = &attr_md;
-    attr_char_value.init_len     = sizeof(uint8_t);
-    attr_char_value.init_offs    = 0;
-    attr_char_value.max_len      = sizeof(uint8_t);
-    attr_char_value.p_value      = &switch_mode_char;
-
-    err_code = sd_ble_gatts_characteristic_add(p_device->service_handle, &char_md,
-    &attr_char_value,
-    &p_device->switch_mode_handles);
-    if (err_code != NRF_SUCCESS)
-    {
-        return err_code;
-    }
-
-    return NRF_SUCCESS;
-}
-
-
 /**@brief Function for adding the characteristics to timestamp from Peripheral to Broadcast.
 *
 * @param[in]   p_device       Device Management Service structure.
@@ -438,7 +325,8 @@ static uint32_t time_stamp_char_add(ble_device_t * p_device, const ble_device_in
 
     // Adding custom UUID   
     BLE_UUID_BLE_ASSIGN(ble_uuid, CLIMATE_PROFILE_DEVICE_TIME_STAMP_CHAR_UUID);  /* Using a standard UUID for Current time*/
-    memset(&attr_md, 0, sizeof(attr_md));
+   
+		memset(&attr_md, 0, sizeof(attr_md));
 
     attr_md.read_perm  = p_device_init->device_char_attr_md.read_perm;
     attr_md.write_perm = p_device_init->device_char_attr_md.write_perm;
@@ -477,7 +365,6 @@ static uint32_t time_stamp_char_add(ble_device_t * p_device, const ble_device_in
 }
 
 
-
 /**@brief Function for initializing the Device management service.
 *
 * @param[in]   p_device        Device Management Service structure.
@@ -491,8 +378,8 @@ uint32_t ble_device_init(ble_device_t * p_device, const ble_device_init_t * p_de
     uint32_t   err_code;
     ble_uuid_t ble_uuid;
 
-    ble_uuid.type = m_service;
-		p_device->uuid_type= m_service;
+    ble_uuid.type = var_receive_uuid;
+		p_device->uuid_type= var_receive_uuid;
     ble_uuid.uuid = CLIMATE_PROFILE_DEVICE_SERVICE_UUID;
 
     // Initialize service structure 
@@ -501,7 +388,6 @@ uint32_t ble_device_init(ble_device_t * p_device, const ble_device_init_t * p_de
     p_device->conn_handle               = BLE_CONN_HANDLE_INVALID;
     p_device->is_notification_supported = p_device_init->support_notification;
     p_device->device_dfu_mode_set       = p_device_init->device_dfu_mode_set;    
-    p_device->device_mode_switch_set    = p_device_init->device_mode_switch_set; 
 
     // Add service 
     err_code = sd_ble_gatts_service_add(BLE_GATTS_SRVC_TYPE_PRIMARY, &ble_uuid, &p_device->service_handle);
@@ -516,11 +402,6 @@ uint32_t ble_device_init(ble_device_t * p_device, const ble_device_init_t * p_de
         return err_code;
     }
 
-    err_code =  switch_mode_char_add(p_device, p_device_init); /* Add light_level alarm set characteristic */
-    if (err_code != NRF_SUCCESS)
-    {
-        return err_code;
-    }
     err_code =  time_stamp_char_add(p_device, p_device_init);  /* Add time stamp characteristic */
     if (err_code != NRF_SUCCESS)
     {
@@ -530,6 +411,7 @@ uint32_t ble_device_init(ble_device_t * p_device, const ble_device_init_t * p_de
     return NRF_SUCCESS;
 
 }
+
 
 /**@brief Function to get the time set by the user and create a time stamp structure
 *

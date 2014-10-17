@@ -22,7 +22,7 @@
 #include <stdbool.h>
 #include "ble.h"
 #include "ble_srv_common.h"
-
+#include "ble_device_mgmt_service.h"
 
 /**@brief Soil Service event type. */
 typedef enum
@@ -57,7 +57,7 @@ typedef struct
     uint8_t                      soil_mois_low_value;               /**< Soil moisture low level */
     uint8_t                      soil_mois_high_value;              /**< Soil moisture low level */
     uint8_t											 soil_mois_alarm_set;               /**< Alarm set for Soil moisture **/
-    uint8_t											 soil_mois_alarm;   			          /**< Alarm for Soil moisture **/
+    uint8_t											 soil_alarm_with_time_stamp[8];		 /**< Alarm for Soil moisture with time of alarm **/
     ble_srv_cccd_security_mode_t soil_mois_char_attr_md;            /**< Initial security level for Soil moisture characteristics attribute */
     ble_srv_cccd_security_mode_t soil_mois_char_attr_md2;           /**< Initial security level for Soil moisture characteristics attribute */
     ble_gap_conn_sec_mode_t      soil_mois_level_report_read_perm;  /**< Initial security level for Soil moisture report read attribute */
@@ -79,7 +79,7 @@ typedef struct ble_soils_s
     uint8_t                       soil_mois_low_level;   				    /**< soil moisture low level value. */
     uint8_t                       soil_mois_high_level;   					/**< soil moisture high level value. */
     uint8_t												soil_mois_alarm_set;   						/**< Alarm set for soil moisture **/
-    uint8_t												soil_mois_alarm;   								/**< Alarm for soil moisture level **/
+    uint8_t											 soil_alarm_with_time_stamp[8];		 /**< Alarm for Soil moisture with time of alarm **/
     uint16_t                      conn_handle;                    	/**< Handle of the current connection (as provided by the BLE stack, is BLE_CONN_HANDLE_INVALID if not in a connection). */
     bool                          is_notification_supported;     	  /**< TRUE if notification of soil moisture Level is supported. */
 } ble_soils_t;
@@ -114,10 +114,12 @@ void ble_soils_on_ble_evt(ble_soils_t * p_soils, ble_evt_t * p_ble_evt);
 *
 * @param[in]   p_soils  soil moistue level Service structure.
 *
+* @param[in]   p_Device         Device management Service structure.
+*
 * @return      NRF_SUCCESS on success, otherwise an error code.
 */
 
-uint32_t ble_soils_level_alarm_check(ble_soils_t *);
+uint32_t ble_soils_level_alarm_check(ble_soils_t *,ble_device_t *);
 
 /**@brief Function to read soil moisture level from sensor interfaced to ADC.
 *

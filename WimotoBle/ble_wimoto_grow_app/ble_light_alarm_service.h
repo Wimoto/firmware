@@ -25,7 +25,7 @@
 #include <stdbool.h>
 #include "ble.h"
 #include "ble_srv_common.h"
-
+#include "ble_device_mgmt_service.h"
 
 /**@brief Light Service event type. */
 typedef enum
@@ -60,7 +60,7 @@ typedef struct
     uint8_t                        light_low_value[2];             		/**< Light low level */
     uint8_t                        light_high_value[2];             	/**< light low level */
     uint8_t												 light_alarm_set;                   /**< Alarm set for light **/
-    uint8_t												 light_alarm;   			              /**< Alarm for light **/
+    uint8_t												 lights_alarm_with_time_stamp[8];		 /**< Alarm for light with time of alarm **/
     ble_srv_cccd_security_mode_t   lights_char_attr_md;               /**< Initial security level for Light characteristics attribute */
     ble_srv_cccd_security_mode_t  lights_char_attr_md2;              /**< Initial security level for Light characteristics attribute */
     ble_gap_conn_sec_mode_t        battery_level_report_read_perm;    /**< Initial security level for Light report read attribute */
@@ -82,7 +82,7 @@ typedef struct ble_lights_s
     uint8_t                       light_low_level[2];   	            /**< light low level for alarm for light Service. */
     uint8_t                       light_high_level[2];                /**< light high level for alarm for light Service. */
     uint8_t												light_alarm_set;   	                /**< Alarm set for light **/
-    uint8_t												light_alarm;   			                /**< Alarm for light **/
+		uint8_t												lights_alarm_with_time_stamp[8];		 /**< Alarm for light with time of alarm **/
     uint16_t                      conn_handle;                        /**< Handle of the current connection (as provided by the BLE stack, is BLE_CONN_HANDLE_INVALID if not in a connection). */
     bool                          is_notification_supported;          /**< TRUE if notification of Light Level is supported. */
 } ble_lights_t;
@@ -119,9 +119,11 @@ void ble_lights_on_ble_evt(ble_lights_t * p_lights, ble_evt_t * p_ble_evt);
 *
 * @param[in]   p_bas          Light Service structure.
 *
+* @param[in]   p_Device       Device management Service structure.
+*
 * @return      NRF_SUCCESS on success, otherwise an error code.
 */
-uint32_t ble_lights_level_alarm_check(ble_lights_t *);
+uint32_t ble_lights_level_alarm_check(ble_lights_t *,ble_device_t *);
 
 /**@brief Function to read light_level from tmp102.
 *

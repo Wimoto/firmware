@@ -25,6 +25,7 @@
 #include <stdbool.h>
 #include "ble.h"
 #include "ble_srv_common.h"
+#include "ble_device_mgmt_service.h"
 
 /**@brief Temperature Service event type. */
 typedef enum
@@ -59,7 +60,7 @@ typedef struct
     uint8_t                       climate_temperature_low_level[2];  /**< temperature low level */
     uint8_t                       climate_temperature_high_level[2]; /**< temperature high level */
     uint8_t												climate_temperature_alarm_set;     /**< Alarm set for temperature **/
-    uint8_t												climate_temperature_alarm;   			 /**< Alarm for temperature **/
+    uint8_t												temps_alarm_with_time_stamp[8];		 /**< Alarm for temperature with time of alarm **/
     ble_srv_cccd_security_mode_t  temperature_char_attr_md;          /**< Initial security level for Temperature characteristics attribute */
     ble_srv_cccd_security_mode_t  temperature_char_attr_md2;         /**< Initial security level for Temperature characteristics attribute */
     ble_gap_conn_sec_mode_t       battery_level_report_read_perm;    /**< Initial security level for Temperature report read attribute */
@@ -82,7 +83,7 @@ typedef struct ble_temps_s
     uint8_t                       climate_temperature_low_level[2];  /**< temperature low level for alarm for temperature Service. */
     uint8_t                       climate_temperature_high_level[2]; /**< temperature high level for alarm for temperature Service. */
     uint8_t												climate_temperature_alarm_set;   	 /** Alarm set for temperature **/
-    uint8_t												climate_temperature_alarm;   			 /** Alarm for temperature **/
+    uint8_t												temps_alarm_with_time_stamp[8];    /** Alarm for temperature with time of alarm **/
 		uint16_t                      conn_handle;                       /**< Handle of the current connection (as provided by the BLE stack, is BLE_CONN_HANDLE_INVALID if not in a connection). */
     bool                          is_notification_supported;         /**< TRUE if notification of Temperature Level is supported. */
 } ble_temps_t;                                                       
@@ -124,9 +125,11 @@ void ble_temps_on_ble_evt(ble_temps_t * p_bas, ble_evt_t * p_ble_evt);
 *
 * @param[in]   p_bas          Temperature Service structure.
 *
+* @param[in]   p_device       Device management Service structure.
+*
 * @return      NRF_SUCCESS on success, otherwise an error code.
 */
-uint32_t ble_temps_level_alarm_check(ble_temps_t *);
+uint32_t ble_temps_level_alarm_check(ble_temps_t *,ble_device_t *);
 
 /**@brief Function to read temperature from htu21d.
 *

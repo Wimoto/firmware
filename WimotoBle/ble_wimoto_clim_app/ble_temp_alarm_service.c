@@ -14,7 +14,8 @@
 * Change log:
 * Sherin    		 12/10/2013       Added write events for value fields
 * Hariprasad     12/11/2013       Added 128bit Vendor specific  custom UUID's for the service and all characteristics 
-* sruthi.k.s     01/10/2014       migrated to soft device 7.0.0 and SDK 6.1.0
+* Sruthi.k.s     10/01/2014       migrated to soft device 7.0.0 and SDK 6.1.0
+* Sruthi.k.s 		 10/17/2014			  Added alarm characteristic with time stamp.
 */
 
 #include "ble_temp_alarm_service.h"
@@ -27,9 +28,9 @@
 #include "app_error.h"  
 
 bool     	      TEMPS_CONNECTED_STATE=false;  /*Indicates whether the temperature service is connected or not*/
-extern bool 	  BROADCAST_MODE;               /*flag used to switch between broadcast and connectable modes defined in main.c*/
 extern bool     CHECK_ALARM_TIMEOUT;          /*Flag to indicate whether to check for alarm conditions defined in connect.c*/
-extern uint8_t	 m_service;
+extern uint8_t	var_receive_uuid;							/*variable for receiving uuid*/
+extern  uint8_t	temperature[2];               /*variable to store current temperature value to broadcast*/
 
 /**@brief Function for handling the Connect event.
 *
@@ -43,6 +44,7 @@ static void on_connect(ble_temps_t * p_temps, ble_evt_t * p_ble_evt)
 	
 }
 
+
 /**@brief Function for handling the Disconnect event.
 *
 * @param[in]   p_temps       Temperature Service structure.
@@ -55,6 +57,7 @@ static void on_disconnect(ble_temps_t * p_temps, ble_evt_t * p_ble_evt)
     p_temps->conn_handle = BLE_CONN_HANDLE_INVALID;
 }
 
+
 /**@brief Function for handling write events on values.
 *
 * @details This function will be called for all write events of temperature low, high values and alarm set 
@@ -64,6 +67,8 @@ static void write_evt_handler(void)
 {   
     CHECK_ALARM_TIMEOUT = true; 
 }
+
+
 /**@brief Function for handling the Write event.
 *
 * @param[in]   p_temps       Temperature Service structure.
@@ -152,7 +157,7 @@ static void on_write(ble_temps_t * p_temps, ble_evt_t * p_ble_evt)
             }
         } 
         
-        //write event for temperature alarm cccd
+        //write event for temperature alarm with time stamp cccd 
         
         if (
                 (p_evt_write->handle == p_temps->climate_temp_alarm_handles.cccd_handle)
@@ -278,6 +283,7 @@ void ble_temps_on_ble_evt(ble_temps_t * p_temps, ble_evt_t * p_ble_evt)
     
 }
 
+
 /**@brief Function for adding the current temperature characteristics.
 *
 * @param[in]   p_temps        Temperature Service structure.
@@ -346,6 +352,7 @@ static uint32_t current_temperature_char_add(ble_temps_t * p_temps, const ble_te
     return NRF_SUCCESS;
 }
 
+
 /**@brief Function for adding the temperature low value characteristics.
 *
 * @param[in]   p_temps        Temperature Service structure.
@@ -408,6 +415,7 @@ static uint32_t temperature_low_value_char_add(ble_temps_t * p_temps, const ble_
 
     return NRF_SUCCESS;
 }
+
 
 /**@brief Function for adding the temperature high value characteristics.
 *
@@ -473,6 +481,7 @@ static uint32_t temperature_high_value_char_add(ble_temps_t * p_temps, const ble
     return NRF_SUCCESS;
 }
 
+
 /**@brief Function for adding the temperature alarm set characteristics.
 *
 * @param[in]   p_temps        Temperature Service structure.
@@ -536,6 +545,7 @@ static uint32_t temperature_alarm_set_char_add(ble_temps_t * p_temps, const ble_
     return NRF_SUCCESS;
 }
 
+
 /**@brief Function for adding the temperature alarm characteristics.
 *
 * @param[in]   p_temps        Temperature Service structure.
@@ -552,7 +562,9 @@ static uint32_t temperature_alarm_char_add(ble_temps_t * p_temps, const ble_temp
     ble_gatts_attr_t    attr_char_value;
     ble_uuid_t          ble_uuid;
     ble_gatts_attr_md_t attr_md;
-    static uint8_t      climate_temperature_alarm;
+	
+		/* array for receiving alarm with time stamp from temperature service structure*/
+    static uint8_t      temps_alarm_with_time_stamp[8];
 
     // Add temperature high level characteristic 
     if (p_temps->is_notification_supported)
@@ -589,17 +601,24 @@ static uint32_t temperature_alarm_char_add(ble_temps_t * p_temps, const ble_temp
     attr_md.wr_auth    = 0;
     attr_md.vlen       = 0;
 
-
-    climate_temperature_alarm = p_temps_init->climate_temperature_alarm;
+		//assigning alarm with temperature characteristics to alarm with time stamp array
+    temps_alarm_with_time_stamp[0] = p_temps_init->temps_alarm_with_time_stamp[0];
+		temps_alarm_with_time_stamp[1] = p_temps_init->temps_alarm_with_time_stamp[1];
+		temps_alarm_with_time_stamp[2] = p_temps_init->temps_alarm_with_time_stamp[2];
+		temps_alarm_with_time_stamp[3] = p_temps_init->temps_alarm_with_time_stamp[3];
+		temps_alarm_with_time_stamp[4] = p_temps_init->temps_alarm_with_time_stamp[4];
+		temps_alarm_with_time_stamp[5] = p_temps_init->temps_alarm_with_time_stamp[5];
+		temps_alarm_with_time_stamp[6] = p_temps_init->temps_alarm_with_time_stamp[6];
+		temps_alarm_with_time_stamp[7] = p_temps_init->temps_alarm_with_time_stamp[7];
 
     memset(&attr_char_value, 0, sizeof(attr_char_value));
 
     attr_char_value.p_uuid       = &ble_uuid;
     attr_char_value.p_attr_md    = &attr_md;
-    attr_char_value.init_len     = sizeof(uint8_t);
+    attr_char_value.init_len     = sizeof(temps_alarm_with_time_stamp);
     attr_char_value.init_offs    = 0;
-    attr_char_value.max_len      = sizeof(uint8_t);
-    attr_char_value.p_value      = &climate_temperature_alarm;
+    attr_char_value.max_len      = sizeof(temps_alarm_with_time_stamp);
+    attr_char_value.p_value      = temps_alarm_with_time_stamp;
 
     err_code = sd_ble_gatts_characteristic_add(p_temps->service_handle, &char_md,
     &attr_char_value,
@@ -627,8 +646,8 @@ uint32_t ble_temps_init(ble_temps_t * p_temps, const ble_temps_init_t * p_temps_
     ble_uuid_t ble_uuid;
 	
     // Add service
-    ble_uuid.type = m_service;
-		p_temps->uuid_type = m_service;
+    ble_uuid.type = var_receive_uuid;
+		p_temps->uuid_type = var_receive_uuid;
     ble_uuid.uuid = CLIMATE_PROFILE_TEMPS_SERVICE_UUID;
 
     // Initialize service structure
@@ -636,12 +655,13 @@ uint32_t ble_temps_init(ble_temps_t * p_temps, const ble_temps_init_t * p_temps_
     p_temps->write_evt_handler                = write_evt_handler;
     p_temps->conn_handle                      = BLE_CONN_HANDLE_INVALID;
     p_temps->is_notification_supported        = p_temps_init->support_notification;
+	
     p_temps->climate_temperature_low_level[0] = p_temps_init->climate_temperature_low_level[0]  ;
     p_temps->climate_temperature_low_level[1] = p_temps_init->climate_temperature_low_level[1]  ;
     p_temps->climate_temperature_high_level[0]= p_temps_init->climate_temperature_high_level[0] ;
     p_temps->climate_temperature_high_level[1]= p_temps_init->climate_temperature_high_level[1] ;
-    p_temps->climate_temperature_alarm        = p_temps_init->climate_temperature_alarm;
-
+		
+		
     err_code = sd_ble_gatts_service_add(BLE_GATTS_SRVC_TYPE_PRIMARY, &ble_uuid, &p_temps->service_handle);
     if (err_code != NRF_SUCCESS)
     {
@@ -681,25 +701,31 @@ uint32_t ble_temps_init(ble_temps_t * p_temps, const ble_temps_init_t * p_temps_
 
 }
 
+
 /**@brief Function reads and updates the current temperature and checks for alarm condition.
 *
 * @param[in]   p_temps        Temperature Service structure.
 *
+* @param[in]   p_device       Device management Service structure.
+*
 * @return      NRF_SUCCESS on success, otherwise an error code.
 */
-uint32_t ble_temps_level_alarm_check(ble_temps_t * p_temps)
+uint32_t ble_temps_level_alarm_check(ble_temps_t * p_temps,ble_device_t *p_device)
 {
     uint32_t err_code = NRF_SUCCESS;
     uint16_t current_temperature;
     uint8_t  current_temperature_array[2];
-
+		
+		bool     TEMPS_ALARM_SET_TIME_READ=false; 									 /*This flag for temperature service alarm set time read*/
+		bool     TEMPS_ALARM_RESET_TIME_STAMP=false;								 /*This flag for Temperature alarm reset read whether alarm set is 0x00 */
+	
     uint16_t temperature_low_value;					   /* Temperature low value set by user as uint16*/
     uint16_t temperature_high_value;				   /* Temperature low value set by user as uint16*/
 
     static uint16_t previous_temperature = 0x00;
-    uint8_t alarm = 0x00;
+    uint8_t alarm[8]= {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
 
-    uint16_t	len  = sizeof(uint8_t);
+    uint16_t	len  = 8;	//length of alarm with time stamp characteristics 
     uint16_t  len1 = sizeof(current_temperature_array);
     
 
@@ -708,6 +734,10 @@ uint32_t ble_temps_level_alarm_check(ble_temps_t * p_temps)
     {
         current_temperature_array[1] = (uint8_t)(current_temperature & LOWER_BYTE_MASK);   /* Convert the temperature to uint8_t array*/
         current_temperature_array[0] =  current_temperature >>8;
+				
+				/*copy the current temperature value for broadcast*/
+				temperature[1]=current_temperature_array[1];
+				temperature[0]=current_temperature_array[0];
 			
 				if ((p_temps->conn_handle != BLE_CONN_HANDLE_INVALID) && p_temps->is_notification_supported)			
         {		
@@ -748,26 +778,55 @@ uint32_t ble_temps_level_alarm_check(ble_temps_t * p_temps)
 
         if(current_temperature < temperature_low_value)
         {   
-            alarm = SET_ALARM_LOW;					/*set alarm to 01 if temperature is low */
+            alarm[0] = SET_ALARM_LOW;					/*set alarm to 01 if temperature is low */
+						TEMPS_ALARM_SET_TIME_READ=true;		/*set true if alarm on*/
         }
         
         else if(current_temperature > temperature_high_value)
         {   
-            alarm = SET_ALARM_HIGH;					/*set alarm to 02 if temperature is high */
+            alarm[0] = SET_ALARM_HIGH;					/*set alarm to 02 if temperature is high */
+						TEMPS_ALARM_SET_TIME_READ=true;			/*set true if alarm on*/
         } 
-        
+
         else
         {	
-            alarm = RESET_ALARM;		       	/*reset alarm to 0x00*/
+            alarm[0] = RESET_ALARM;		       	/*reset alarm to 0x00*/
+						
         }	
     }
     else
     {	
-        alarm = RESET_ALARM;								/*reset alarm to 0x00*/
+        alarm[0] = RESET_ALARM;								/*reset alarm to 0x00*/
+				TEMPS_ALARM_RESET_TIME_STAMP=true;		/*Set true whether alarm set value is 0x00 */
     }		
+		/*reading of time stamp from device management service structure whether the alarm set*/
 		
+		if(TEMPS_ALARM_SET_TIME_READ)
+		{
+				alarm[1]=p_device->device_time_stamp_set[0];
+				alarm[2]=p_device->device_time_stamp_set[1];
+				alarm[3]=p_device->device_time_stamp_set[2];
+				alarm[4]=p_device->device_time_stamp_set[3];
+				alarm[5]=p_device->device_time_stamp_set[4];
+				alarm[6]=p_device->device_time_stamp_set[5];
+				alarm[7]=p_device->device_time_stamp_set[6];
+				TEMPS_ALARM_SET_TIME_READ=false;
+		}
+		/*resetting of alarm time to zero whether the alarm set characteristics set as zero*/
+		if(TEMPS_ALARM_RESET_TIME_STAMP)
+		{		
+				alarm[0]=0x00;
+				alarm[1]=0x00;
+				alarm[2]=0x00;
+				alarm[3]=0x00;
+				alarm[4]=0x00;
+				alarm[5]=0x00;
+				alarm[6]=0x00;
+				alarm[7]=0x00;
+				TEMPS_ALARM_RESET_TIME_STAMP=false;
+		}
     
-    if(alarm != p_temps->climate_temperature_alarm )  	/*check whether the alarm value has changed and send the change*/
+    if((alarm[0]!= 0)||(p_temps->climate_temperature_alarm_set == 0x00))  	/*check whether the alarm sets as non zero or alarm set characteristics set as zero*/
     {	
         // Send value if connected and notifying
         
@@ -781,10 +840,10 @@ uint32_t ble_temps_level_alarm_check(ble_temps_t * p_temps)
             hvx_params.type     = BLE_GATT_HVX_NOTIFICATION;
             hvx_params.offset   = 0;
             hvx_params.p_len    = &len;
-            hvx_params.p_data   = &alarm;
+            hvx_params.p_data   = alarm;
 
             err_code = sd_ble_gatts_hvx(p_temps->conn_handle, &hvx_params);
-						p_temps->climate_temperature_alarm = alarm;
+						p_temps->temps_alarm_with_time_stamp[0] = alarm[0];
         }
         else
         {

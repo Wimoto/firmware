@@ -24,7 +24,6 @@
 #include "ble_data_log_service.h"
 #include "app_error.h"
 
-extern bool 	  BROADCAST_MODE;               /*Flag to enable broadcast mode */
 extern bool 		ENABLE_DATA_LOG;							/*Flag to enable data logger */
 extern bool     READ_DATA;										/*flag to start reading data from flash*/
 extern bool 		START_DATA_READ;							/*flag to start data logging*/
@@ -42,10 +41,12 @@ bool     	      DLOGS_CONNECTED_STATE=false;  /*Indicates whether the data logge
 
 bool            done_read=false;              /*flag to indicate whether data logger reading is over*/ 
 
-extern ble_date_time_t m_time_stamp;          /*time stamp structure*/ 
-extern uint8_t	 m_service;
-extern uint32_t buf[4];
-bool                ret_sys_evt = false;
+extern 		ble_date_time_t m_time_stamp;          /*time stamp structure*/ 
+extern 		uint8_t		 var_receive_uuid;
+extern 		uint32_t 		buf[4];
+bool      ret_sys_evt = false;
+
+
 /**@brief Function for handling the Connect event.
 *
 * @param[in]   ble_dlogs     Data logger service structure.
@@ -56,6 +57,7 @@ static void on_connect(ble_dlogs_t * ble_dlogs, ble_evt_t * p_ble_evt)
     ble_dlogs->conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
     DLOGS_CONNECTED_STATE = true;  /*Set the flag to true so that state remains in connectable mode until disconnect*/
 }
+
 
 /**@brief Function for handling the Disconnect event.
 *
@@ -68,6 +70,7 @@ static void on_disconnect(ble_dlogs_t * ble_dlogs, ble_evt_t * p_ble_evt)
     DLOGS_CONNECTED_STATE= false; 
     ble_dlogs->conn_handle = BLE_CONN_HANDLE_INVALID;
 }
+
 
 /**@brief Function for handling the write event.
 *
@@ -105,6 +108,7 @@ static void write_evt_handler (ble_dlogs_t * ble_dlogs, ble_dlogs_write_evt_t * 
         break;
     }
 }
+
 
 /**@brief Function for handling the Write event.
 *
@@ -236,6 +240,7 @@ static void on_write(ble_dlogs_t * ble_dlogs, ble_evt_t * p_ble_evt)
         ble_dlogs->write_evt_handler(ble_dlogs, &evt);
     }		
 }
+
 
 void ble_dlogs_on_ble_evt(ble_dlogs_t * ble_dlogs, ble_evt_t * p_ble_evt)
 {
@@ -484,8 +489,8 @@ uint32_t ble_dlogs_init(ble_dlogs_t * ble_dlogs, const ble_dlogs_init_t * ble_dl
     ble_uuid_t ble_uuid;
 
 		// Add service
-    ble_uuid.type =m_service; 
-		ble_dlogs->uuid_type=m_service;
+    ble_uuid.type =var_receive_uuid; 
+		ble_dlogs->uuid_type=var_receive_uuid;
     ble_uuid.uuid = GROW_PROFILE_DLOGS_SERVICE_UUID;
 
     // Initialize service structure

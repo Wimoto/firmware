@@ -150,10 +150,9 @@ bool config_tmp102_shutdown_mode (void)
 uint16_t get_tmp102_oneshot_temp (void)
 {
 
+		int16_t tmp102_configuration_reg_val, tmp102_temperature_reg_val;
     uint8_t data_buffer[3];
-    int16_t tmp102_configuration_reg_val, tmp102_temperature_reg_val;
-    //float temperature_in_celsius;
-
+     
     data_buffer[0]      = TMP102_CONFIG_REG ;  /* Select configuration register             */
 
     /* Set OS bit as '1' in the Most Significant Byte of configuration register             */ 

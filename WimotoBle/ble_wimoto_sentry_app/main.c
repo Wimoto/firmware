@@ -32,17 +32,16 @@
 #include "simple_uart.h"
 
 
-bool 	  BROADCAST_MODE = false;									/*flag used to switch between broadcast and connectable modes*/
-
 int main()
 {  
     /*
 * The loop starts with conectable_mode().  
 * Once the connected Peripheral device sets the switch mode characteristic and disconnects,
-* then the BROADCAST_MODE flag is set to true and enters broadcast_mode().  
 * Otherwise it remains in connected state.
 */ 
 		
+		//int j = 5;
+		//char test[3];
 	
     NRF_POWER->GPREGRET = 0;  /*Initialize the value of general purpose retention register to 0 */
 	
@@ -56,6 +55,6 @@ int main()
     for(;;)
     {			
         connectable_mode();   /*Advertise water parameter alarm service */	
-        broadcast_mode();     /*broadcast water parameters  */
+        
     }		
 }	

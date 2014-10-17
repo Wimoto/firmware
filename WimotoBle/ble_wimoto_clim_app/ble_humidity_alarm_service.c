@@ -12,7 +12,8 @@
 * Change log:
 * Sherin           12/10/2013     Added write events for value fields
 * Hariprasad       12/11/2013     Added 128bit Vendor specific  custom UUID's for the service and all characteristics 
-* sruthi.k.s     01/10/2014       migrated to soft device 7.0.0 and SDK 6.1.0
+* Sruthi.k.s     	 10/01/2014     migrated to soft device 7.0.0 and SDK 6.1.0
+* Sruthi.k.s 			 10/17/2014			Added alarm characteristic with time stamp.
 */
 
 #include "ble_humidity_alarm_service.h"
@@ -23,10 +24,12 @@
 #include "wimoto.h"
 #include "wimoto_sensors.h"
 
-extern bool 	  BROADCAST_MODE;               /*flag used to switch between broadcast and connectable modes defined in main.c*/
 extern bool     CHECK_ALARM_TIMEOUT;          /*Flag to indicate whether to check for alarm conditions defined in connect.c*/
-bool HUMS_CONNECTED_STATE=false;              /*This flag indicates whether a client is connected to the peripheral in humidity service*/
-extern uint8_t	 m_service;
+bool 						HUMS_CONNECTED_STATE=false;   /*This flag indicates whether a client is connected to the peripheral in humidity service*/
+extern uint8_t	var_receive_uuid;							/*variable for receiving uuid*/
+extern uint8_t	htu_hum_level[2];             /*variable to store current humidity value to broadcast*/ 
+
+
 /**@brief Function for handling the Connect event.
 *
 * @param[in]   p_hums      Humidity Service structure.
@@ -51,6 +54,7 @@ static void on_disconnect(ble_hums_t * p_hums, ble_evt_t * p_ble_evt)
     p_hums->conn_handle = BLE_CONN_HANDLE_INVALID;
 }
 
+
 /**@brief Function for handling write events on values.
 *
 * @details This function will be called for all write events of humidity low, high values and alarm set 
@@ -60,6 +64,7 @@ static void write_evt_handler(void)
 {   
     CHECK_ALARM_TIMEOUT = true; 
 }
+
 
 /**@brief Function for handling the Write event.
 *
@@ -272,6 +277,7 @@ void ble_hums_on_ble_evt(ble_hums_t * p_hums, ble_evt_t * p_ble_evt)
 
 }
 
+
 /**@brief Function for adding the current hum_level characteristics.
 *
 * @param[in]   p_hums        Humidity Service structure.
@@ -344,6 +350,7 @@ static uint32_t current_hum_level_char_add(ble_hums_t * p_hums, const ble_hums_i
     return NRF_SUCCESS;
 }
 
+
 /**@brief Function for adding the hum_level low value characteristics.
 *
 * @param[in]   p_hums        Humidity Service structure.
@@ -406,6 +413,7 @@ static uint32_t hum_low_value_char_add(ble_hums_t * p_hums, const ble_hums_init_
 
     return NRF_SUCCESS;
 }
+
 
 /**@brief Function for adding the hum_level high value characteristics.
 *
@@ -470,6 +478,7 @@ static uint32_t hum_high_value_char_add(ble_hums_t * p_hums, const ble_hums_init
 
     return NRF_SUCCESS;
 }
+
 
 /**@brief Function for adding the hum_level alarm set characteristics.
 *
@@ -550,9 +559,9 @@ static uint32_t hum_alarm_char_add(ble_hums_t * p_hums, const ble_hums_init_t * 
     ble_gatts_attr_t    attr_char_value;
     ble_uuid_t          ble_uuid;
     ble_gatts_attr_md_t attr_md;
-    static uint8_t      climate_hum_alarm; 
-
-    climate_hum_alarm = RESET_ALARM;  /* Initialize alarm to 0x00*/
+    
+		/* array for receiving alarm with time stamp from humidity service structure*/
+		static uint8_t      hums_alarm_with_time_stamp[8]; 
 
     // Add hum_level high level characteristic 
     if (p_hums->is_notification_supported)
@@ -585,15 +594,24 @@ static uint32_t hum_alarm_char_add(ble_hums_t * p_hums, const ble_hums_init_t * 
     attr_md.wr_auth    = 0;
     attr_md.vlen       = 0;
 
+		//assigning alarm with humidity characteristics to alarm with time stamp array
+		hums_alarm_with_time_stamp[0] = p_hums_init->hums_alarm_with_time_stamp[0];
+		hums_alarm_with_time_stamp[1] = p_hums_init->hums_alarm_with_time_stamp[1];
+		hums_alarm_with_time_stamp[2] = p_hums_init->hums_alarm_with_time_stamp[2];
+		hums_alarm_with_time_stamp[3] = p_hums_init->hums_alarm_with_time_stamp[3];
+		hums_alarm_with_time_stamp[4] = p_hums_init->hums_alarm_with_time_stamp[4];
+		hums_alarm_with_time_stamp[5] = p_hums_init->hums_alarm_with_time_stamp[5];
+		hums_alarm_with_time_stamp[6] = p_hums_init->hums_alarm_with_time_stamp[6];
+		hums_alarm_with_time_stamp[7] = p_hums_init->hums_alarm_with_time_stamp[7];
 
     memset(&attr_char_value, 0, sizeof(attr_char_value));
 
     attr_char_value.p_uuid       = &ble_uuid;
     attr_char_value.p_attr_md    = &attr_md;
-    attr_char_value.init_len     = sizeof(uint8_t);
+    attr_char_value.init_len     = sizeof(hums_alarm_with_time_stamp);
     attr_char_value.init_offs    = 0;
-    attr_char_value.max_len      = sizeof(uint8_t);
-    attr_char_value.p_value      = &climate_hum_alarm;
+    attr_char_value.max_len      = sizeof(hums_alarm_with_time_stamp);
+    attr_char_value.p_value      = hums_alarm_with_time_stamp;
 
     err_code = sd_ble_gatts_characteristic_add(p_hums->service_handle, &char_md,
     &attr_char_value,
@@ -605,6 +623,7 @@ static uint32_t hum_alarm_char_add(ble_hums_t * p_hums, const ble_hums_init_t * 
 
     return NRF_SUCCESS;
 }
+
 
 /**@brief Function for initializing the hum_level.
 *
@@ -620,8 +639,8 @@ uint32_t ble_hums_init(ble_hums_t * p_hums, const ble_hums_init_t * p_hums_init)
     ble_uuid_t ble_uuid;
 
     // Add service
-		ble_uuid.type = m_service;
-		p_hums->uuid_type=m_service;
+		ble_uuid.type = var_receive_uuid;
+		p_hums->uuid_type=var_receive_uuid;
     ble_uuid.uuid = CLIMATE_PROFILE_HUMS_SERVICE_UUID;
 
     // Initialize service structure
@@ -634,7 +653,6 @@ uint32_t ble_hums_init(ble_hums_t * p_hums, const ble_hums_init_t * p_hums_init)
     p_hums->climate_hum_high_level[0] = p_hums_init->climate_hum_high_value[0];
     p_hums->climate_hum_high_level[1]	= p_hums_init->climate_hum_high_value[1];
     p_hums->climate_hum_alarm_set  	  = p_hums_init->climate_hum_alarm_set;
-    p_hums->climate_hum_alarm         = p_hums_init->climate_hum_alarm;
 
     // Add service
     err_code = sd_ble_gatts_service_add(BLE_GATTS_SRVC_TYPE_PRIMARY, &ble_uuid, &p_hums->service_handle);
@@ -676,26 +694,30 @@ uint32_t ble_hums_init(ble_hums_t * p_hums, const ble_hums_init_t * p_hums_init)
 
 }
 
+
 /**@brief Function reads and updates the current humidity level and checks for alarm condition.
 *
 * @param[in]   p_hums        Humidity Service structure.
 *
 * @return      NRF_SUCCESS on success, otherwise an error code.
 */
-uint32_t ble_hums_level_alarm_check(ble_hums_t * p_hums)
+uint32_t ble_hums_level_alarm_check(ble_hums_t * p_hums,ble_device_t *p_device)
 {
     uint32_t err_code = NRF_SUCCESS;
     uint16_t current_hum_level;
     uint8_t  current_hum_level_array[2];
-
+		
+		bool     HUMS_ALARM_SET_TIME_READ=false; 									 /*This flag for humidity service alarm set time read*/
+		bool     HUMS_ALARM_RESET_TIME_STAMP=false;								 /*This flag for humidity alarm reset read whether alarm set is 0x00 */
+	
     uint16_t hum_level_low_value;					   /*humidity low value set by user as uint16*/
     uint16_t hum_level_high_value;				   /*humidity low value set by user as uint16*/
 
     static uint16_t previous_hum_level = 0x00;
-    uint8_t alarm = 0x00;
+    uint8_t alarm[8]= {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
 
 
-    uint16_t	len = sizeof(uint8_t);;
+    uint16_t	len = 8;		//length of alarm with time stamp characteristics
     uint16_t len1 = sizeof(current_hum_level_array);
 
     current_hum_level = read_hum_level(); /* read the current hum_level*/
@@ -705,9 +727,12 @@ uint32_t ble_hums_level_alarm_check(ble_hums_t * p_hums)
     {
         current_hum_level_array[1] = current_hum_level & LOWER_BYTE_MASK;   /*Convert the hum_level to uint8_t array*/
         current_hum_level_array[0] =  current_hum_level >> 8;
+				
+				//copy the current humidity value for broadcast
+				htu_hum_level[1]=current_hum_level_array[1];
+				htu_hum_level[0]=current_hum_level_array[0];
 
-        // Send value if connected and notifying
-
+				// Send value if connected and notifying
         if ((p_hums->conn_handle != BLE_CONN_HANDLE_INVALID) && (p_hums->is_notification_supported))
         {
             ble_gatts_hvx_params_t hvx_params;
@@ -747,26 +772,52 @@ uint32_t ble_hums_level_alarm_check(ble_hums_t * p_hums)
         
         if(current_hum_level < hum_level_low_value)
         {
-            alarm = SET_ALARM_LOW;		/*set alarm to 01 if humidity level is low */
+            alarm[0] = SET_ALARM_LOW;		/*set alarm to 01 if humidity level is low */
+						HUMS_ALARM_SET_TIME_READ=true;
         }
         
         else if(current_hum_level > hum_level_high_value)
         {
-            alarm = SET_ALARM_HIGH;		       /*set alarm to 02 if humidity level is high */
+            alarm[0] = SET_ALARM_HIGH;		       /*set alarm to 02 if humidity level is high */
+						HUMS_ALARM_SET_TIME_READ=true;
         } 
 
         else
         {	
-            alarm = RESET_ALARM;		         /*reset alarm to 0x00*/
+            alarm[0] = RESET_ALARM;		         /*reset alarm to 0x00*/
         }	
     }
     else
     {	
-        alarm = RESET_ALARM;							   /*reset alarm to 0x00*/
-    }		
-
-
-    if(alarm != p_hums->climate_hum_alarm )  /*check whether the alarm value has changed and send the change*/
+        alarm[0] = RESET_ALARM;							   /*reset alarm to 0x00*/
+				HUMS_ALARM_RESET_TIME_STAMP=true;
+    }	
+		/*reading of time stamp from device management service structure whether the alarm set*/
+		if(HUMS_ALARM_SET_TIME_READ)
+		{
+				alarm[1]=p_device->device_time_stamp_set[0];
+				alarm[2]=p_device->device_time_stamp_set[1];
+				alarm[3]=p_device->device_time_stamp_set[2];
+				alarm[4]=p_device->device_time_stamp_set[3];
+				alarm[5]=p_device->device_time_stamp_set[4];
+				alarm[6]=p_device->device_time_stamp_set[5];
+				alarm[7]=p_device->device_time_stamp_set[6];
+				HUMS_ALARM_SET_TIME_READ=false;
+		}
+		/*resetting of alarm time to zero whether the alarm set characteristics set as zero*/
+		if(HUMS_ALARM_RESET_TIME_STAMP)
+		{		
+				alarm[0]=0x00;
+				alarm[1]=0x00;
+				alarm[2]=0x00;
+				alarm[3]=0x00;
+				alarm[4]=0x00;
+				alarm[5]=0x00;
+				alarm[6]=0x00;
+				alarm[7]=0x00;
+				HUMS_ALARM_RESET_TIME_STAMP=false;
+  	}
+    if((alarm[0]!= 0)||(p_hums->climate_hum_alarm_set == 0x00))  /*check whether the alarm sets as non zero or alarm set characteristics set as zero*/
     {	
         // Send value if connected and notifying
 
@@ -781,10 +832,10 @@ uint32_t ble_hums_level_alarm_check(ble_hums_t * p_hums)
             hvx_params.type     = BLE_GATT_HVX_NOTIFICATION;
             hvx_params.offset   = 0;
             hvx_params.p_len    = &len;
-            hvx_params.p_data   = &alarm;
+            hvx_params.p_data   = alarm;
 
             err_code = sd_ble_gatts_hvx(p_hums->conn_handle, &hvx_params);
-						p_hums->climate_hum_alarm = alarm;
+						p_hums->hums_alarm_with_time_stamp[0]= alarm[0];
         }
         else
         {

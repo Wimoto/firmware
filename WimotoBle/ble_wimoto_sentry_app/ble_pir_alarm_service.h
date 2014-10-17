@@ -24,7 +24,7 @@
 #include "ble.h"
 #include "ble_srv_common.h"
 #include "wimoto_sensors.h"
-
+#include "ble_device_mgmt_service.h"
 
 /**@brief PIR Service event type. */
 typedef enum
@@ -57,7 +57,7 @@ typedef struct
     bool                          support_notification;           /**< TRUE if notification of PIR Level measurement is supported. */
     ble_srv_report_ref_t *        p_report_ref;                   /**< If not NULL, a Report Reference descriptor with the specified value will be added to the PIR Level characteristic */
     uint8_t												pir_alarm_set;                  /** Alarm set for PIR */
-    uint8_t												pir_presence_alarm;   	        /** Alarm for PIR */
+    uint8_t												pir_alarm_with_time_stamp[8];   /** Alarm for PIR with time stamp */
     ble_srv_cccd_security_mode_t  pir_char_attr_md;               /**< Initial security level for PIR characteristics attribute */
     ble_srv_cccd_security_mode_t  pir_char_attr_md2;              /**< Initial security level for PIR characteristics attribute */
     ble_gap_conn_sec_mode_t       battery_level_report_read_perm; /**< Initial security level for PIR report read attribute */
@@ -75,12 +75,11 @@ typedef struct ble_pir_s
     ble_gatts_char_handles_t      pir_alarm_handles;      	      /**< Handles for PIR alarm characteristic. */
     uint16_t                      report_ref_handle;      	      /**< Handle of the Report Reference descriptor. */
     uint8_t												pir_alarm_set;          	      /**< Alarm set for PIR */
-    uint8_t												pir_presence_alarm;   		      /**< Alarm for PIR */
+    uint8_t												pir_alarm_with_time_stamp[8];   /** Alarm for PIR with time stamp */
     uint16_t                      conn_handle;                    /**< Handle of the current connection (as provided by the BLE stack, is BLE_CONN_HANDLE_INVALID if not in a connection). */
     bool                          is_notification_supported;      /**< TRUE if notification of PIR  is supported. */
 } ble_pir_t;
 
-extern bool  BROADCAST_MODE;                                      /**< Broadcase mode flag, defined in main.c */
 
 /**@brief Function for initializing the PIR Service.
 *
@@ -109,9 +108,11 @@ void ble_pir_on_ble_evt(ble_pir_t * p_pir, ble_evt_t * p_ble_evt);
 *
 * @param[in]   p_pir          PIR Service structure.
 *
+* @param[in]   p_device     Device management  Service structure.
+*
 * @return      NRF_SUCCESS on success, otherwise an error code.
 */
-uint32_t ble_pir_alarm_check(ble_pir_t *p_pir);
+uint32_t ble_pir_alarm_check(ble_pir_t *p_pir,ble_device_t *p_device);
 
 
 #endif 

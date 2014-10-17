@@ -29,20 +29,17 @@
 #include "wimoto_sensors.h"
 #include "wimoto.h"
 
-bool 	  BROADCAST_MODE = false;									/*flag used to switch between broadcast and connectable modes*/
 
 int main()
 {
 
     /*The process starts with connectable_mode().  If user connects and sets the characteristics 'M' in temperature */
-    /*service, BROADCAST_MODE will be set to true and broadcast_mode() executes indefinitely                        */
-
+    
     NRF_POWER->GPREGRET = 0;  /*Initialize the value of general purpose retention register to 0 */
 
     for(;;)
     {			
         connectable_mode();   /*Advertise grow parameter alarm service */	
-        broadcast_mode();     /*broadcast grow parameters  */
-
-    }		
+     
+		}		
 }	

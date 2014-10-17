@@ -275,6 +275,8 @@ void do_soil_mois_measurement(uint8_t *soil_mois_level)
 
 }
 
+
+
 /**@brief Advertising functionality initialization.
 *
 * @details Encodes the required advertising data and passes it to the stack.

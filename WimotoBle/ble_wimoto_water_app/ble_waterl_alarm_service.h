@@ -22,7 +22,7 @@
 #include <stdbool.h>
 #include "ble.h"
 #include "ble_srv_common.h"
-
+#include "ble_device_mgmt_service.h"
 
 /**@brief water level service event type. */
 typedef enum
@@ -57,7 +57,7 @@ typedef struct
     uint8_t                      waterl_level_low_value;               /**< water level low level */
     uint8_t                      waterl_level_high_value;              /**< water level low level */
     uint8_t											 waterl_level_alarm_set;               /** Alarm set for water level **/
-    uint8_t											 waterl_level_alarm;   			           /** Alarm for water level **/
+    uint8_t											 waterl_alarm_with_time_stamp[8];	 			/**< Alarm for water level with time of alarm **/
     ble_srv_cccd_security_mode_t waterl_level_char_attr_md;            /**< Initial security level for water level characteristics attribute */
     ble_srv_cccd_security_mode_t waterl_level_char_attr_md2;           /**< Initial security level for water level characteristics attribute */
     ble_gap_conn_sec_mode_t      waterl_level_level_report_read_perm;  /**< Initial security level for water level report read attribute */
@@ -80,7 +80,7 @@ typedef struct ble_waterls_s
     uint8_t                       waterl_level_low_level;   				   /**< water level low level value. */
     uint8_t                       waterl_level_high_level;   				   /**< water level high level value. */
     uint8_t												waterl_level_alarm_set;   					 /** Alarm set for water level **/
-    uint8_t												waterl_level_alarm;   							 /** Alarm for water level level **/
+    uint8_t											  waterl_alarm_with_time_stamp[8];	 			/**< Alarm for water level with time of alarm **/
     uint16_t                      conn_handle;                    	   /**< Handle of the current connection (as provided by the BLE stack, is BLE_CONN_HANDLE_INVALID if not in a connection). */
     bool                          is_notification_supported;     	     /**< TRUE if notification of water level Level is supported. */
 } ble_waterls_t;
@@ -114,10 +114,12 @@ void ble_waterls_on_ble_evt(ble_waterls_t * p_waterls, ble_evt_t * p_ble_evt);
 *
 * @param[in]   p_waterls  water level level Service structure.
 *
+* @param[in]   p_device       Device management Service structure.
+*
 * @return      NRF_SUCCESS on success, otherwise an error code.
 */
 
-uint32_t ble_waterls_level_alarm_check(ble_waterls_t *);
+uint32_t ble_waterls_level_alarm_check(ble_waterls_t *,ble_device_t *);
 
 /**@brief Function for reading water level from sensor **/
 uint8_t read_waterl_level(void);											

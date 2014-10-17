@@ -25,7 +25,7 @@
 #include <stdbool.h>
 #include "ble.h"
 #include "ble_srv_common.h"
-
+#include "ble_device_mgmt_service.h"
 
 /**@brief Humidity Service event type. */
 typedef enum
@@ -60,7 +60,7 @@ typedef struct
     uint8_t                      climate_hum_low_value[2];        /**< humidity low level */
     uint8_t                      climate_hum_high_value[2];       /**< humidity low level */
     uint8_t											 climate_hum_alarm_set;           /**< Alarm set for humidity **/
-    uint8_t											 climate_hum_alarm;   			      /**< Alarm for humidity **/
+		uint8_t											 hums_alarm_with_time_stamp[8]; 	/**< Alarm for humidity with time of alarm **/
     ble_srv_cccd_security_mode_t hums_char_attr_md;               /**< Initial security level for Humidity characteristics attribute */
     ble_srv_cccd_security_mode_t hums_char_attr_md2;              /**< Initial security level for Humidity characteristics attribute */
     ble_gap_conn_sec_mode_t      humidity_level_report_read_perm; /**< Initial security level for Humidity report read attribute */
@@ -82,7 +82,7 @@ typedef struct ble_hums_s
     uint8_t                       climate_hum_low_level[2];   	  /**< humidity low level for alarm for humidity Service. */
     uint8_t                       climate_hum_high_level[2];      /**< humidity high level for alarm for humidity Service. */
     uint8_t												climate_hum_alarm_set;   	      /**< Alarm set for humidity **/
-    uint8_t												climate_hum_alarm;   			      /**< Alarm for humidity **/
+    uint8_t											 hums_alarm_with_time_stamp[8]; 	/**< Alarm for humidity with time of alarm **/
     uint16_t                      conn_handle;                    /**< Handle of the current connection (as provided by the BLE stack, is BLE_CONN_HANDLE_INVALID if not in a connection). */
     bool                          is_notification_supported;      /**< TRUE if notification of Humidity Level is supported. */
 } ble_hums_t;
@@ -124,9 +124,11 @@ void ble_hums_on_ble_evt(ble_hums_t * p_hums, ble_evt_t * p_ble_evt);
 *
 * @param[in]   p_hums          Humidity Service structure.
 *
+* @param[in]   p_device       Device management Service structure.
+* 
 * @return      NRF_SUCCESS on success, otherwise an error code.
 */
-uint32_t ble_hums_level_alarm_check(ble_hums_t *);
+uint32_t ble_hums_level_alarm_check(ble_hums_t *,ble_device_t *);
 
 /**@brief Function to read humidity level from htu21d.
 *

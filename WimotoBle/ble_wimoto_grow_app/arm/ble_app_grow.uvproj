@@ -351,7 +351,7 @@
               <MiscControls>--c99</MiscControls>
               <Define>NRF51 DEBUG_NRF_USER BLE_STACK_SUPPORT_REQD BOARD_PCA10001</Define>
               <Undefine></Undefine>
-              <IncludePath>..;..\..\..\..\..\Include;..\..\..\..\..\Include\app_common;..\..\..\..\..\Include\ble;..\..\..\..\..\Include\ble\ble_services;..\..\..\..\..\Include\ble\softdevice;..\..\..\..\..\Include\s110;..\..\..\..\..\Include\ble\device_manager;..\..\..\..\..\Include\sdk;..\..\..\..\..\Include\sd_common</IncludePath>
+              <IncludePath>..;..\..\..\..\..\Include;..\..\..\..\..\Include\app_common;..\..\..\..\..\Include\ble;..\..\..\..\..\Include\ble\ble_services;..\..\..\..\..\Include\ble\softdevice;..\..\..\..\..\Include\s110;..\..\..\..\..\Include\ble\device_manager;..\..\..\..\..\Include\sdk;..\..\..\..\..\Include\sd_common;..\..\..\..\..\Include;..\..\ble_wimoto_grow_app;..\..\ble_wimoto_grow_app</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -442,11 +442,6 @@
               <FileType>1</FileType>
               <FilePath>..\battery.c</FilePath>
             </File>
-            <File>
-              <FileName>broadcast.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\broadcast.c</FilePath>
-            </File>
           </Files>
         </Group>
         <Group>
@@ -485,7 +480,7 @@
             <File>
               <FileName>ble_device_mgmt_service.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\ble_wimoto_clim_app\ble_device_mgmt_service.c</FilePath>
+              <FilePath>..\ble_device_mgmt_service.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -1002,11 +997,6 @@
               <FileType>1</FileType>
               <FilePath>..\battery.c</FilePath>
             </File>
-            <File>
-              <FileName>broadcast.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\broadcast.c</FilePath>
-            </File>
           </Files>
         </Group>
         <Group>
@@ -1045,7 +1035,7 @@
             <File>
               <FileName>ble_device_mgmt_service.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\ble_wimoto_clim_app\ble_device_mgmt_service.c</FilePath>
+              <FilePath>..\ble_device_mgmt_service.c</FilePath>
             </File>
           </Files>
         </Group>

@@ -13,7 +13,8 @@
 * Date   : 11/29/2013
 * Change log
 * Sherin      12/10/2013     Added write event to value fields
-* sruthi.k.s     01/10/2014       Migrated to soft device 7.0.0 and SDK 6.1.0
+* Sruthi.k.s  10/01/2014     Migrated to soft device 7.0.0 and SDK 6.1.0
+* Sruthi.k.s	10/17/2014		 Added time stamp with alarm characteristic
 */
 
 #include <string.h>
@@ -24,9 +25,11 @@
 #include "wimoto_sensors.h"
 #include "ble_pir_alarm_service.h"
 
-extern bool        PIR_EVENT_FLAG;               /* Flag to indicate the event occurred on GPIO pin configured for PIR sensor*/
-bool     	         PIR_CONNECTED_STATE = false;  /* Indicates whether the PIR service is connected or not*/
-extern uint8_t	 m_service;
+extern 		bool        PIR_EVENT_FLAG;               /* Flag to indicate the event occurred on GPIO pin configured for PIR sensor*/
+bool     	        		PIR_CONNECTED_STATE = false;  /* Indicates whether the PIR service is connected or not*/
+extern 		uint8_t			var_receive_uuid;
+extern    uint8_t			curr_pir_presence;            /* water pir value for broadcast*/
+
 
 /**@brief Function for handling the Connect event.
 *
@@ -38,6 +41,7 @@ static void on_connect(ble_pir_t * p_pir, ble_evt_t * p_ble_evt)
     p_pir->conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
     PIR_CONNECTED_STATE = true;  /*Set the flag to true so that state remains in connectable mode until disconnect*/
 }
+
 
 /**@brief Function for handling the Disconnect event.
 *
@@ -51,6 +55,7 @@ static void on_disconnect(ble_pir_t * p_pir, ble_evt_t * p_ble_evt)
     p_pir->conn_handle = BLE_CONN_HANDLE_INVALID;
 }
 
+
 /**@brief Function for handling write events on values.
 *
 * @details This function will be called for all write events of temperature low, high values and alarm set 
@@ -60,6 +65,7 @@ static void write_evt_handler(void)
 {   
     PIR_EVENT_FLAG = true; 
 }
+
 
 /**@brief Function for handling the Write event.
 *
@@ -260,6 +266,7 @@ static uint32_t pir_state_char_add(ble_pir_t * p_pir, const ble_pir_init_t * p_p
     return NRF_SUCCESS;
 }
 
+
 /**@brief Function for adding the PIR alarm set characteristics.
 *
 * @param[in]   p_pir        PIR Service structure.
@@ -323,6 +330,7 @@ static uint32_t pir_alarm_set_char_add(ble_pir_t * p_pir, const ble_pir_init_t *
     return NRF_SUCCESS;
 }
 
+
 /**@brief Function for adding the PIR alarm characteristics.
 *
 * @param[in]   p_pir        PIR Service structure.
@@ -338,7 +346,9 @@ static uint32_t pir_alarm_char_add(ble_pir_t * p_pir, const ble_pir_init_t * p_p
     ble_gatts_attr_t    attr_char_value;
     ble_uuid_t          ble_uuid;
     ble_gatts_attr_md_t attr_md;
-    static uint8_t      pir_presence_alarm;  
+	
+		//array to receive alarm with time stamp from pir service structure
+    static uint8_t      pir_alarm_with_time_stamp[8];
 
     // Add PIR alarm characteristic 
     if (p_pir->is_notification_supported)
@@ -372,17 +382,24 @@ static uint32_t pir_alarm_char_add(ble_pir_t * p_pir, const ble_pir_init_t * p_p
     attr_md.wr_auth    = 0;
     attr_md.vlen       = 0;
 
-
-    pir_presence_alarm = p_pir_init->pir_presence_alarm;
+		//assigning pir alarm with time stamp service values to array
+    pir_alarm_with_time_stamp[0]= p_pir_init->pir_alarm_with_time_stamp[0];
+		pir_alarm_with_time_stamp[1]= p_pir_init->pir_alarm_with_time_stamp[1];
+		pir_alarm_with_time_stamp[2]= p_pir_init->pir_alarm_with_time_stamp[2];
+		pir_alarm_with_time_stamp[3]= p_pir_init->pir_alarm_with_time_stamp[3];
+		pir_alarm_with_time_stamp[4]= p_pir_init->pir_alarm_with_time_stamp[4];
+		pir_alarm_with_time_stamp[5]= p_pir_init->pir_alarm_with_time_stamp[5];
+		pir_alarm_with_time_stamp[6]= p_pir_init->pir_alarm_with_time_stamp[6];
+		pir_alarm_with_time_stamp[7]= p_pir_init->pir_alarm_with_time_stamp[7];
 
     memset(&attr_char_value, 0, sizeof(attr_char_value));
 
     attr_char_value.p_uuid       = &ble_uuid;
     attr_char_value.p_attr_md    = &attr_md;
-    attr_char_value.init_len     = sizeof(uint8_t);
+    attr_char_value.init_len     = sizeof(pir_alarm_with_time_stamp);
     attr_char_value.init_offs    = 0;
-    attr_char_value.max_len      = sizeof(uint8_t);
-    attr_char_value.p_value      = &pir_presence_alarm;
+    attr_char_value.max_len      = sizeof(pir_alarm_with_time_stamp);
+    attr_char_value.p_value      =pir_alarm_with_time_stamp;
 
     err_code = sd_ble_gatts_characteristic_add(p_pir->service_handle, &char_md,
     &attr_char_value,
@@ -394,6 +411,7 @@ static uint32_t pir_alarm_char_add(ble_pir_t * p_pir, const ble_pir_init_t * p_p
 
     return NRF_SUCCESS;
 }
+
 
 /**@brief Function for initializing the PIR.
 *
@@ -408,8 +426,8 @@ uint32_t ble_pir_init(ble_pir_t * p_pir, const ble_pir_init_t * p_pir_init)
     uint32_t   err_code;
     ble_uuid_t ble_uuid;
 
-    ble_uuid.type =m_service;
-		p_pir->uuid_type=m_service;
+    ble_uuid.type =var_receive_uuid;
+		p_pir->uuid_type=var_receive_uuid;
     ble_uuid.uuid = SENTRY_PROFILE_PIR_SERVICE_UUID;
 
     // Initialize service structure
@@ -417,8 +435,7 @@ uint32_t ble_pir_init(ble_pir_t * p_pir, const ble_pir_init_t * p_pir_init)
     p_pir->write_evt_handler         = write_evt_handler;
     p_pir->conn_handle               = BLE_CONN_HANDLE_INVALID;
     p_pir->is_notification_supported = p_pir_init->support_notification;
-    p_pir->pir_alarm_set             = p_pir_init->pir_alarm_set;     
-    p_pir->pir_presence_alarm        = p_pir_init->pir_presence_alarm; 
+    p_pir->pir_alarm_set             = p_pir_init->pir_alarm_set;      
 
 
     err_code = sd_ble_gatts_service_add(BLE_GATTS_SRVC_TYPE_PRIMARY, &ble_uuid, &p_pir->service_handle);
@@ -449,25 +466,32 @@ uint32_t ble_pir_init(ble_pir_t * p_pir, const ble_pir_init_t * p_pir_init)
 
 }
 
+
 /**@brief Function reads and updates the current PIR data and checks for alarm condition.
 *  Executes only when an event occurs on gpiote pin for PIR change
 *
 * @param[in]   p_pir        PIR  Service structure.
 *
+* @param[in]   p_device     Device management  Service structure.
+*
 * @return      NRF_SUCCESS on success, otherwise an error code.
 */
-uint32_t ble_pir_alarm_check(ble_pir_t * p_pir)
+uint32_t ble_pir_alarm_check(ble_pir_t * p_pir,ble_device_t *p_device)
 {
     uint32_t err_code;
     uint8_t  current_pir_state;      		/* Current PIR value*/
-    uint8_t  alarm;
+    uint8_t alarm[8]= {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
     uint16_t len = sizeof(uint8_t);
-
+		uint16_t len2=8;			//length of alarm with time stamp
+		bool     PIR_ALARM_SET_TIME_READ=false;				//flag to read time stamp whether the alarm is on
+		bool     PIR_ALARM_RESET_TIME_STAMP=false;		//flag to reset time stamp whether the alarmset is zero
 
     current_pir_state = nrf_gpio_pin_read(PIR_GPIOTE_PIN);
 
-    // Update the current PIR level value to the service 
-
+		//copy the current pir state for broadcast
+		curr_pir_presence =current_pir_state;
+   
+		// Update the current PIR level value to the service 
     if ((p_pir->conn_handle != BLE_CONN_HANDLE_INVALID) && p_pir->is_notification_supported)
     {
         ble_gatts_hvx_params_t hvx_params;
@@ -496,23 +520,48 @@ uint32_t ble_pir_alarm_check(ble_pir_t * p_pir)
         // If there is an  active high logic level on pin P0.02 set the  alarm 
         if (nrf_gpio_pin_read(PIR_GPIOTE_PIN) == PIR_DETECTION)
         {
-            alarm = SET_ALARM_PIR_DETECTION;
+            alarm[0] = SET_ALARM_PIR_DETECTION;
+						PIR_ALARM_SET_TIME_READ=true;
         }
         else if(nrf_gpio_pin_read(PIR_GPIOTE_PIN) == NO_PIR_DETECTION)
         {
-            alarm = RESET_ALARM;	
+            alarm[0] = RESET_ALARM;	
         }
         else
         {
-            alarm = RESET_ALARM;
+            alarm[0] = RESET_ALARM;
         }
     }		 
     else
     {	
-        alarm = RESET_ALARM;								/*reset alarm to 0x00*/
+        alarm[0] = RESET_ALARM;								/*reset alarm to 0x00*/
+				PIR_ALARM_RESET_TIME_STAMP=true;
     }		
-
-    if(alarm != p_pir->pir_presence_alarm )  	/*check whether the alarm value has changed and send the change*/
+		//Reads time stamp from device management service whether the alarm is on
+		if(PIR_ALARM_SET_TIME_READ)
+		{
+				alarm[1]=p_device->device_time_stamp_set[0];
+				alarm[2]=p_device->device_time_stamp_set[1];
+				alarm[3]=p_device->device_time_stamp_set[2];
+				alarm[4]=p_device->device_time_stamp_set[3];
+				alarm[5]=p_device->device_time_stamp_set[4];
+				alarm[6]=p_device->device_time_stamp_set[5];
+				alarm[7]=p_device->device_time_stamp_set[6];
+				PIR_ALARM_SET_TIME_READ=false;
+		}
+		//reset the alarm whether the alarmset is zero
+		if(PIR_ALARM_RESET_TIME_STAMP)
+		{
+				alarm[1]=0x00;
+				alarm[2]=0x00;
+				alarm[3]=0x00;
+				alarm[4]=0x00;
+				alarm[5]=0x00;
+				alarm[6]=0x00;
+				alarm[7]=0x00;
+				PIR_ALARM_RESET_TIME_STAMP=false;
+		}	
+     if((alarm[0]!= 0)||(p_pir->pir_alarm_set == 0x00))  	/*check whether the alarm is on or alarmset is set as zero*/
     {	
 				
         // Send value if connected and notifying
@@ -527,11 +576,11 @@ uint32_t ble_pir_alarm_check(ble_pir_t * p_pir)
             hvx_params.handle   = p_pir->pir_alarm_handles.value_handle;
             hvx_params.type     = BLE_GATT_HVX_NOTIFICATION;
             hvx_params.offset   = 0;
-            hvx_params.p_len    = &len;
-            hvx_params.p_data   = &alarm;
+            hvx_params.p_len    = &len2;
+            hvx_params.p_data   = alarm;
 
             err_code = sd_ble_gatts_hvx(p_pir->conn_handle, &hvx_params);
-						p_pir->pir_presence_alarm = alarm;
+						p_pir->pir_alarm_with_time_stamp[0] = alarm[0];
         }
         else
         {
