@@ -299,7 +299,7 @@ float f32CalcRH(uint16_t);                                                    /*
 /**< Functions   */
 void     adc_init(void);                                                 /**< Initialize ADC */
 uint8_t do_soil_moisture_measurement(void);                              /**< Read soil moisture value from ADC interfaced to soil moisture sensor*/
-uint8_t do_probe_temperature_measurement(void);                          /**< Read the probe temperature using ADC*/
+uint16_t do_probe_temperature_measurement(void);                          /**< Read the probe temperature using ADC*/
 uint8_t do_waterl_adc_measurement(void);                                 /**< Read water level using ADC */         
 
 /*------------------------------------------------------------------------------------------*/

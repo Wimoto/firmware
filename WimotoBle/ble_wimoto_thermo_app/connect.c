@@ -14,6 +14,7 @@
 * Sherin 		     01/20/2014     Changed datalogging interval to 15 minutes, included one more page for data logging
 * Hariprasad C R 05/01/2014     Chaneged the clock source to LFCLKSRC_RC in ble_stack_init()
 * sruthiraj      01/10/2014     Migrated to soft device 7.0.0 and SDK 6.1.0
+* sruthiraj			 10/17/2014     Added concurrent broadcast of sensor data  in active connection
 */
 #include <stdint.h>
 #include <string.h>
@@ -73,6 +74,7 @@ static bool                                  m_memory_access_in_progress = false
 #define THERMOPILE_LEVEL_MEAS_INTERVAL       APP_TIMER_TICKS(3000, APP_TIMER_PRESCALER)/**< temperature level measurement interval (ticks). */
 #define CONNECTED_MODE_TIMEOUT_INTERVAL      APP_TIMER_TICKS(30000, APP_TIMER_PRESCALER)/**< Connected mode timeout interval (ticks). */
 #define SECONDS_INTERVAL                     APP_TIMER_TICKS(1000, APP_TIMER_PRESCALER) /**< seconds measurement interval (ticks). */
+#define BROADCAST_INTERVAL       						 APP_TIMER_TICKS(1000, APP_TIMER_PRESCALER) /**< updating interval of broadcast data*/ 
 
 #define THERMOP_TYPE_AS_CHARACTERISTIC       0                                          /**< Determines if temperature type is given as characteristic (1) or as a field of measurement (0). */
 
@@ -133,21 +135,25 @@ bool                                         TIME_SET = false;                  
 bool                                         CHECK_ALARM_TIMEOUT = false;               /**< Flag to indicate whether to check for alarm conditions*/
 bool                                         DATA_LOG_CHECK=false;                      /**< Flag to indicate whether to check for data logging*/
 
-extern bool 	                               BROADCAST_MODE;                            /**< flag used to switch between broadcast and connectable modes*/    
 extern bool                                  THERMOPS_CONNECTED_STATE;                  /**< This flag indicates thermopile temperature service is in connected start or now*/
 extern bool                                  PROBES_CONNECTED_STATE;                    /**< This flag indicates probe temperature service is in connected start or now*/
 extern bool																	 DLOGS_CONNECTED_STATE;                     /**< This flag indicates data logger is connected/not*/
 extern bool  																 DFU_ENABLE;                                /**< This flag indicates DFU mode is connected/not*/       
 extern bool                                  DEVICE_CONNECTED_STATE;                    /**< This flag indicates device management service is in connected start or now*/
+volatile bool                                ACTIVE_CONN_FLAG = false;                  /**<flag indicating active connection*/
+
 static dm_application_instance_t             m_app_handle; 
 volatile bool                                m_radio_event = false;                     /**< This flag indicates radio event*/
-uint8_t  																			m_service;
+uint8_t  																		 var_receive_uuid;													/**< variable to receive the uuid */
 #define ADVERTISING_LED_PIN_NO							 LED_0
 #define CONNECTED_LED_PIN_NO								 LED_1
 #define ASSERT_LED_PIN_NO										 LED_1
 extern uint8_t  current_thermopile_temp_store[THERMOP_CHAR_SIZE];                       /**< defined in ble_thermop_alarm_service.c*/
 #define THERMOPILE_LEVEL_MEAS_INTERVAL       APP_TIMER_TICKS(3000, APP_TIMER_PRESCALER)/**< temperature level measurement interval (ticks). */
-uint32_t buf[4];                                                                 /*buffer for flash write operation*/
+uint32_t buf[4];  													 					/*buffer for flash write operation*/
+uint8_t				             thermopile[5];    					/*variable to store current Thermopile temperature to broadcast*/
+uint8_t				             curr_probe_temp_level[2];	/*variable to store current probe temperature to broadcast*/
+		
 static void device_init(void);
 static void thermops_init(void);
 static void probes_init(void);
@@ -155,6 +161,22 @@ static void dis_init(void);
 static void dlogs_init(void);
 static void bas_init(void);
 void data_log_sys_event_handler(uint32_t sys_evt);
+static void advertising_init(void);
+static void advertising_nonconn_init(void);
+
+#define ADC_REF_VOLTAGE_IN_MILLIVOLTS        1200                                      /**< Reference voltage (in milli volts) used by ADC while doing conversion. */
+#define ADC_PRE_SCALING_COMPENSATION         3                                         /**< The ADC is configured to use VDD with 1/3 prescaling as input. And hence the result of conversion is to be multiplied by 3 to get the actual value of the battery voltage.*/
+#define DIODE_FWD_VOLT_DROP_MILLIVOLTS       270                                       /**< Typical forward voltage drop of the diode (Part no: SD103ATW-7-F) that is connected in series with the voltage supply. This is the voltage drop when the forward current is 1mA. Source: Data sheet of 'SURFACE MOUNT SCHOTTKY BARRIER DIODE ARRAY' available at www.diodes.com. */
+
+/**@brief Macro to convert the result of ADC conversion in millivolts.
+*
+* @param[in]  ADC_VALUE   ADC result.
+* @retval     Result converted to millivolts.
+*/
+#define ADC_RESULT_IN_MILLI_VOLTS(ADC_VALUE)\
+    ((((ADC_VALUE) * ADC_REF_VOLTAGE_IN_MILLIVOLTS) / 255) * ADC_PRE_SCALING_COMPENSATION)
+
+
 /**@brief Function for error handling, which is called when an error has occurred. 
 *
 * @warning This handler is an example only and does not fit a final product. You need to analyze 
@@ -164,7 +186,7 @@ void data_log_sys_event_handler(uint32_t sys_evt);
 * @param[in] line_num    Line number where the handler is called.
 * @param[in] p_file_name Pointer to the file name. 
 */
-static void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
+void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
 {
     nrf_gpio_pin_set(ASSERT_LED_PIN_NO);
 
@@ -175,19 +197,38 @@ static void app_error_handler(uint32_t error_code, uint32_t line_num, const uint
     //                The flash write will happen EVEN if the radio is active, thus interrupting
     //                any communication.
     //                Use with care. Un-comment the line below to use.
-    //ble_debug_assert_handler(error_code, line_num, p_file_name);
+			//ble_debug_assert_handler(error_code, line_num, p_file_name);
 
     // On assert, the system can only recover on reset
      NVIC_SystemReset();
 }
+
+
+/**@brief Callback function for asserts in the SoftDevice.
+*
+* @details This function will be called in case of an assert in the SoftDevice.
+*
+* @warning This handler is an example only and does not fit a final product. You need to analyse 
+*          how your product is supposed to react in case of Assert.
+* @warning On assert from the SoftDevice, the system can only recover on reset.
+*
+* @param[in]   line_num   Line number of the failing ASSERT call.
+* @param[in]   file_name  File name of the failing ASSERT call.
+*/
+void assert_nrf_callback(uint16_t line_num, const uint8_t * p_file_name)
+{
+app_error_handler(DEAD_BEEF, line_num, p_file_name);
+}
+
+
 /**@brief Function for performing check for the alarm condition.
 */
 static void alarm_check(void)
 {
     uint32_t err_code;
 
-    err_code = ble_thermops_level_alarm_check(&m_thermops);  /*check whether the thermopile temperature is out of range*/
-    if ((err_code != NRF_SUCCESS) &&
+    err_code = ble_thermops_level_alarm_check(&m_thermops,&m_device);  /*check whether the thermopile temperature is out of range*/
+    if ((err_code != NRF_SUCCESS) &&																	 /*passed device management service structure for getting time stamp in thermopile service*/	
             (err_code != NRF_ERROR_INVALID_STATE) &&
             (err_code != BLE_ERROR_NO_TX_BUFFERS) &&
             (err_code != BLE_ERROR_GATTS_SYS_ATTR_MISSING)
@@ -196,8 +237,8 @@ static void alarm_check(void)
         APP_ERROR_HANDLER(err_code);
     }
 
-    err_code = ble_probes_level_alarm_check(&m_probes);   /*check whether the probe temperature is out of range*/
-    if ((err_code != NRF_SUCCESS) &&
+    err_code = ble_probes_level_alarm_check(&m_probes,&m_device);   /*check whether the probe temperature is out of range*/
+    if ((err_code != NRF_SUCCESS) &&																/*passed device management service structure for getting time stamp in probe level service*/
             (err_code != NRF_ERROR_INVALID_STATE) &&
             (err_code != BLE_ERROR_NO_TX_BUFFERS) &&
             (err_code != BLE_ERROR_GATTS_SYS_ATTR_MISSING)
@@ -205,8 +246,15 @@ static void alarm_check(void)
     {
         APP_ERROR_HANDLER(err_code);
     } 
+		
+		//updating the advertise/broadcast data
+		if(ACTIVE_CONN_FLAG==false)               /* no active connection*/
+			advertising_init();                     
+		else																			/*an active connection exists*/
+			advertising_nonconn_init();
 
 }		
+
 
 /**@brief Function for performing a thermo parmaters level measurement, and  check for the alarm condition.
 */
@@ -235,8 +283,8 @@ static void thermo_param_meas_timeout_handler(void * p_context)
         CHECK_ALARM_TIMEOUT=true;                           /* Set the flag to indicate alarm conditions check*/
     }
 
-
 }
+
 
 /**@brief Function for performing time keeping.
 */
@@ -298,6 +346,86 @@ static void real_time_timeout_handler(void * p_context)
 }
 
 
+/* This function measures the battery voltage using the bandgap as a reference.
+* 3.6 V will return 100 %, so depending on battery voltage, it might need scaling. */
+static uint8_t do_battery_measurement(void)
+{
+    uint8_t     adc_result;
+    uint16_t    batt_lvl_in_milli_volts;
+    uint8_t     percentage_batt_lvl;
+
+    NRF_ADC->CONFIG = ADC_CONFIG_RES_8bit << ADC_CONFIG_RES_Pos |
+    ADC_CONFIG_INPSEL_SupplyOneThirdPrescaling << ADC_CONFIG_INPSEL_Pos |
+    ADC_CONFIG_REFSEL_VBG << ADC_CONFIG_REFSEL_Pos;
+    NRF_ADC->ENABLE = 1;
+
+    NRF_ADC->TASKS_START = 1;
+    while(!NRF_ADC->EVENTS_END);
+    adc_result = NRF_ADC->RESULT;
+    NRF_ADC->ENABLE = 0;
+
+    batt_lvl_in_milli_volts = ADC_RESULT_IN_MILLI_VOLTS(adc_result) + DIODE_FWD_VOLT_DROP_MILLIVOLTS;
+
+    percentage_batt_lvl     = battery_level_in_percent(batt_lvl_in_milli_volts);
+
+    return percentage_batt_lvl;
+}
+
+
+/**@brief Function for initializing the non-connectable Advertising[broadcasting] functionality.
+*
+* @details Encodes the required broadcast data and passes it to the stack.      
+*/
+static void advertising_nonconn_init(void)
+{
+		uint32_t                   err_code;
+    ble_advdata_t              advdata,advdata3;
+    ble_advdata_service_data_t service_data[1];
+    uint8_t                    flags = BLE_GAP_ADV_FLAG_BR_EDR_NOT_SUPPORTED;
+    ble_advdata_manuf_data_t   manuf_specific_data;
+    uint8_t                    manuf_data_array[7];
+
+    uint8_t battery              = do_battery_measurement();
+    service_data[0].service_uuid = BLE_UUID_BATTERY_SERVICE;
+    service_data[0].data.p_data  = &battery;
+    service_data[0].data.size    = sizeof(battery);
+
+    manuf_data_array[0] = thermopile[0];
+    manuf_data_array[1] = thermopile[1];
+    manuf_data_array[2] = thermopile[2];
+    manuf_data_array[3] = thermopile[3];
+    manuf_data_array[4] = thermopile[4];
+    manuf_data_array[5] = curr_probe_temp_level[0];
+		manuf_data_array[6] = curr_probe_temp_level[1];
+
+    manuf_specific_data.company_identifier = COMPANY_IDENTIFER;             /*COMPANY IDENTIFIER */
+    manuf_specific_data.data.p_data = manuf_data_array;
+    manuf_specific_data.data.size = sizeof(manuf_data_array);
+
+    // Build and set advertising data
+    memset(&advdata, 0, sizeof(advdata));
+
+    advdata.name_type               = BLE_ADVDATA_FULL_NAME;
+    advdata.flags.size              = sizeof(flags);
+    advdata.flags.p_data            = &flags;
+    advdata.p_manuf_specific_data   = &manuf_specific_data;
+
+    err_code = ble_advdata_set(&advdata, NULL);
+    APP_ERROR_CHECK(err_code);
+	
+	   memset(&advdata3, 0, sizeof(advdata3));
+		 
+		advdata3.name_type               = BLE_ADVDATA_FULL_NAME;
+    advdata3.flags.size              = sizeof(flags);
+    advdata3.flags.p_data            = &flags;
+		advdata3.p_service_data_array    = service_data;
+		advdata3.service_data_count      = 1;
+		
+		err_code = ble_advdata_set(&advdata3, NULL);
+    APP_ERROR_CHECK(err_code);
+}
+
+
 /**@brief Function for the Timer initialization.
 *
 * @details Initializes the timer module. This creates and starts application timers.
@@ -338,8 +466,9 @@ static void application_timers_start(void)
     err_code = app_timer_start(real_time_timer, SECONDS_INTERVAL, NULL);
     APP_ERROR_CHECK(err_code);
 
-
 }
+
+
 /**@brief Function for the GAP initialization.
 *
 * @details This function shall be used to setup all the necessary GAP (Generic Access Profile)
@@ -425,7 +554,53 @@ static void advertising_init(void)
     m_adv_params.fp          = BLE_GAP_ADV_FP_ANY;
     m_adv_params.interval    = APP_ADV_INTERVAL;
     m_adv_params.timeout     = APP_ADV_TIMEOUT_IN_SECONDS;
+		
+		// Build and set broadcast data
+		ble_advdata_t              advdata1,advdata3;
+    ble_advdata_service_data_t service_data[1];
+    ble_advdata_manuf_data_t   manuf_specific_data;
+    uint8_t                    manuf_data_array[7];
+
+    uint8_t battery              = do_battery_measurement();
+    service_data[0].service_uuid = BLE_UUID_BATTERY_SERVICE;
+    service_data[0].data.p_data  = &battery;
+    service_data[0].data.size    = sizeof(battery);
+
+    manuf_data_array[0] = thermopile[0];
+    manuf_data_array[1] = thermopile[1];
+    manuf_data_array[2] = thermopile[2];
+    manuf_data_array[3] = thermopile[3];
+    manuf_data_array[4] = thermopile[4];
+    manuf_data_array[5] = curr_probe_temp_level[0];
+		manuf_data_array[6] = curr_probe_temp_level[1];
+
+    manuf_specific_data.company_identifier = COMPANY_IDENTIFER;             /*COMPANY IDENTIFIER */
+    manuf_specific_data.data.p_data = manuf_data_array;
+    manuf_specific_data.data.size = sizeof(manuf_data_array);
+
+    // Build and set advertising data
+    memset(&advdata1, 0, sizeof(advdata1));
+
+    advdata1.name_type               = BLE_ADVDATA_FULL_NAME;
+    advdata1.flags.size              = sizeof(flags);
+    advdata1.flags.p_data            = &flags;
+    advdata1.p_manuf_specific_data   = &manuf_specific_data;
+
+    err_code = ble_advdata_set(&advdata1, NULL);
+    APP_ERROR_CHECK(err_code);
+		
+		memset(&advdata3, 0, sizeof(advdata3));
+		
+		advdata3.name_type               = BLE_ADVDATA_FULL_NAME;
+    advdata3.flags.size              = sizeof(flags);
+    advdata3.flags.p_data            = &flags;
+		advdata3.p_service_data_array    = service_data;
+		advdata3.service_data_count      = 1;
+		
+		err_code = ble_advdata_set(&advdata3, NULL);
+    APP_ERROR_CHECK(err_code);
 }
+
 
 /**@brief Function for initializing services that will be used by the application.
 *
@@ -436,7 +611,7 @@ uint32_t services_init(void)
 		uint32_t   err_code;
 	  ble_uuid128_t base_uuid = THERMO_PROFILE_BASE_UUID;
 		// Add custom base UUID
-    err_code = sd_ble_uuid_vs_add(&base_uuid, &m_service);
+    err_code = sd_ble_uuid_vs_add(&base_uuid, &var_receive_uuid);
     if (err_code != NRF_SUCCESS)
     {
         return err_code;
@@ -513,13 +688,23 @@ static void thermops_init(void)
     thermops_init.thermo_thermopile_high_level[1]   = THERMOP_DEFAULT_HIGH_VALUE;
     thermops_init.thermo_thermopile_high_level[2]   = PERIOD;
     thermops_init.thermo_thermopile_high_level[3]   = THERMOP_DEFAULT_HIGH_VALUE;
-    thermops_init.thermo_thermopile_high_level[4]   = THERMOP_DEFAULT_HIGH_VALUE;
-    thermops_init.thermo_thermopile_alarm           = RESET_ALARM;                                                        
+    thermops_init.thermo_thermopile_high_level[4]   = THERMOP_DEFAULT_HIGH_VALUE;                                                       
     thermops_init.thermo_thermopile_alarm_set       = DEFAULT_ALARM_SET;
+		
+		//initializing thermopile alarm with time stamp characteristics
+		thermops_init.thermo_alarm_with_time_stamp[0]      = RESET_ALARM;
+		thermops_init.thermo_alarm_with_time_stamp[1]			 =0x00;
+		thermops_init.thermo_alarm_with_time_stamp[2]			 =0x00;
+		thermops_init.thermo_alarm_with_time_stamp[3]			 =0x00;
+		thermops_init.thermo_alarm_with_time_stamp[4]  		 =0x00;
+		thermops_init.thermo_alarm_with_time_stamp[5]			 =0x00;
+		thermops_init.thermo_alarm_with_time_stamp[6]			 =0x00;
+		thermops_init.thermo_alarm_with_time_stamp[7]			 =0x00;
 
     err_code = ble_thermops_init(&m_thermops, &thermops_init);
     APP_ERROR_CHECK(err_code);
 }
+
 
 /**@brief Function for initializing probe temperature alarm service
 */
@@ -546,10 +731,22 @@ static void probes_init(void)
     probes_init.p_report_ref         = NULL; 
 
     /* Set the default low value and high value of probe temperature level*/
-    probes_init.probe_temp_low_value    = PROBE_TEMP_DEFAULT_LOW_VALUE;
-    probes_init.probe_temp_high_value   = PROBE_TEMP_DEFAULT_HIGH_VALUE;
-    probes_init.probe_temp_alarm        = RESET_ALARM;
+    probes_init.probe_temp_low_value[0]    = PROBE_TEMP_DEFAULT_LOW_VALUE_LOWER_BYTE;
+		probes_init.probe_temp_low_value[1]    = PROBE_TEMP_DEFAULT_LOW_VALUE_HIGHER_BYTE;
+    probes_init.probe_temp_high_value[0]   = PROBE_TEMP_DEFAULT_HIGH_VALUE_LOWER_BYTE;
+    probes_init.probe_temp_high_value[1]   = PROBE_TEMP_DEFAULT_HIGH_VALUE_HIGHER_BYTE;
     probes_init.probe_temp_alarm_set    = DEFAULT_ALARM_SET;
+		
+		//initializing probe alarm with time stamp characteristics		
+		probes_init.probe_alarm_with_time_stamp[0]      = RESET_ALARM;
+		probes_init.probe_alarm_with_time_stamp[1]			 =0x00;
+		probes_init.probe_alarm_with_time_stamp[2]			 =0x00;
+		probes_init.probe_alarm_with_time_stamp[3]			 =0x00;
+		probes_init.probe_alarm_with_time_stamp[4]  		 =0x00;
+		probes_init.probe_alarm_with_time_stamp[5]			 =0x00;
+		probes_init.probe_alarm_with_time_stamp[6]			 =0x00;
+		probes_init.probe_alarm_with_time_stamp[7]			 =0x00;
+		
 
     err_code = ble_probes_init(&m_probes, &probes_init);
     APP_ERROR_CHECK(err_code);
@@ -564,7 +761,6 @@ static void dis_init(void )
     uint32_t         err_code;
     ble_dis_init_t   dis_init;
     ble_dis_sys_id_t sys_id;
-
 
     // Initialize Device Information Service.
     memset(&dis_init, 0, sizeof(dis_init));
@@ -582,6 +778,7 @@ static void dis_init(void )
     err_code = ble_dis_init(&dis_init);
     APP_ERROR_CHECK(err_code);
 }
+
 
 /**@brief Function for initializing data logger service
 */
@@ -652,6 +849,7 @@ static void device_init(void)
     err_code = ble_device_init(&m_device, &device_init);
     APP_ERROR_CHECK(err_code);
 }
+
 
 /**@brief Function for initializing security parameters.
 */
@@ -734,6 +932,28 @@ static void conn_params_init(void)
 }
 
 
+/**@brief Start non_connectable advertising.
+*/
+static void advertising_nonconn_start(void)
+{
+    uint32_t err_code;
+    ble_gap_adv_params_t                  adv_params;
+	
+    // Initialise advertising parameters (used when starting advertising)
+    memset(&adv_params, 0, sizeof(adv_params));
+
+    adv_params.type        = BLE_GAP_ADV_TYPE_ADV_NONCONN_IND;
+    adv_params.p_peer_addr = NULL;                          
+    adv_params.fp          = BLE_GAP_ADV_FP_ANY;
+	  adv_params.interval    = 170;                     /* non connectable advertisements cannot be faster than 100ms.*/
+    adv_params.timeout     = APP_ADV_TIMEOUT_IN_SECONDS;
+		
+		err_code = sd_ble_gap_adv_start(&adv_params);
+		APP_ERROR_CHECK(err_code);
+
+}
+
+
 /**@brief Function for handling the Application's BLE Stack events.
 *
 * @param[in]   p_ble_evt   Bluetooth stack event.
@@ -750,6 +970,11 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
         // Start detecting button presses
         err_code = app_button_enable();
         m_conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
+		
+				ACTIVE_CONN_FLAG=true;
+		
+				//starting non-connectable advertising
+				advertising_nonconn_start(); 
         break;
 
     case BLE_GAP_EVT_DISCONNECTED:
@@ -760,7 +985,13 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
         err_code = app_button_disable();
         APP_ERROR_CHECK(err_code);
 
-        advertising_start();
+        //stop non-connectable advertising
+				sd_ble_gap_adv_stop();
+				
+				ACTIVE_CONN_FLAG=false;
+				
+				//connectable advertising starts
+		    advertising_start();
         break;
 
     case BLE_GAP_EVT_SEC_PARAMS_REQUEST:
@@ -798,6 +1029,8 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
 
     APP_ERROR_CHECK(err_code);
 }
+
+
 /**@brief Function for putting the chip in System OFF Mode
  */
 static void system_off_mode_enter(void)
@@ -819,6 +1052,8 @@ static void system_off_mode_enter(void)
     err_code = sd_power_system_off();
     APP_ERROR_CHECK(err_code);
 }
+
+
 /**@brief Function for handling the Application's system events.
  *
  * @param[in]   sys_evt   system event.
@@ -841,6 +1076,7 @@ static void on_sys_evt(uint32_t sys_evt)
             break;
     }
 }
+
 
 static void sys_evt_dispatch(uint32_t sys_evt)
 {
@@ -868,6 +1104,7 @@ static void ble_evt_dispatch(ble_evt_t * p_ble_evt)
     dm_ble_evt_handler(p_ble_evt);                     /*added for migrating to soft device 7.0.0 and SDK 6.1.0*/
     on_ble_evt(p_ble_evt);
 }
+
 
 /**@brief Function for initializing the BLE stack.
 *
@@ -907,6 +1144,7 @@ static void button_event_handler(uint8_t pin_no,uint8_t button_action)
     }
 }
 
+
 /**@brief Function for initializing the GPIOTE handler module.
 */
 static void gpiote_init(void)
@@ -928,6 +1166,7 @@ static void buttons_init(void)
     APP_BUTTON_INIT(buttons, sizeof(buttons) / sizeof(buttons[0]), BUTTON_DETECTION_DELAY, false);
 }
 
+
 /**@brief Radio Notification event handler.
 */
 void radio_active_evt_handler(bool radio_active)
@@ -935,6 +1174,7 @@ void radio_active_evt_handler(bool radio_active)
     m_radio_event = radio_active;
     ble_flash_on_radio_active_evt(m_radio_event);                        /*call the event handler in ble_flash.c*/
 }
+
 
 /**@brief Function for initializing the Radio Notification events.
 */
@@ -973,6 +1213,7 @@ static void create_log_data(uint32_t * data)
 			
 }
 
+
 /**@brief Function for checking whether to log data.
 */
 static void data_log_check()
@@ -985,6 +1226,8 @@ static void data_log_check()
         write_data_flash(log_data);	                      /*log the data to flash */
     }
 }
+
+
 /**@brief Function for handling the Device Manager events.
  *
  * @param[in]   p_evt   Data associated to the device manager event.
@@ -1032,6 +1275,23 @@ static void device_manager_init(void)
     APP_ERROR_CHECK(err_code);
 }
 
+
+/* Turn OFF TWI if TWI is not using , considering power optimization*/
+void twi_turn_OFF(void)
+{
+    NRF_TWI0->POWER = 0; 
+    NRF_TWI1->POWER = 0;
+}
+
+
+/* Turn ON TWI (used only after turning it OFF)*/
+void twi_turn_ON(void)
+{
+    NRF_TWI1->POWER = 1;
+    twi_master_init();
+}
+
+
 /**@brief Function for application main entry.
 */
 void connectable_mode(void)
@@ -1055,18 +1315,10 @@ void connectable_mode(void)
     // Start execution.
     application_timers_start();    
     advertising_start();
-	
-
 
     // Enter main loop.
      for (;;)
     {  
-        if((BROADCAST_MODE) && (!THERMOPS_CONNECTED_STATE) && (!PROBES_CONNECTED_STATE))  /*If the broadcast mode flag is true and services are not connected stop advertising and exit*/
-        {
-            sd_ble_gap_adv_stop();			/*stop advertising */
-            break;
-        }
-
 
         if(DFU_ENABLE && (!DEVICE_CONNECTED_STATE) && (!THERMOPS_CONNECTED_STATE) && (!PROBES_CONNECTED_STATE)) /*If the dfu enable flag is true and services are not connected go to the bootloader*/ 
         {

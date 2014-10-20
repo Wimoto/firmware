@@ -193,10 +193,10 @@ void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p
     //                The flash write will happen EVEN if the radio is active, thus interrupting
     //                any communication.
     //                Use with care. Un-comment the line below to use.
-    ble_debug_assert_handler(error_code, line_num, p_file_name);
+  //  ble_debug_assert_handler(error_code, line_num, p_file_name);
 
     // On assert, the system can only recover on reset
-   // NVIC_SystemReset();
+    NVIC_SystemReset();
 }
 
 
@@ -248,9 +248,9 @@ static uint32_t do_battery_measurement(void)
 */
 static void advertising_nonconn_init(void)
 {
-uint32_t                   err_code;
-    ble_advdata_t              advdata;
-    ble_advdata_service_data_t service_data[3];
+		uint32_t                   err_code;
+    ble_advdata_t              advdata,advdata3;
+    ble_advdata_service_data_t service_data[1];
     uint8_t                    flags = BLE_GAP_ADV_FLAG_BR_EDR_NOT_SUPPORTED;
     ble_advdata_manuf_data_t   manuf_specific_data;
     uint8_t                    manuf_data_array[6];	
@@ -277,11 +277,20 @@ uint32_t                   err_code;
     advdata.name_type               = BLE_ADVDATA_FULL_NAME;
     advdata.flags.size              = sizeof(flags);
     advdata.flags.p_data            = &flags;
-    advdata.p_service_data_array    = service_data;
-    advdata.service_data_count      = 0;
-    advdata.p_manuf_specific_data   = &manuf_specific_data;
+		advdata.p_manuf_specific_data   = &manuf_specific_data;
+		
+		err_code = ble_advdata_set(&advdata, NULL);
+		APP_ERROR_CHECK(err_code);
+		 
+		memset(&advdata3, 0, sizeof(advdata3));
+		advdata3.name_type               = BLE_ADVDATA_FULL_NAME;
+    advdata3.flags.size              = sizeof(flags);
+    advdata3.flags.p_data            = &flags;
+    advdata3.p_service_data_array    = service_data;
+    advdata3.service_data_count      = 1;
 
-    err_code = ble_advdata_set(&advdata, NULL);
+
+    err_code = ble_advdata_set(&advdata3, NULL);
     APP_ERROR_CHECK(err_code);
 }
 
@@ -554,7 +563,7 @@ static void advertising_init(void)
 		
 		// Build and set broadcast data
 		
-		ble_advdata_t              advdata1;
+		ble_advdata_t              advdata1,advdata3;
     ble_advdata_service_data_t service_data[1];
     ble_advdata_manuf_data_t   manuf_specific_data;
     uint8_t                    manuf_data_array[6];	
@@ -582,11 +591,21 @@ static void advertising_init(void)
     advdata1.name_type               = BLE_ADVDATA_FULL_NAME;
     advdata1.flags.size              = sizeof(flags);
     advdata1.flags.p_data            = &flags;
-    advdata1.p_service_data_array    = service_data;
-    advdata1.service_data_count      = 0;
-    advdata1.p_manuf_specific_data   = &manuf_specific_data;
+		advdata1.p_manuf_specific_data   = &manuf_specific_data;
+		
+		err_code = ble_advdata_set(&advdata1, NULL);
+		APP_ERROR_CHECK(err_code);
+		
+		memset(&advdata3, 0, sizeof(advdata3));
+		
+		advdata3.name_type               = BLE_ADVDATA_FULL_NAME;
+    advdata3.flags.size              = sizeof(flags);
+    advdata3.flags.p_data            = &flags;
+    advdata3.p_service_data_array    = service_data;
+    advdata3.service_data_count      = 1;
 
-    err_code = ble_advdata_set(&advdata1, NULL);
+
+		err_code = ble_advdata_set(&advdata3, NULL);
     APP_ERROR_CHECK(err_code);
 }
 

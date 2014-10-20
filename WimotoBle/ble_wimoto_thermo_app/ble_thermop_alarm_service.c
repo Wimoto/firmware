@@ -16,6 +16,7 @@
 * Sherin           12/10/2013     Added write events for value fields
 * Hariprasad       12/11/2013     Added 128bit Vendor specific  custom UUID's for the service and all characteristics 
 * sruthiraj        01/10/2014     migrated to soft device 7.0.0 and SDK 6.1.0
+* Sruthi.k.s			 10/17/2014			Added time stamp with alarm characteristics
 */
 
 #include "ble_thermop_alarm_service.h"
@@ -26,10 +27,14 @@
 #include "wimoto.h"
 #include "wimoto_sensors.h"
 #include "app_error.h"
-bool     	      THERMOPS_CONNECTED_STATE=false;  /*Indicates whether the thermopile service is connected or not*/
-extern bool 	  CHECK_ALARM_TIMEOUT;
-uint8_t         current_thermopile_temp_store[THERMOP_CHAR_SIZE];
-extern uint8_t	 m_service;
+
+bool     	      	THERMOPS_CONNECTED_STATE=false;  /*Indicates whether the thermopile service is connected or not*/
+extern bool 	  	CHECK_ALARM_TIMEOUT;
+uint8_t         	current_thermopile_temp_store[THERMOP_CHAR_SIZE];
+extern uint8_t	 	var_receive_uuid;									/*variable to receive uuid*/
+extern uint8_t		thermopile[5];                    /*variable to store current Thermopile temperature to broadcast*/
+
+
 /**@brief Function for handling the Connect event.
 *
 * @param[in]   p_thermops       Thermopile Service structure.
@@ -54,6 +59,7 @@ static void on_disconnect(ble_thermops_t * p_thermops, ble_evt_t * p_ble_evt)
     p_thermops->conn_handle = BLE_CONN_HANDLE_INVALID;
 }
 
+
 /**@brief Function for handling write events on values.
 *
 * @details This function will be called for all write events of temperature low, high values and alarm set 
@@ -63,6 +69,8 @@ static void write_evt_handler(void)
 {   
     CHECK_ALARM_TIMEOUT = true; 
 }
+
+
 /**@brief Function for handling the Write event.
 *
 * @param[in]   p_thermops       Thermopile Service structure.
@@ -281,6 +289,7 @@ void ble_thermops_on_ble_evt(ble_thermops_t * p_thermops, ble_evt_t * p_ble_evt)
 
 }
 
+
 /**@brief Function for adding the current thermopile characteristics.
 *
 * @param[in]   p_thermops        Thermopile Service structure.
@@ -348,6 +357,7 @@ static uint32_t current_thermopile_char_add(ble_thermops_t * p_thermops, const b
     return NRF_SUCCESS;
 }
 
+
 /**@brief Function for adding the thermopile low value characteristics.
 *
 * @param[in]   p_thermops        Thermopile Service structure.
@@ -413,6 +423,7 @@ static uint32_t thermopile_low_value_char_add(ble_thermops_t * p_thermops, const
 
     return NRF_SUCCESS;
 }
+
 
 /**@brief Function for adding the thermopile high value characteristics.
 *
@@ -482,6 +493,7 @@ static uint32_t thermopile_high_value_char_add(ble_thermops_t * p_thermops, cons
     return NRF_SUCCESS;
 }
 
+
 /**@brief Function for adding the thermopile alarm set characteristics.
 *
 * @param[in]   p_thermops        Thermopile Service structure.
@@ -545,6 +557,7 @@ static uint32_t thermopile_alarm_set_char_add(ble_thermops_t * p_thermops, const
     return NRF_SUCCESS;
 }
 
+
 /**@brief Function for adding the thermopile alarm characteristics.
 *
 * @param[in]   p_thermops        Thermopile Service structure.
@@ -561,7 +574,9 @@ static uint32_t thermopile_alarm_char_add(ble_thermops_t * p_thermops, const ble
     ble_gatts_attr_t    attr_char_value;
     ble_uuid_t          ble_uuid;
     ble_gatts_attr_md_t attr_md;
-    static uint8_t             thermo_thermopile_alarm;
+	
+		/* array for receiving alarm with time stamp from thermopile service structure*/
+    static uint8_t     thermo_alarm_with_time_stamp[8];
 
     // Add thermopile high level characteristic 
     if (p_thermops->is_notification_supported)
@@ -597,17 +612,24 @@ static uint32_t thermopile_alarm_char_add(ble_thermops_t * p_thermops, const ble
     attr_md.wr_auth    = 0;
     attr_md.vlen       = 0;
 
-
-    thermo_thermopile_alarm = p_thermops_init->thermo_thermopile_alarm;
-
+		//assigning alarm with time stamp of thermopile characteristics to alarm with time stamp array
+    thermo_alarm_with_time_stamp[0] = p_thermops_init->thermo_alarm_with_time_stamp[0];
+		thermo_alarm_with_time_stamp[1] = p_thermops_init->thermo_alarm_with_time_stamp[1];
+		thermo_alarm_with_time_stamp[2] = p_thermops_init->thermo_alarm_with_time_stamp[2];
+		thermo_alarm_with_time_stamp[3] = p_thermops_init->thermo_alarm_with_time_stamp[3];
+		thermo_alarm_with_time_stamp[4] = p_thermops_init->thermo_alarm_with_time_stamp[4];
+		thermo_alarm_with_time_stamp[5] = p_thermops_init->thermo_alarm_with_time_stamp[5];
+		thermo_alarm_with_time_stamp[6] = p_thermops_init->thermo_alarm_with_time_stamp[6];
+		thermo_alarm_with_time_stamp[7] = p_thermops_init->thermo_alarm_with_time_stamp[7];
+		
     memset(&attr_char_value, 0, sizeof(attr_char_value));
 
     attr_char_value.p_uuid       = &ble_uuid;
     attr_char_value.p_attr_md    = &attr_md;
-    attr_char_value.init_len     = sizeof(uint8_t);
+    attr_char_value.init_len     = sizeof(thermo_alarm_with_time_stamp);
     attr_char_value.init_offs    = 0;
-    attr_char_value.max_len      = sizeof(uint8_t);
-    attr_char_value.p_value      = &thermo_thermopile_alarm;
+    attr_char_value.max_len      = sizeof(thermo_alarm_with_time_stamp);
+    attr_char_value.p_value      = thermo_alarm_with_time_stamp;
 
     err_code = sd_ble_gatts_characteristic_add(p_thermops->service_handle, &char_md,
     &attr_char_value,
@@ -635,8 +657,8 @@ uint32_t ble_thermops_init(ble_thermops_t * p_thermops, const ble_thermops_init_
     ble_uuid_t ble_uuid;
 
 		// Add service
-    ble_uuid.type =	m_service;
-		p_thermops->uuid_type=	m_service;
+    ble_uuid.type =	var_receive_uuid;
+		p_thermops->uuid_type=var_receive_uuid;
     ble_uuid.uuid = THERMO_PROFILE_SERVICE_UUID;
 
     // Initialize service structure
@@ -659,8 +681,6 @@ uint32_t ble_thermops_init(ble_thermops_t * p_thermops, const ble_thermops_init_
     p_thermops->thermo_thermopile_low_level[0] = p_thermops_init->thermo_thermopile_low_level[0];		
 
     p_thermops->thermo_thermopile_alarm_set    = p_thermops_init->thermo_thermopile_alarm_set;
-    p_thermops->thermo_thermopile_alarm        = p_thermops_init->thermo_thermopile_alarm;
-
 
 
     err_code = sd_ble_gatts_service_add(BLE_GATTS_SRVC_TYPE_PRIMARY, &ble_uuid, &p_thermops->service_handle);
@@ -703,24 +723,30 @@ uint32_t ble_thermops_init(ble_thermops_t * p_thermops, const ble_thermops_init_
 
 }
 
+
 /**@brief Function reads and updates the current thermopile and checks for alarm condition.
 *
 * @param[in]   p_thermops        Thermopile Service structure.
 *
+* @param[in]   p_Device          Device management Service structure
+*
 * @return      NRF_SUCCESS on success, otherwise an error code.
 */
-uint32_t ble_thermops_level_alarm_check(ble_thermops_t * p_thermops)
+uint32_t ble_thermops_level_alarm_check(ble_thermops_t * p_thermops,ble_device_t *p_device)
 {
     uint32_t err_code = NRF_SUCCESS;
     float current_thermopile;
     uint8_t  current_thermopile_array[THERMOP_CHAR_SIZE];
 	  float thermopile_low_value;		
     float thermopile_high_value;		
-
+	
+		bool     THERMO_ALARM_SET_TIME_READ=false; 									 /*This flag for thermopile service alarm set time read*/
+		bool     THERMO_ALARM_RESET_TIME_STAMP=false;									/*This flag for Thermopile alarm reset read whether alarm set is 0x00 */
     static float  previous_thermopile = 0x00;
-    uint8_t alarm = 0x00;
+	
+    uint8_t alarm[8]= {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
 
-    uint16_t len = sizeof(uint8_t);
+    uint16_t len = 8;		//length of alarm with time stamp characteristics 
     uint16_t len1 = sizeof(current_thermopile_array);
 
     read_thermopile_connectable(current_thermopile_array, &current_thermopile); /* read the current thermopile*/
@@ -729,7 +755,10 @@ uint32_t ble_thermops_level_alarm_check(ble_thermops_t * p_thermops)
 		for (i=0;i<THERMOP_CHAR_SIZE;i++)
     {
         current_thermopile_temp_store[i] =current_thermopile_array[i]; /*store the current thermopile to a global array to be used for data logging*/
-    }
+				
+			/*copy the current Thermopile temperature for broadcast*/
+				thermopile[i]=current_thermopile_array[i];
+		}
 		    if(current_thermopile != previous_thermopile)                   /*Check whether thermopile value has changed*/
     {   
 
@@ -767,26 +796,53 @@ uint32_t ble_thermops_level_alarm_check(ble_thermops_t * p_thermops)
 			//	current_thermopile=00.00;
 				if(current_thermopile < thermopile_low_value)
         {
-            alarm = SET_ALARM_THERMOP_LOW;		//set alarm to 01 if thermopile is low 
+            alarm[0] = SET_ALARM_THERMOP_LOW;		//set alarm to 01 if thermopile is low 
+						THERMO_ALARM_SET_TIME_READ=true;
         }
 
         else if(current_thermopile > thermopile_high_value)
         {
-            alarm = SET_ALARM_THERMOP_HIGH;		//set alarm to 02 if thermopile is high 
+            alarm[0] = SET_ALARM_THERMOP_HIGH;		//set alarm to 02 if thermopile is high
+						THERMO_ALARM_SET_TIME_READ=true;
         } 
 
         else
         {	
-            alarm = RESET_ALARM;		       //reset alarm to 0x00
+            alarm[0] = RESET_ALARM;		       //reset alarm to 0x00
         }	
     }
     else
     {	
-        alarm = RESET_ALARM;								           /*reset alarm to 0x00*/
-    }		
+        alarm[0] = RESET_ALARM;								           /*reset alarm to 0x00*/
+				THERMO_ALARM_RESET_TIME_STAMP=true;
+    }	
+		/*reading of time stamp from device management service structure whether the alarm set*/
+		if(THERMO_ALARM_SET_TIME_READ)
+		{
+				alarm[1]=p_device->device_time_stamp_set[0];
+				alarm[2]=p_device->device_time_stamp_set[1];
+				alarm[3]=p_device->device_time_stamp_set[2];
+				alarm[4]=p_device->device_time_stamp_set[3];
+				alarm[5]=p_device->device_time_stamp_set[4];
+				alarm[6]=p_device->device_time_stamp_set[5];
+				alarm[7]=p_device->device_time_stamp_set[6];
+				THERMO_ALARM_SET_TIME_READ=false;
+		}
+		/*resetting of alarm time to zero whether the alarm set characteristics set as zero*/
+		if(THERMO_ALARM_RESET_TIME_STAMP)
+		{		
+				alarm[0]=0x00;
+				alarm[1]=0x00;
+				alarm[2]=0x00;
+				alarm[3]=0x00;
+				alarm[4]=0x00;
+				alarm[5]=0x00;
+				alarm[6]=0x00;
+				alarm[7]=0x00;
+				THERMO_ALARM_RESET_TIME_STAMP=false;
+		}
 
-
-    if(alarm != p_thermops->thermo_thermopile_alarm )  /*check whether the alarm value has changed and send the change*/
+    if((alarm[0]!= 0)||(p_thermops->thermo_thermopile_alarm_set == 0x00))/*check whether the alarm sets as non zero or alarm set characteristics set as zero*/
     {	
         // Send value if connected and notifying
 
@@ -802,10 +858,10 @@ uint32_t ble_thermops_level_alarm_check(ble_thermops_t * p_thermops)
             hvx_params.type     = BLE_GATT_HVX_NOTIFICATION;
             hvx_params.offset   = 0;
             hvx_params.p_len    = &len;
-            hvx_params.p_data   = &alarm;
+            hvx_params.p_data   = alarm;
 
             err_code = sd_ble_gatts_hvx(p_thermops->conn_handle, &hvx_params);
-						p_thermops->thermo_thermopile_alarm = alarm;
+						p_thermops->thermo_alarm_with_time_stamp[0] = alarm[0];
         }
         else
         {

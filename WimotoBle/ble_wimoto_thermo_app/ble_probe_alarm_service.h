@@ -22,7 +22,7 @@
 #include <stdbool.h>
 #include "ble.h"
 #include "ble_srv_common.h"
-
+#include "ble_device_mgmt_service.h"
 
 /**@brief probe Service event type. */
 typedef enum
@@ -54,10 +54,10 @@ typedef struct
     ble_probes_write_evt_handler_t write_evt_handler;                 /**< Event handler to be called for handling write events */
     bool                         support_notification;              /**< TRUE if notification of probe temperature Level measurement is supported. */
     ble_srv_report_ref_t *       p_report_ref;                      /**< If not NULL, a Report Reference descriptor with the specified value will be added to the probe temperature Level characteristic */
-    uint8_t                      probe_temp_low_value;               /**< probe temperature low level */
-    uint8_t                      probe_temp_high_value;              /**< probe temperature low level */
+    uint8_t                      probe_temp_low_value[2];               /**< probe temperature low level */
+    uint8_t                      probe_temp_high_value[2];              /**< probe temperature low level */
     uint8_t											 probe_temp_alarm_set;               /** Alarm set for probe temperature **/
-    uint8_t											 probe_temp_alarm;   			          /** Alarm for probe temperature **/
+    uint8_t											 probe_alarm_with_time_stamp[8];   	 /** Alarm for probe temperature with time stamp**/
     ble_srv_cccd_security_mode_t probe_temp_char_attr_md;            /**< Initial security level for probe temperature characteristics attribute */
     ble_srv_cccd_security_mode_t probe_temp_char_attr_md2;           /**< Initial security level for probe temperature characteristics attribute */
     ble_gap_conn_sec_mode_t      probe_temp_level_report_read_perm;  /**< Initial security level for probe temperature report read attribute */
@@ -76,10 +76,10 @@ typedef struct ble_probes_s
     ble_gatts_char_handles_t      probe_temp_alarm_set_handles;  	  /**< Handles for probe temperature alarm set characteristic. */
     ble_gatts_char_handles_t      probe_temp_alarm_handles;      	  /**< Handles for probe temperature alarm characteristic. */
     uint16_t                      report_ref_handle;              	/**< Handle of the Report Reference descriptor. */
-    uint8_t                       probe_temp_low_level;   				    /**< probe temperature low level value. */
-    uint8_t                       probe_temp_high_level;   					/**< probe temperature high level value. */
+    uint8_t                       probe_temp_low_level[2];   				    /**< probe temperature low level value. */
+    uint8_t                       probe_temp_high_level[2];   					/**< probe temperature high level value. */
     uint8_t												probe_temp_alarm_set;   						/** Alarm set for probe temperature **/
-    uint8_t												probe_temp_alarm;   								/** Alarm for probe temperature level **/
+    uint8_t											  probe_alarm_with_time_stamp[8];   	 /** Alarm for probe temperature with time stamp**/
     uint16_t                      conn_handle;                    	/**< Handle of the current connection (as provided by the BLE stack, is BLE_CONN_HANDLE_INVALID if not in a connection). */
     bool                          is_notification_supported;     	  /**< TRUE if notification of probe temperature Level is supported. */
 } ble_probes_t;
@@ -110,16 +110,17 @@ void ble_probes_on_ble_evt(ble_probes_t * p_probes, ble_evt_t * p_ble_evt);
 * @details The application call this function for probe temperature level measurement and checking the alarm condition. If
 *          notification has been enabled, the probe temperature level characteristic is sent to the client.
 *
-*
 * @param[in]   p_probes  probe temperature level Service structure.
+*
+* @param[in]   p_Device          Device management Service structure
 *
 * @return      NRF_SUCCESS on success, otherwise an error code.
 */
 
-uint32_t ble_probes_level_alarm_check(ble_probes_t *);
+uint32_t ble_probes_level_alarm_check(ble_probes_t *,ble_device_t *);
 float convert_probe_level_to_float(uint16_t);
 
-uint8_t read_probe_temp_level(void);											/**@brief Function for reading probe temperature from sensor **/
+uint16_t read_probe_temp_level(void);											/**@brief Function for reading probe temperature from sensor **/
 
 
 #endif 

@@ -11,7 +11,8 @@
 * Change log
 * Sherin           12/10/2013     Added write events for value fields
 * Hariprasad       12/11/2013     Added 128bit Vendor specific  custom UUID's for the service and all characteristics 
-* sruthiraj        01/10/2014     Migrated to soft device 7.0.0 and SDK 6.1.0
+* sruthiraj        10/01/2014     Migrated to soft device 7.0.0 and SDK 6.1.0
+* Sruthi.k.s			 10/17/2014			Added time stamp with alarm characteristics
 */
 
 #include "ble_probe_alarm_service.h"
@@ -22,10 +23,12 @@
 #include "wimoto.h"
 #include "wimoto_sensors.h"
 #include "app_error.h"
-bool PROBES_CONNECTED_STATE=false;      /*This flag indicates whether a client is connected to the peripheral in probe temperature service*/
-extern bool    BROADCAST_MODE;
-extern bool 	 CHECK_ALARM_TIMEOUT;
-extern uint8_t	 m_service;
+
+bool 	PROBES_CONNECTED_STATE=false;      /*This flag indicates whether a client is connected to the peripheral in probe temperature service*/
+extern bool 	 		CHECK_ALARM_TIMEOUT;
+extern uint8_t	 	var_receive_uuid;										/*variable to receive uuid*/
+extern uint8_t	  curr_probe_temp_level[2];   /*variable to store current probe temperature to broadcast*/
+
 /**@brief Function for handling the Connect event.
 *
 * @param[in]   p_probes    probe temperature Service structure.
@@ -50,6 +53,7 @@ static void on_disconnect(ble_probes_t * p_probes, ble_evt_t * p_ble_evt)
     p_probes->conn_handle = BLE_CONN_HANDLE_INVALID;
 }
 
+
 /**@brief Function for handling write events on values.
 *
 * @details This function will be called for all write events of probe temperature low, high values and alarm set 
@@ -59,6 +63,7 @@ static void write_evt_handler(void)
 {   
     CHECK_ALARM_TIMEOUT = true; 
 }
+
 
 /**@brief Function for handling the Write event.
 *
@@ -207,13 +212,14 @@ static void on_write(ble_probes_t * p_probes, ble_evt_t * p_ble_evt)
     if (
             (p_evt_write->handle == p_probes->probe_temp_low_level_handles.value_handle) 
             && 
-            (p_evt_write->len == 1)
+            (p_evt_write->len == 2)
             )
     {
         // update the temperature service structure
-        p_probes->probe_temp_low_level =   p_evt_write->data[0];
-
-        // call application event handler
+        p_probes->probe_temp_low_level[0] =   p_evt_write->data[0];
+				p_probes->probe_temp_low_level[1] =   p_evt_write->data[1];
+   
+			// call application event handler
         p_probes->write_evt_handler();
     }		
 
@@ -221,13 +227,14 @@ static void on_write(ble_probes_t * p_probes, ble_evt_t * p_ble_evt)
     if (
             (p_evt_write->handle == p_probes->probe_temp_high_level_handles.value_handle) 
             && 
-            (p_evt_write->len == 1)
+            (p_evt_write->len == 2)
             )
     {
         // update the temperature service structure
-        p_probes->probe_temp_high_level =   p_evt_write->data[0];
-
-        // call application event handler
+        p_probes->probe_temp_high_level[0] =   p_evt_write->data[0];
+				p_probes->probe_temp_high_level[1] =   p_evt_write->data[1];
+       
+				// call application event handler
         p_probes->write_evt_handler();
     }
 
@@ -270,6 +277,7 @@ void ble_probes_on_ble_evt(ble_probes_t * p_probes, ble_evt_t * p_ble_evt)
 
 }
 
+
 /**@brief Function for adding the current probe temperature level characteristics.
 *
 * @param[in]   p_probes        probe temperature Service structure.
@@ -285,7 +293,7 @@ static uint32_t current_probe_temp_level_char_add(ble_probes_t * p_probes, const
     ble_gatts_attr_t    attr_char_value;
     ble_uuid_t          ble_uuid;
     ble_gatts_attr_md_t attr_md;
-    static uint8_t      current_probe_temp_level;
+    static uint8_t      current_probe_temp_level[2];
 
     if (p_probes->is_notification_supported)
     {
@@ -325,7 +333,7 @@ static uint32_t current_probe_temp_level_char_add(ble_probes_t * p_probes, const
     attr_char_value.init_len     = sizeof(current_probe_temp_level);
     attr_char_value.init_offs    = 0;
     attr_char_value.max_len      = sizeof(current_probe_temp_level);
-    attr_char_value.p_value      = &current_probe_temp_level;
+    attr_char_value.p_value      = current_probe_temp_level;
 
     err_code = sd_ble_gatts_characteristic_add(p_probes->service_handle, &char_md,
     &attr_char_value,
@@ -337,6 +345,7 @@ static uint32_t current_probe_temp_level_char_add(ble_probes_t * p_probes, const
 
     return NRF_SUCCESS;
 }
+
 
 /**@brief Function for adding the probe temperature low value characteristics.
 *
@@ -352,7 +361,7 @@ static uint32_t probe_temp_low_value_char_add(ble_probes_t * p_probes, const ble
     ble_gatts_attr_t    attr_char_value;
     ble_uuid_t          ble_uuid;
     ble_gatts_attr_md_t attr_md;
-    static uint8_t      probe_temp_low_value;
+    static uint8_t      probe_temp_low_value[2];
 
     memset(&char_md, 0, sizeof(char_md));
 
@@ -378,8 +387,8 @@ static uint32_t probe_temp_low_value_char_add(ble_probes_t * p_probes, const ble
     attr_md.wr_auth    = 0;
     attr_md.vlen       = 0;
 
-    probe_temp_low_value = p_probes_init->probe_temp_low_value;
-
+    probe_temp_low_value[1] = p_probes_init->probe_temp_low_value[1];
+		probe_temp_low_value[0] = p_probes_init->probe_temp_low_value[0];
 
     memset(&attr_char_value, 0, sizeof(attr_char_value));
 
@@ -388,7 +397,7 @@ static uint32_t probe_temp_low_value_char_add(ble_probes_t * p_probes, const ble
     attr_char_value.init_len     = sizeof(probe_temp_low_value);
     attr_char_value.init_offs    = 0;
     attr_char_value.max_len      = sizeof(probe_temp_low_value);
-    attr_char_value.p_value      = &probe_temp_low_value;
+    attr_char_value.p_value      = probe_temp_low_value;
 
     err_code = sd_ble_gatts_characteristic_add(p_probes->service_handle,&char_md,
     &attr_char_value,
@@ -400,6 +409,7 @@ static uint32_t probe_temp_low_value_char_add(ble_probes_t * p_probes, const ble
 
     return NRF_SUCCESS;
 }
+
 
 /**@brief Function for adding the probe temperature high value characteristics.
 *
@@ -416,7 +426,7 @@ static uint32_t probe_temp_high_value_char_add(ble_probes_t * p_probes, const bl
     ble_gatts_attr_t    attr_char_value;
     ble_uuid_t          ble_uuid;
     ble_gatts_attr_md_t attr_md;
-    static uint8_t      probe_temp_high_value;
+    static uint8_t      probe_temp_high_value[2];
 
     memset(&char_md, 0, sizeof(char_md));
 
@@ -442,7 +452,8 @@ static uint32_t probe_temp_high_value_char_add(ble_probes_t * p_probes, const bl
     attr_md.wr_auth    = 0;
     attr_md.vlen       = 0;
 
-    probe_temp_high_value = p_probes_init->probe_temp_high_value;  /*Default values for probe temperature high value*/
+    probe_temp_high_value[1] = p_probes_init->probe_temp_high_value[1];  /*Default values for probe temperature high value*/
+		probe_temp_high_value[0] = p_probes_init->probe_temp_high_value[0];  /*Default values for probe temperature high value*/
 
     memset(&attr_char_value, 0, sizeof(attr_char_value));
 
@@ -451,7 +462,7 @@ static uint32_t probe_temp_high_value_char_add(ble_probes_t * p_probes, const bl
     attr_char_value.init_len     = sizeof(probe_temp_high_value);
     attr_char_value.init_offs    = 0;
     attr_char_value.max_len      = sizeof(probe_temp_high_value);
-    attr_char_value.p_value      = &probe_temp_high_value;
+    attr_char_value.p_value      = probe_temp_high_value;
 
     err_code = sd_ble_gatts_characteristic_add(p_probes->service_handle, &char_md,
     &attr_char_value,
@@ -463,6 +474,7 @@ static uint32_t probe_temp_high_value_char_add(ble_probes_t * p_probes, const bl
 
     return NRF_SUCCESS;
 }
+
 
 /**@brief Function for adding the probe temperature alarm set characteristics.
 *
@@ -527,6 +539,7 @@ static uint32_t probe_temp_alarm_set_char_add(ble_probes_t * p_probes, const ble
     return NRF_SUCCESS;
 }
 
+
 /**@brief Function for adding the probe temperature level alarm characteristics.
 *
 * @param[in]   p_probes       probe temperature Service structure.
@@ -543,9 +556,9 @@ static uint32_t probe_temp_alarm_char_add(ble_probes_t * p_probes, const ble_pro
     ble_gatts_attr_t    attr_char_value;
     ble_uuid_t          ble_uuid;
     ble_gatts_attr_md_t attr_md;
-    static uint8_t      probe_temp_alarm; 
-
-    probe_temp_alarm = RESET_ALARM;  /*Initialize alarm to 0x00*/
+	
+		/* array for receiving alarm with time stamp from probe temperature service structure*/
+    static uint8_t      probe_alarm_with_time_stamp[8]; 
 
     // Add probe temperature high level characteristic 
     if (p_probes->is_notification_supported)
@@ -577,16 +590,24 @@ static uint32_t probe_temp_alarm_char_add(ble_probes_t * p_probes, const ble_pro
     attr_md.rd_auth    = 0;
     attr_md.wr_auth    = 0;
     attr_md.vlen       = 0;
-
-
+		//assigning alarm with time stamp of probe temperature characteristics to alarm with time stamp array
+    probe_alarm_with_time_stamp[0] = p_probes_init->probe_alarm_with_time_stamp[0];
+		probe_alarm_with_time_stamp[1] = p_probes_init->probe_alarm_with_time_stamp[1];
+		probe_alarm_with_time_stamp[2] = p_probes_init->probe_alarm_with_time_stamp[2];
+		probe_alarm_with_time_stamp[3] = p_probes_init->probe_alarm_with_time_stamp[3];
+		probe_alarm_with_time_stamp[4] = p_probes_init->probe_alarm_with_time_stamp[4];
+		probe_alarm_with_time_stamp[5] = p_probes_init->probe_alarm_with_time_stamp[5];
+		probe_alarm_with_time_stamp[6] = p_probes_init->probe_alarm_with_time_stamp[6];
+		probe_alarm_with_time_stamp[7] = p_probes_init->probe_alarm_with_time_stamp[7];
+		
     memset(&attr_char_value, 0, sizeof(attr_char_value));
 
     attr_char_value.p_uuid       = &ble_uuid;
     attr_char_value.p_attr_md    = &attr_md;
-    attr_char_value.init_len     = sizeof(uint8_t);
+    attr_char_value.init_len     = sizeof(probe_alarm_with_time_stamp);
     attr_char_value.init_offs    = 0;
-    attr_char_value.max_len      = sizeof(uint8_t);
-    attr_char_value.p_value      = &probe_temp_alarm;
+    attr_char_value.max_len      = sizeof(probe_alarm_with_time_stamp);
+    attr_char_value.p_value      = probe_alarm_with_time_stamp;
 
     err_code = sd_ble_gatts_characteristic_add(p_probes->service_handle, &char_md,
     &attr_char_value,
@@ -598,6 +619,7 @@ static uint32_t probe_temp_alarm_char_add(ble_probes_t * p_probes, const ble_pro
 
     return NRF_SUCCESS;
 }
+
 
 /**@brief Function for initializing the probe temperature service.
 *
@@ -613,8 +635,8 @@ uint32_t ble_probes_init(ble_probes_t * p_probes, const ble_probes_init_t * p_pr
     ble_uuid_t ble_uuid;
 
     // Add service
-    ble_uuid.type = m_service;
-		p_probes->uuid_type=m_service;
+    ble_uuid.type = var_receive_uuid;
+		p_probes->uuid_type=var_receive_uuid;
     ble_uuid.uuid = THERMO_PROFILE_PROBES_SERVICE_UUID;
 
     // Initialize service structure
@@ -623,10 +645,12 @@ uint32_t ble_probes_init(ble_probes_t * p_probes, const ble_probes_init_t * p_pr
     p_probes->conn_handle               = BLE_CONN_HANDLE_INVALID;
     p_probes->is_notification_supported = p_probes_init->support_notification;
 
-    p_probes->probe_temp_low_level      = p_probes_init->probe_temp_low_value;  
-    p_probes->probe_temp_high_level     = p_probes_init->probe_temp_high_value; 
-    p_probes->probe_temp_alarm_set      = p_probes_init->probe_temp_alarm_set;  
-    p_probes->probe_temp_alarm   	      = p_probes_init->probe_temp_alarm;   		
+    p_probes->probe_temp_low_level[0]   = p_probes_init->probe_temp_low_value[0];  
+    p_probes->probe_temp_low_level[1]   = p_probes_init->probe_temp_low_value[1];
+		p_probes->probe_temp_high_level[0]  = p_probes_init->probe_temp_high_value[0]; 
+    p_probes->probe_temp_high_level[1]  = p_probes_init->probe_temp_high_value[1];
+		p_probes->probe_temp_alarm_set      = p_probes_init->probe_temp_alarm_set;  
+  		
 
     err_code = sd_ble_gatts_service_add(BLE_GATTS_SRVC_TYPE_PRIMARY, &ble_uuid, &p_probes->service_handle);
     if (err_code != NRF_SUCCESS)
@@ -667,28 +691,43 @@ uint32_t ble_probes_init(ble_probes_t * p_probes, const ble_probes_init_t * p_pr
 
 }
 
+
 /**@brief Function reads and updates the current probe temperature level and checks for alarm condition.
 *
 * @param[in]   p_probes        probe temperature  Service structure.
 *
+* @param[in]   p_Device          Device management Service structure
+*
 * @return      NRF_SUCCESS on success, otherwise an error code.
 */
-uint32_t ble_probes_level_alarm_check(ble_probes_t * p_probes)
+uint32_t ble_probes_level_alarm_check(ble_probes_t * p_probes,ble_device_t *p_device)
 {
     uint32_t err_code = NRF_SUCCESS;
-    uint8_t current_probe_temp_level;
-
+    uint16_t current_probe_temp_level;
+		uint8_t current_probe_temp_level_array[2];
+	
+		bool     PROBE_ALARM_SET_TIME_READ=false; 									 /*This flag for temperature service alarm set time read*/
+		bool     PROBE_ALARM_RESET_TIME_STAMP=false;									/*This flag for Temperature alarm reset read whether alarm set is 0x00 */
+		uint16_t probe_temp_low_value;
+		uint16_t probe_temp_high_value;
+	
     static uint16_t previous_probe_temp_level = 0x00;
-    uint8_t alarm = 0x00;
-    uint16_t	len = sizeof(uint8_t);
+    uint8_t alarm[8]= {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
+    uint16_t	len = 8;		//length of alarm with time stamp characteristics 
+		uint16_t  len1 = sizeof(current_probe_temp_level_array);
 
     current_probe_temp_level = read_probe_temp_level(); /* read the current probe temperature level*/
-
-
+		
     if(current_probe_temp_level != previous_probe_temp_level)  /*Check whether probe temperature value has changed*/
     {
+        current_probe_temp_level_array[1] = (uint8_t)(current_probe_temp_level & LOWER_BYTE_MASK);   /* Convert the temperature to uint8_t array*/
+        current_probe_temp_level_array[0] =  current_probe_temp_level >>8;
+			
+				/*copy the current probe temperature for broadcast*/
+				curr_probe_temp_level[1]=current_probe_temp_level_array[1];
+				curr_probe_temp_level[0]=current_probe_temp_level_array[0];
         
-        // Send value if connected and notifying		
+				// Send value if connected and notifying		
         if ((p_probes->conn_handle != BLE_CONN_HANDLE_INVALID) && p_probes->is_notification_supported)
         {
             ble_gatts_hvx_params_t hvx_params;
@@ -699,8 +738,8 @@ uint32_t ble_probes_level_alarm_check(ble_probes_t * p_probes)
             hvx_params.handle   = p_probes->curr_probe_temp_level_handles.value_handle;
             hvx_params.type     = BLE_GATT_HVX_NOTIFICATION;
             hvx_params.offset   = 0;
-            hvx_params.p_len    = &len;
-            hvx_params.p_data   = &current_probe_temp_level;
+            hvx_params.p_len    = &len1;
+            hvx_params.p_data   = current_probe_temp_level_array;
 
             err_code = sd_ble_gatts_hvx(p_probes->conn_handle, &hvx_params);
 						previous_probe_temp_level = current_probe_temp_level;
@@ -712,34 +751,67 @@ uint32_t ble_probes_level_alarm_check(ble_probes_t * p_probes)
         }
     }		
 
+    // Get the temperature low value set by the user from the service structure
 
+    probe_temp_low_value 						= 	(p_probes->probe_temp_low_level[0])<<8;	  /* Convert the 8 bit arrays to a 16 bit data*/
+    probe_temp_low_value 						= 	probe_temp_low_value | (p_probes->probe_temp_low_level[1]);	
+    
+  // Get the temperature high value set by the user from the service structure
+
+    probe_temp_high_value            = 	(p_probes->probe_temp_high_level[0])<<8;  /* Convert the 8 bit arrays to a 16 bit data*/
+    probe_temp_high_value 			 			= probe_temp_high_value | (p_probes->probe_temp_high_level[1]);	
 
     /*Check whether the probe temperature is out of range if alarm is set by user */		
     if(p_probes->probe_temp_alarm_set  != 0x00)
     {
 
-        if(current_probe_temp_level < p_probes->probe_temp_low_level)
+        if(current_probe_temp_level < probe_temp_low_value)
         {
-            alarm = SET_ALARM_LOW;		           /*set alarm to 01 if probe temperature level is low */
+            alarm[0] = SET_ALARM_LOW;		           /*set alarm to 01 if probe temperature level is low */
+						PROBE_ALARM_SET_TIME_READ=true;
         }
 
-        else if(current_probe_temp_level > p_probes->probe_temp_high_level )
+        else if(current_probe_temp_level > probe_temp_high_value )
         {
-            alarm = SET_ALARM_HIGH;		          /*set alarm to 02 if probe temperature level is high */
+            alarm[0]= SET_ALARM_HIGH;		          /*set alarm to 02 if probe temperature level is high */
+						PROBE_ALARM_SET_TIME_READ=true;
         } 
 
         else
         {	
-            alarm = RESET_ALARM;		            /*reset alarm to 0x00*/
+            alarm[0] = RESET_ALARM;		            /*reset alarm to 0x00*/
         }	
     }
     else
     {	
-        alarm = RESET_ALARM;							      /*reset alarm to 0x00*/
+        alarm[0] = RESET_ALARM;							      /*reset alarm to 0x00*/
+				PROBE_ALARM_RESET_TIME_STAMP=true;
     }		
-
-
-    if(alarm != p_probes->probe_temp_alarm   )  /*check whether the alarm value has changed and send the change*/
+		/*reading of time stamp from device management service structure whether the alarm set*/
+		if(PROBE_ALARM_SET_TIME_READ)
+		{
+				alarm[1]=p_device->device_time_stamp_set[0];
+				alarm[2]=p_device->device_time_stamp_set[1];
+				alarm[3]=p_device->device_time_stamp_set[2];
+				alarm[4]=p_device->device_time_stamp_set[3];
+				alarm[5]=p_device->device_time_stamp_set[4];
+				alarm[6]=p_device->device_time_stamp_set[5];
+				alarm[7]=p_device->device_time_stamp_set[6];
+				PROBE_ALARM_SET_TIME_READ=false;
+		}
+		if(PROBE_ALARM_RESET_TIME_STAMP)
+		{		
+				alarm[0]=0x00;
+				alarm[1]=0x00;
+				alarm[2]=0x00;
+				alarm[3]=0x00;
+				alarm[4]=0x00;
+				alarm[5]=0x00;
+				alarm[6]=0x00;
+				alarm[7]=0x00;
+				PROBE_ALARM_RESET_TIME_STAMP=false;
+		}
+    if((alarm[0]!= 0)||(p_probes->probe_temp_alarm_set == 0x00))  /*check whether the alarm sets as non zero or alarm set characteristics set as zero*/
     {     
         // Send value if connected and notifying
 
@@ -748,16 +820,16 @@ uint32_t ble_probes_level_alarm_check(ble_probes_t * p_probes)
             ble_gatts_hvx_params_t hvx_params;
 
             memset(&hvx_params, 0, sizeof(hvx_params));
-            len = sizeof(uint8_t);
-
+            
             hvx_params.handle   = p_probes->probe_temp_alarm_handles.value_handle;
             hvx_params.type     = BLE_GATT_HVX_NOTIFICATION;
             hvx_params.offset   = 0;
             hvx_params.p_len    = &len;
-            hvx_params.p_data   = &alarm;
+            hvx_params.p_data   = alarm;
 
             err_code = sd_ble_gatts_hvx(p_probes->conn_handle, &hvx_params);
-						p_probes->probe_temp_alarm = alarm;
+						p_probes->probe_alarm_with_time_stamp[0] = alarm[0];
+
         }
         else
         {
@@ -772,13 +844,12 @@ uint32_t ble_probes_level_alarm_check(ble_probes_t * p_probes)
 * @param[in]   void
 * @param[out]  uint16_t current_probe_temp_level.
 */
-uint8_t read_probe_temp_level()   
+uint16_t read_probe_temp_level()   
 {
-    static uint8_t current_probe_temp_level=0x00;                            
+    static uint16_t current_probe_temp_level=0x00;                            
     current_probe_temp_level = do_probe_temperature_measurement();  /*Read probe temperature level from ADC */
     return current_probe_temp_level;
 }	
-
 
 
 

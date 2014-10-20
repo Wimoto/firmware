@@ -26,7 +26,7 @@
 #include "ble.h"
 #include "ble_srv_common.h"
 #include "wimoto_sensors.h"
-
+#include "ble_device_mgmt_service.h"
 
 /**@brief Thermopile Service event type. */
 typedef enum
@@ -61,7 +61,7 @@ typedef struct
     uint8_t                       thermo_thermopile_low_level[5];  /**< thermopile low level */
     uint8_t                       thermo_thermopile_high_level[5]; /**< thermopile high level */
     uint8_t												thermo_thermopile_alarm_set;     /** Alarm set for thermopile **/
-    uint8_t												thermo_thermopile_alarm;   			 /** Alarm for thermopile **/
+    uint8_t												thermo_alarm_with_time_stamp[8];  /** Alarm for thermopile with time stamp**/
     ble_srv_cccd_security_mode_t  thermopile_char_attr_md;          /**< Initial security level for Thermopile characteristics attribute */
     ble_srv_cccd_security_mode_t  thermopile_char_attr_md2;        /**< Initial security level for Thermopile characteristics attribute */
     ble_gap_conn_sec_mode_t       battery_level_report_read_perm;    /**< Initial security level for Thermopile report read attribute */
@@ -84,15 +84,10 @@ typedef struct ble_thermops_s
     uint8_t                       thermo_thermopile_low_level[5];   	/**< thermopile low level for alarm for thermopile Service. */
     uint8_t                       thermo_thermopile_high_level[5];   /**< thermopile high level for alarm for thermopile Service. */
     uint8_t						            thermo_thermopile_alarm_set;   	/** Alarm set for thermopile **/
-    uint8_t						            thermo_thermopile_alarm;   			/** Alarm for thermopile **/
+    uint8_t						            thermo_alarm_with_time_stamp[8];  /** Alarm for thermopile with time stamp**/
     uint16_t                      conn_handle;                    /**< Handle of the current connection (as provided by the BLE stack, is BLE_CONN_HANDLE_INVALID if not in a connection). */
     bool                          is_notification_supported;      /**< TRUE if notification of Thermopile Level is supported. */
 } ble_thermops_t;
-
-
-
-extern bool  BROADCAST_MODE; /*broadcase mode flag, defined in main.c */
-
 
 
 /**@brief Function for initializing the Thermopile Service.
@@ -131,9 +126,11 @@ void ble_thermops_on_ble_evt(ble_thermops_t * p_bas, ble_evt_t * p_ble_evt);
 *
 * @param[in]   p_bas          Thermopile Service structure.
 *
+* @param[in]   p_Device          Device management Service structure
+*
 * @return      NRF_SUCCESS on success, otherwise an error code.
 */
-uint32_t ble_thermops_level_alarm_check(ble_thermops_t *);
+uint32_t ble_thermops_level_alarm_check(ble_thermops_t *,ble_device_t *);
 
 
 //uint32_t read_thermopile(void);									 /** Function for reading thermopile from sensor **/

@@ -34,7 +34,7 @@ static ble_gatts_char_handles_t sw_rev_handles;
 static ble_gatts_char_handles_t sys_id_handles;
 static ble_gatts_char_handles_t reg_cert_data_list_handles;
 static ble_gatts_char_handles_t pnp_id_handles;
-extern uint8_t	 m_service;
+extern uint8_t	 var_receive_uuid;
 
 /**@brief Function for encoding a System ID.
  *

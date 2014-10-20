@@ -221,8 +221,8 @@
 #define ADC_SOIL_MOISTURE_PIN                       3         /**< Soil moisture pin is p0.02(value is configured according to ADC analog input)*/
 
 /*ADC input pin Pin for Probe temperature sensor*/
-#define PROBE_SENSOR_ENERGIZE_PIN                  GPIO_OUTCLR_PIN2_Pos  /**< Pin P0.02 is used to energize the soil moisture sensor*/
-#define PROBE_ADC_INPUT_AIN5_P04                    4         /**< Use analog input 5 as ADC input. (P0.04) (value is configured according to ADC analog input)*/
+#define PROBE_SENSOR_ENERGIZE_PIN           GPIO_OUTCLR_PIN2_Pos  /**< Pin P0.02 is used to energize the soil moisture sensor*/
+#define PROBE_ADC_INPUT_AIN5_P05                    5         /**< Use analog input 6 as ADC input. (P0.05) (value is configured according to ADC analog input)*/
 
 /*ADC input pin Pin for Water level sensor*/
 #define WATER_LEVEL_PIN                             2         /**< Pin for water level sensor is P0.01 (value is configured according to ADC analog input) */
@@ -275,14 +275,16 @@
 #define WATERL_LEVEL_DEFAULT_LOW_VALUE            0x00        /**< Default value of soil moisture low value>*/
 #define WATERL_LEVEL_DEFAULT_HIGH_VALUE           0xFF        /**< Default value of soil moisture low value>*/
 
-#define PROBE_TEMP_DEFAULT_LOW_VALUE              0x00        /**< Default value of soil moisture low value>*/
-#define PROBE_TEMP_DEFAULT_HIGH_VALUE             0xFF        /**< Default value of soil moisture low value>*/
+#define PROBE_TEMP_DEFAULT_LOW_VALUE_LOWER_BYTE   0x00        /**< Default value of soil moisture low value>*/
+#define PROBE_TEMP_DEFAULT_LOW_VALUE_HIGHER_BYTE  0x00        /**< Default value of soil moisture low value>*/
+
+#define PROBE_TEMP_DEFAULT_HIGH_VALUE_LOWER_BYTE  0xFF        /**< Default value of soil moisture low value>*/
+#define PROBE_TEMP_DEFAULT_HIGH_VALUE_HIGHER_BYTE  0xFF        /**< Default value of soil moisture low value>*/
  
 #define DATA_LOGGER_BUFFER_START_PAGE             0xC0        /**< first flash page of the datalogger cyclic buffer*/
 #define DATA_LOGGER_BUFFER_END_PAGE               0xC3        /**< last flash page of the datalogger cyclic buffer*/
 #define COMPANY_IDENTIFER                         0x1701      /**< comapany identifier*/                                                                 
   
-void broadcast_mode(void);                                    /**< Function to broadcast climate parameters  */
 void connectable_mode(void);                                  /**< Function to advertise peripheral services */
 void twi_turn_OFF(void);                                      /**< Function to turn OFF twi for power saving */
 void twi_turn_ON(void);                                       /**< Function to turn ON twi								   */
