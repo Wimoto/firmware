@@ -505,8 +505,8 @@ static void gap_params_init(void)
 static void advertising_init(void)
 {
     uint32_t      err_code;
-    ble_advdata_t advdata;
-    ble_advdata_t advdata2;
+    //ble_advdata_t advdata;
+    //ble_advdata_t advdata2;
     uint8_t       flags = BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE;
 
     // Base UUID of Grow Profile
@@ -526,24 +526,24 @@ static void advertising_init(void)
     };
 
     // Build and set advertising data
-    memset(&advdata, 0, sizeof(advdata));
+//    memset(&advdata, 0, sizeof(advdata));
 
-    advdata.name_type               = BLE_ADVDATA_FULL_NAME;
-    advdata.include_appearance      = true;
-    advdata.flags.size              = sizeof(flags);
-    advdata.flags.p_data            = &flags;
-    advdata.uuids_complete.uuid_cnt = sizeof(adv_uuids) / sizeof(adv_uuids[0]);
-    advdata.uuids_complete.p_uuids  = adv_uuids;
-		
-		memset(&advdata2, 0, sizeof(advdata2));
+//    advdata.name_type               = BLE_ADVDATA_FULL_NAME;
+//    advdata.include_appearance      = true;
+//    advdata.flags.size              = sizeof(flags);
+//    advdata.flags.p_data            = &flags;
+//    advdata.uuids_complete.uuid_cnt = sizeof(adv_uuids) / sizeof(adv_uuids[0]);
+//    advdata.uuids_complete.p_uuids  = adv_uuids;
+//		
+//		memset(&advdata2, 0, sizeof(advdata2));
 
-    advdata2.name_type               = BLE_ADVDATA_NO_NAME;
-    advdata2.include_appearance      = false;
-    advdata2.flags.size              = 0;
-    advdata2.p_manuf_specific_data   = &manuf_data; 
+//    advdata2.name_type               = BLE_ADVDATA_NO_NAME;
+//    advdata2.include_appearance      = false;
+//    advdata2.flags.size              = 0;
+//    advdata2.p_manuf_specific_data   = &manuf_data; 
 
-    err_code = ble_advdata_set(&advdata,&advdata2);
-    APP_ERROR_CHECK(err_code);
+//    err_code = ble_advdata_set(&advdata,&advdata2);
+//    APP_ERROR_CHECK(err_code);
 
     // Initialize advertising parameters (used when starting advertising)
     memset(&m_adv_params, 0, sizeof(m_adv_params));
@@ -556,6 +556,7 @@ static void advertising_init(void)
 		
 		// Build and set broadcast data
     ble_advdata_t              advdata1;
+		ble_advdata_t              advdata3; /*variable to sets the scan response data*/
     ble_advdata_service_data_t service_data[1];
     ble_advdata_manuf_data_t   manuf_specific_data;
     uint8_t                    manuf_data_array[5];
@@ -585,8 +586,18 @@ static void advertising_init(void)
     advdata1.p_service_data_array    = service_data;
     advdata1.service_data_count      = 1;
     advdata1.p_manuf_specific_data   = &manuf_specific_data;
+		
+		//Build and set scan response data
+		memset(&advdata3, 0, sizeof(advdata3));
 
-    err_code = ble_advdata_set(&advdata1, NULL);
+    advdata3.name_type               = BLE_ADVDATA_NO_NAME;
+    advdata3.include_appearance      = false;
+    advdata3.flags.size              = 0;
+    advdata3.p_manuf_specific_data   = &manuf_data;					/*sets the company identifier*/
+    advdata3.uuids_complete.uuid_cnt = sizeof(adv_uuids) / sizeof(adv_uuids[0]);
+    advdata3.uuids_complete.p_uuids  = adv_uuids;
+		
+		err_code = ble_advdata_set(&advdata1,&advdata3);
     APP_ERROR_CHECK(err_code);
 }
 
