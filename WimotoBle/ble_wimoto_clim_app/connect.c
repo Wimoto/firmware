@@ -60,7 +60,7 @@
 #define CONNECTED_LED_PIN_NO								 LED_1																		 /**<  LED for the indication of connection>*/
 #define ASSERT_LED_PIN_NO										 LED_1																		 /**<  LED for the indication of assertion>*/
 
-#define DEVICE_NAME                          "Wimoto_Test_F"                           /**< Name of device. Will be included in the advertising data. */
+#define DEVICE_NAME                          "Wimoto_Climate"                           /**< Name of device. Will be included in the advertising data. */
 #define MANUFACTURER_NAME                    "Wimoto"                                  /**< Manufacturer. Will be passed to Device Information Service. */
 #define MODEL_NUM                            "Wimoto_Climate"                          /**< Model number. Will be passed to Device Information Service. */
 #define MANUFACTURER_ID                      0x1122334455                              /**< Manufacturer ID, part of System ID. Will be passed to Device Information Service. */
