@@ -827,10 +827,7 @@ uint32_t ble_waterls_level_alarm_check(ble_waterls_t * p_waterls,ble_device_t *p
 */
 uint8_t read_waterl_level()   
 {
-    static uint8_t current_waterl_level = 0x00; 
-
-    // Initialize ADC for interfacing the water level sensor
-    adc_init();		
+    static uint8_t current_waterl_level = 0x00; 	
 
     // Read water level level from ADC 
     current_waterl_level = do_waterl_adc_measurement(); 
