@@ -47,22 +47,24 @@ bool MMA7660_enable_active_mode()
 *         2.Function returns a true value on the success of the function 
 */
 bool MMA7660_enable_standby_mode()
-{	
-//		char output[10];
-		
-    volatile uint8_t temporary_variable;
-    MMA7660_write_to_reg (MMA7660_MODE_REG , MMA7660_ENABLE_STANDBY_MODE);   /* Clear MODE bit in mode register */
-    temporary_variable=MMA7660_read_register (MMA7660_MODE_REG);
+{			
+    volatile uint8_t temporary_variable,mode_reg_val;
+	
+		mode_reg_val = MMA7660_read_register (MMA7660_MODE_REG);
+	
+    MMA7660_write_to_reg (MMA7660_MODE_REG,(mode_reg_val & MMA7660_ENABLE_STANDBY_MODE));   /* Clear MODE bit in mode register */
+    nrf_delay_ms(30); 
+		temporary_variable=MMA7660_read_register (MMA7660_MODE_REG);
 		
 	
 		
-    if (temporary_variable) 
+    if (temporary_variable==( mode_reg_val & MMA7660_ENABLE_STANDBY_MODE)) 
     {	
 
-        return false;	 
+        return true;	 
     }
 
-    return true;	
+    return false;	
 
 }
 
@@ -134,7 +136,7 @@ bool MMA7660_config_standby_and_initialize()
     uint8_t Mode_Reg_Val;
 
     // Enable standby mode for writing 
-    //if (false == MMA7660_enable_standby_mode()) {simple_uart_putstring((const uint8_t *)"standby messed up \r\r"); return false;}
+    if (false == MMA7660_enable_standby_mode()) {simple_uart_putstring((const uint8_t *)"standby messed up \r\r"); return false;}
     // Sleep count value is 20 i.e.; waits for 5 seconds while sleeping 
     if (false == MMA7660_write_to_reg (MMA7660_SPCNT_REG,MMA7660_SLEEP_COUNT_5S)) {simple_uart_putstring((const uint8_t *)"sleep messed up \r\r"); return false;}	
     // Enable shake and orientation interrupt

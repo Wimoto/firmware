@@ -187,7 +187,7 @@ bool          ISL29023_write_to_reg(uint8_t,uint8_t);  /**< Write data to the re
 
 #define MMA7660_DISABLE_TAP_DETECTION           0xE0   /**< Disable TAP dectection in MMA7660FC*/
 #define MMA7660_ENABLE_ACTIVE_MODE              0x01   /**< Enable active mode in MMA7660FC(continious conversion)  */
-#define MMA7660_ENABLE_STANDBY_MODE             0x00   /**< Enable standby mode in MMA7660FC (no conversion) */
+#define MMA7660_ENABLE_STANDBY_MODE             0xFE   /**< Enable standby mode in MMA7660FC (no conversion) */
 #define MMA7660_USE_1_SAMPLE_PER_SECOND         0x07   /**< Changes sampling rate to 1 sample per second */
 #define MMA7660_ALERT_BIT_SET_CHECK             0x40   /**< Verify weather alert bit is set in any of Xout,Yout or Zout register */
 

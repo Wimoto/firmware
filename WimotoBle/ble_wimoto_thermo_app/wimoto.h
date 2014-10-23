@@ -222,7 +222,7 @@
 
 /*ADC input pin Pin for Probe temperature sensor*/
 #define PROBE_SENSOR_ENERGIZE_PIN           GPIO_OUTCLR_PIN2_Pos  /**< Pin P0.02 is used to energize the soil moisture sensor*/
-#define PROBE_ADC_INPUT_AIN5_P05                    5         /**< Use analog input 6 as ADC input. (P0.05) (value is configured according to ADC analog input)*/
+#define PROBE_ADC_INPUT_AIN5_P04                    4         /**< Use analog input 5 as ADC input. (P0.04) (value is configured according to ADC analog input)*/
 
 /*ADC input pin Pin for Water level sensor*/
 #define WATER_LEVEL_PIN                             2         /**< Pin for water level sensor is P0.01 (value is configured according to ADC analog input) */

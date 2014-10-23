@@ -231,7 +231,7 @@
 #define NO_MOVEMENT                               0x01        /**< GPIOP in value read if there is no movement*/
 #define MOVEMENT                                  0x00        /**< GPIO Pin value read if there is a movement*/
 
-#define MOVEMENT_GPIOTE_PIN                         11         /**< Select pin P0.04 for interfacing MMA7660 accelerometer INT1 interrupt pin>*/
+#define MOVEMENT_GPIOTE_PIN                         11         /**< Select pin P0.11 for interfacing MMA7660 accelerometer INT1 interrupt pin>*/
 #define MOVEMENT_PINS_LOW_TO_HIGH_MASK            0x08000800  /**< Pin selection, so that a LOW to HIGH logic on chosen pin generates an interrupt  >*/
 #define MOVEMENT_PINS_HIGH_TO_LOW_MASK            0x08000800  /**< Pin selection, so that a HIGH to LOW logic on chosen pin generates an interrupt  >*/  //changed this to proper pin//
 /*Pin for PIR detection GPIOTE. */      
