@@ -222,27 +222,27 @@
 #define PWM_OUTPUT_PIN_NUMBER                       1         /**< Pin number for PWM output.*/
 
 /*ADC input pin Pin for Probe temperature sensor*/
-#define PROBE_SENSOR_ENERGIZE_PIN                  GPIO_OUTCLR_PIN2_Pos  /**< Pin P0.02 is used to energize the soil moisture sensor*/
-#define PROBE_ADC_INPUT_AIN5_P05                    5         /**< Use analog input 2 as ADC input. (P0.01) (value is configured according to ADC analog input)*/
+#define PROBE_SENSOR_ENERGIZE_PIN                  GPIO_OUTCLR_PIN2_Pos  /**< Pin P0.02 is used to energize (ADC) sensors*/
+#define PROBE_ADC_INPUT_AIN5_P04                    4         /**< Use analog input 5 as ADC input. (P0.04) (value is configured according to ADC analog input)*/
 
 /*ADC input pin Pin for Water level sensor*/
-#define WATER_LEVEL_PIN                             2         /**< Pin for water level sensor is P0.01 (value is configured according to ADC analog input) */
+#define WATER_LEVEL_PIN                             1         /**< Pin for water level sensor is P0.01 (value is configured according to ADC analog input) */
 
 /*Pin for Movement detection GPIOTE. */                                                       
 #define NO_MOVEMENT                               0x01        /**< GPIOP in value read if there is no movement*/
 #define MOVEMENT                                  0x00        /**< GPIO Pin value read if there is a movement*/
 
-#define MOVEMENT_GPIOTE_PIN                         4         /**< Select pin P0.04 for interfacing MMA7660 accelerometer INT1 interrupt pin>*/
-#define MOVEMENT_PINS_LOW_TO_HIGH_MASK            0x08000010  /**< Pin selection, so that a LOW to HIGH logic on chosen pin generates an interrupt  >*/
-#define MOVEMENT_PINS_HIGH_TO_LOW_MASK            0x08000010  /**< Pin selection, so that a HIGH to LOW logic on chosen pin generates an interrupt  >*/
+#define MOVEMENT_GPIOTE_PIN                         11         /**< Select pin P0.11 for interfacing MMA7660 accelerometer INT1 interrupt pin>*/
+#define MOVEMENT_PINS_LOW_TO_HIGH_MASK            0x08000800  /**< Pin selection, so that a LOW to HIGH logic on chosen pin generates an interrupt  >*/
+#define MOVEMENT_PINS_HIGH_TO_LOW_MASK            0x08000800  /**< Pin selection, so that a HIGH to LOW logic on chosen pin generates an interrupt  >*/  //changed this to proper pin//
 /*Pin for PIR detection GPIOTE. */      
-#define PIR_GPIOTE_PIN                              2         /**< Select pin P0.02 for interfacing digital PIR senor>*/
-#define PIR_PINS_LOW_TO_HIGH_MASK                 0x20000004  /**< Pin selection, so that a LOW to HIGH logic on chosen pin generates an interrupt  >*/
-#define PIR_PINS_HIGH_TO_LOW_MASK                 0x20000004  /**< Pin selection, so that a HIGH to LOW logic on chosen pin generates an interrupt  >*/       
+#define PIR_GPIOTE_PIN                          	  17	          /**< Select pin P0.17 for interfacing digital PIR senor>*/
+#define PIR_PINS_LOW_TO_HIGH_MASK                 0x20020000  /**< Pin selection, so that a LOW to HIGH logic on chosen pin generates an interrupt  >*/
+#define PIR_PINS_HIGH_TO_LOW_MASK                 0x20020000  /**< Pin selection, so that a HIGH to LOW logic on chosen pin generates an interrupt  >*/       
+
 #define DEFAULT_PIR_STATE_ON_PULLUP               0x00        /**< Default value on GPIO pin when PIR sensor when not generating interrupt (ACTIVE HIGH SENSOR)*/             
 #define PIR_DETECTION                             0x01        /**< Default value on GPIO pin when PIR sensor has generated interrupt(ACTIVE HIGH SENSOR)*/
-
- /*Pin for water presence GPIOTE. */
+/*Pin for water presence GPIOTE. */
 #define WATERP_GPIOTE_PIN                           0 
 #define WATERP_PINS_LOW_TO_HIGH_MASK              0x80000001  /**< Pin selection, so that a LOW to HIGH logic on chosen pin generates an interrupt >*/
 #define WATERP_PINS_HIGH_TO_LOW_MASK              0x80000001  /**< Pin selection, so that a HIGH to LOW logic on chosen pin generates an interrupt  >*/

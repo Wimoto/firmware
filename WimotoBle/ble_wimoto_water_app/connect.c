@@ -55,18 +55,18 @@
 #include <stdint.h>
 #include "nrf.h"
 #include "nrf_gpio.h"
-
+#include "nrf_gpiote.h"
 
 
 #define ADVERTISING_LED_PIN_NO 								LED_0
 #define CONNECTED_LED_PIN_NO									LED_1
 #define ASSERT_LED_PIN_NO											LED_1
-#define SEND_MEAS_BUTTON_PIN_NO              	16                                         /**< Button used for sending a measurement. */
-#define BONDMNGR_DELETE_BUTTON_PIN_NO        	17                                         /**< Button used for deleting all bonded masters during startup. */
-#define BOND_DELETE_ALL_BUTTON_ID          	  BUTTON_1          /*< Button used for deleting all bonded centrals during startup.* for migrating into soft device 7.0.0*/
+#define SEND_MEAS_BUTTON_PIN_NO              	16                                        /**< Button used for sending a measurement. */
+#define BONDMNGR_DELETE_BUTTON_PIN_NO        	17                                        /**< Button used for deleting all bonded masters during startup. */
+#define BOND_DELETE_ALL_BUTTON_ID          	  BUTTON_1          												/**< Button used for deleting all bonded centrals during startup.* for migrating into soft device 7.0.0*/
 #define DEVICE_NAME                          "Wimoto_Water"                             /**< Name of device. Will be included in the advertising data. */
 #define MANUFACTURER_NAME                    "Wimoto"                                   /**< Manufacturer. Will be passed to Device Information Service. */
-#define MODEL_NUM                            "Wimoto_Water"                                   /**< Model number. Will be passed to Device Information Service. */
+#define MODEL_NUM                            "Wimoto_Water"                             /**< Model number. Will be passed to Device Information Service. */
 #define MANUFACTURER_ID                      0x1122334455                               /**< Manufacturer ID, part of System ID. Will be passed to Device Information Service. */
 #define ORG_UNIQUE_ID                        0x667788                                   /**< Organizational Unique ID, part of System ID. Will be passed to Device Information Service. */
 
@@ -146,10 +146,10 @@ extern bool                                  DEVICE_CONNECTED_STATE;            
 volatile bool                                ACTIVE_CONN_FLAG = false;                  /**<flag indicating active connection*/
 
 volatile bool                                m_radio_event = false;                     /**< Radio notification event */
-uint8_t  																		 var_receive_uuid;  												 /**<variable for receiving uuid >*/
+uint8_t  																		 var_receive_uuid;  												/**<variable for receiving uuid >*/
 uint32_t buf[4];                                        															  /*buffer for flash write operation*/
 uint8_t				             curr_waterl_level;                						                /* water level value for  broadcast*/
-uint8_t				             curr_waterpresence=0x01;                                          /* water presence value for broadcast*/
+uint8_t				             curr_waterpresence=0x01;                                     /* water presence value for broadcast*/
 static void device_init(void);
 static void dlogs_init(void);
 static void waterps_init(void);
