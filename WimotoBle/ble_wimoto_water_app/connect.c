@@ -117,7 +117,6 @@ static uint16_t                              m_conn_handle = BLE_CONN_HANDLE_INV
 static ble_gap_sec_params_t                  m_sec_params;                              /**< Security requirements for this application. */
 static ble_gap_adv_params_t                  m_adv_params;                              /**< Parameters to be passed to the stack when starting advertising. */
 static ble_waterps_t                         m_waterps;                                 /**< Structure used to identify the water presence service. */
-static ble_waterls_t                         m_waterls;                                 /**< Structure used to identify the water level alarm service. */
 static ble_dlogs_t                           m_dlogs;																	  /**< Structure used to identify the data logger service. */
 static ble_device_t                          m_device;                                  /**< Structure used to identify the device management service. */
 ble_bas_t                             			 bas;                                       /**< Structure used to identify the battery service. */
@@ -148,12 +147,10 @@ volatile bool                                ACTIVE_CONN_FLAG = false;          
 volatile bool                                m_radio_event = false;                     /**< Radio notification event */
 uint8_t  																		 var_receive_uuid;  												/**<variable for receiving uuid >*/
 uint32_t buf[4];                                        															  /*buffer for flash write operation*/
-uint8_t				             curr_waterl_level;                						                /* water level value for  broadcast*/
 uint8_t				             curr_waterpresence=0x01;                                     /* water presence value for broadcast*/
 static void device_init(void);
 static void dlogs_init(void);
 static void waterps_init(void);
-static void waterls_init(void);
 static void dis_init(void);
 static void bas_init(void);
 void data_log_sys_event_handler(uint32_t sys_evt);
@@ -195,10 +192,10 @@ void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p
     //                The flash write will happen EVEN if the radio is active, thus interrupting
     //                any communication.
     //                Use with care. Un-comment the line below to use.
-  //  ble_debug_assert_handler(error_code, line_num, p_file_name);
+   //ble_debug_assert_handler(error_code, line_num, p_file_name);
 
     // On assert, the system can only recover on reset
-  NVIC_SystemReset();
+   NVIC_SystemReset();
 }
 
 
@@ -224,16 +221,15 @@ void assert_nrf_callback(uint16_t line_num, const uint8_t * p_file_name)
 static void alarm_check(void)
 {
     uint32_t err_code;
-    err_code = ble_waterls_level_alarm_check(&m_waterls,&m_device);  /* Check for water level alarm*/    
-    if ((err_code != NRF_SUCCESS) &&																 /*passed device management service structure for getting time stamp in water level service*/
-            (err_code != NRF_ERROR_INVALID_STATE) &&
-            (err_code != BLE_ERROR_NO_TX_BUFFERS) &&
-            (err_code != BLE_ERROR_GATTS_SYS_ATTR_MISSING)
-            )
-    {                                                    
-        APP_ERROR_HANDLER(err_code);                     
-    }     
-
+		err_code = ble_waterps_alarm_check(&m_waterps,&m_device);             /* Check whether alarm has to be raised for water presence */
+    if ((err_code != NRF_SUCCESS) &&																			/*passed device management service structure for getting time stamp in water presence service*/
+             (err_code != NRF_ERROR_INVALID_STATE) &&
+             (err_code != BLE_ERROR_NO_TX_BUFFERS) &&
+             (err_code != BLE_ERROR_GATTS_SYS_ATTR_MISSING)
+             )
+    {
+        APP_ERROR_HANDLER(err_code);
+    } 
 		//updating the advertise/broadcast data
 		if(ACTIVE_CONN_FLAG==false)               /* no active connection*/
 			advertising_init();                     
@@ -258,7 +254,7 @@ static void water_param_meas_timeout_handler(void * p_context)
         DATA_LOG_CHECK=true;
     }
 
-    if (sensor_minutes < 0x02)
+    if (sensor_minutes < 0x05)
     {
         sensor_minutes++;
     }
@@ -370,7 +366,7 @@ static void advertising_nonconn_init(void)
     uint8_t                    flags = BLE_GAP_ADV_FLAG_BR_EDR_NOT_SUPPORTED;
     uint8_t                    battery = 0;
     ble_advdata_manuf_data_t   manuf_specific_data;
-    uint8_t                    manuf_data_array[2];
+    uint8_t                    manuf_data_array[1];
 
     battery = do_battery_measurement();
     service_data[0].service_uuid = BLE_UUID_BATTERY_SERVICE;
@@ -378,7 +374,6 @@ static void advertising_nonconn_init(void)
     service_data[0].data.size    = sizeof(battery);	
 
     manuf_data_array[0] = curr_waterpresence;
-    manuf_data_array[1] = curr_waterl_level;
 
     manuf_specific_data.company_identifier = COMPANY_IDENTIFER;                 /* COMPANY IDENTIFIER */
     manuf_specific_data.data.p_data = manuf_data_array;
@@ -500,26 +495,7 @@ static void advertising_init(void)
         {WATER_PROFILE_WATERLS_SERVICE_UUID,									BLE_UUID_TYPE_BLE}, 
     };
 
-    // Build and set advertising data
-//    memset(&advdata, 0, sizeof(advdata));
-
-//    advdata.name_type               = BLE_ADVDATA_FULL_NAME;
-//    advdata.include_appearance      = true;
-//    advdata.flags.size              = sizeof(flags);
-//    advdata.flags.p_data            = &flags;
-//    advdata.uuids_complete.uuid_cnt = sizeof(adv_uuids) / sizeof(adv_uuids[0]);
-//    advdata.uuids_complete.p_uuids  = adv_uuids;
-
-//    memset(&advdata2, 0, sizeof(advdata2));
-
-//    advdata2.name_type               = BLE_ADVDATA_NO_NAME;
-//    advdata2.include_appearance      = false;
-//    advdata2.flags.size              = 0;
-//    advdata2.p_manuf_specific_data   = &manuf_data;    
-
-//    err_code = ble_advdata_set(&advdata, &advdata2);
-//    APP_ERROR_CHECK(err_code);
-
+    
     // Initialize advertising parameters (used when starting advertising)
     memset(&m_adv_params, 0, sizeof(m_adv_params));
 
@@ -535,7 +511,7 @@ static void advertising_init(void)
     ble_advdata_service_data_t service_data[1];
     uint8_t                    battery = 0;
     ble_advdata_manuf_data_t   manuf_specific_data;
-    uint8_t                    manuf_data_array[2];
+    uint8_t                    manuf_data_array[1];
 
     battery = do_battery_measurement();
     service_data[0].service_uuid = BLE_UUID_BATTERY_SERVICE;
@@ -543,7 +519,6 @@ static void advertising_init(void)
     service_data[0].data.size    = sizeof(battery);	
 
     manuf_data_array[0] = curr_waterpresence;
-    manuf_data_array[1] = curr_waterl_level;
 
     manuf_specific_data.company_identifier = COMPANY_IDENTIFER;                 /* COMPANY IDENTIFIER */
     manuf_specific_data.data.p_data = manuf_data_array;
@@ -587,7 +562,6 @@ uint32_t services_init(void)
 		return err_code;
 	
     waterps_init();        /* Initialize water presence alarm service*/
-    waterls_init();        /* Initialize water level alarm service*/
     dlogs_init();				   /* Initialize the data logger service*/	
     device_init();         /* Initialize device management service*/
     dis_init();            /* Initialize device information service*/
@@ -659,49 +633,6 @@ static void waterps_init(void)
     APP_ERROR_CHECK(err_code);
 
 }
-
-
-/**@brief Function for initializing water level alarm service*/
-static void waterls_init(void)
-{
-    uint32_t           err_code;
-    ble_waterls_init_t   waterls_init;
-
-    // Initialize water level alarm Service
-    memset(&waterls_init, 0, sizeof(waterls_init));
-
-    // Here the sec level for the water level Service can be changed/increased.
-    BLE_GAP_CONN_SEC_MODE_SET_OPEN(&waterls_init.waterl_level_char_attr_md.cccd_write_perm);
-    BLE_GAP_CONN_SEC_MODE_SET_OPEN(&waterls_init.waterl_level_char_attr_md.read_perm);
-    BLE_GAP_CONN_SEC_MODE_SET_OPEN(&waterls_init.waterl_level_char_attr_md.write_perm);
-    BLE_GAP_CONN_SEC_MODE_SET_NO_ACCESS(&waterls_init.waterl_level_char_attr_md2.write_perm);
-
-    BLE_GAP_CONN_SEC_MODE_SET_OPEN(&waterls_init.waterl_level_level_report_read_perm);
-
-    waterls_init.evt_handler          = NULL;
-    waterls_init.write_evt_handler    = NULL;
-    waterls_init.support_notification = true;
-    waterls_init.p_report_ref         = NULL; 
-
-    /* Set the default low value and high value of water level*/
-    waterls_init.waterl_level_low_value    = WATERL_LEVEL_DEFAULT_LOW_VALUE;
-    waterls_init.waterl_level_high_value   = WATERL_LEVEL_DEFAULT_HIGH_VALUE;
-    waterls_init.waterl_level_alarm_set    = DEFAULT_ALARM_SET;
-		
-		//initializing water level service's alarm with time stamp characteristics
-		waterls_init.waterl_alarm_with_time_stamp[0]      = RESET_ALARM;
-		waterls_init.waterl_alarm_with_time_stamp[1]			 =0x00;
-		waterls_init.waterl_alarm_with_time_stamp[2]			 =0x00;
-		waterls_init.waterl_alarm_with_time_stamp[3]			 =0x00;
-		waterls_init.waterl_alarm_with_time_stamp[4]  		 =0x00;
-		waterls_init.waterl_alarm_with_time_stamp[5]			 =0x00;
-		waterls_init.waterl_alarm_with_time_stamp[6]			 =0x00;
-		waterls_init.waterl_alarm_with_time_stamp[7]			 =0x00;
-
-    err_code = ble_waterls_init(&m_waterls, &waterls_init);
-    APP_ERROR_CHECK(err_code);
-}
-
 
 /**@brief Function for initializing device information service*/
 static void dis_init(void )
@@ -990,7 +921,6 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
 static void ble_evt_dispatch(ble_evt_t * p_ble_evt)
 {   
     ble_waterps_on_ble_evt(&m_waterps, p_ble_evt);
-    ble_waterls_on_ble_evt(&m_waterls, p_ble_evt);
     ble_bas_on_ble_evt(&bas, p_ble_evt);
     ble_dlogs_on_ble_evt(&m_dlogs, p_ble_evt);
     ble_device_on_ble_evt(&m_device, p_ble_evt);
@@ -1022,39 +952,13 @@ static void button_event_handler(uint8_t pin_no,uint8_t button_action)
 }
 
 
-/**@brief Event handler for the GPIOTE module for water presence.
-*/
-static void waterp_gpiote_evt_handler(uint32_t pins_low_to_high_mask, uint32_t pins_high_to_low_mask)
-{
-    WATERP_EVENT_FLAG=true;  /* The flag is set when an event occurs on gpiote*/
-}
-
 
 /**@brief Function for initializing the GPIOTE handler module.
 */
 static void gpiote_init(void)
 {  
-    uint32_t err_code;	
-
+   
     APP_GPIOTE_INIT(APP_GPIOTE_MAX_USERS);
-
-    nrf_gpio_cfg_input(WATERP_GPIOTE_PIN, NRF_GPIO_PIN_PULLUP);     /* Configure pin0 as input with pull-up enabled*/
-
-    err_code = app_gpiote_user_register(&waterp_measurement_gpiote, 
-    WATERP_PINS_LOW_TO_HIGH_MASK, 
-    WATERP_PINS_HIGH_TO_LOW_MASK, 
-    waterp_gpiote_evt_handler); /* Register the gpiote user */
-    if (err_code != NRF_SUCCESS )
-    {
-        APP_ERROR_HANDLER(err_code);
-    }
-
-    err_code = app_gpiote_user_enable(waterp_measurement_gpiote);
-
-    if (err_code != NRF_SUCCESS )
-    {
-        APP_ERROR_HANDLER(err_code);
-    }
 
 }
 
@@ -1072,6 +976,14 @@ static void buttons_init(void)
     APP_BUTTON_INIT(buttons, sizeof(buttons) / sizeof(buttons[0]), BUTTON_DETECTION_DELAY, false);
 }
 
+/**@brief Function for configuring the pins for water presence sensor.
+*/
+static void waterps_pins_config(void)
+{
+		nrf_gpio_cfg_input(WATERP_GPIOTE_PIN,GPIO_PIN_CNF_PULL_Disabled);     			/* Configure pin p0.01 as input with pull-up disabled*/
+		nrf_gpio_cfg_output(WATER_SENSOR_ENERGIZE_PIN);                             /* Configure P0.02 as output to energize the water presence sensor */
+    nrf_gpio_pin_dir_set(WATER_SENSOR_ENERGIZE_PIN,NRF_GPIO_PIN_DIR_OUTPUT);    /* Set the direction of P0.02 as output*/
+}
 
 /**@brief Radio Notification event handler.
 */
@@ -1108,18 +1020,21 @@ static void power_manage(void)
 */
 static void create_log_data(uint32_t * data)
 {
-    uint16_t current_water_presence;
-    uint16_t current_water_level;
-
-    current_water_presence=nrf_gpio_pin_read(WATERP_GPIOTE_PIN);					
-    current_water_level=read_waterl_level();
-
-    data[0]=(m_time_stamp.year<<16)|(m_time_stamp.month<<8)|m_time_stamp.day;				 /* Firt word writeen to memory contains date (YYYYMMDD)*/
+    uint8_t current_water_presence;
+		uint8_t waterp_pin_reading;
+		
+		nrf_gpio_pin_set(WATER_SENSOR_ENERGIZE_PIN);                    /* Set the value of P0.02 to high for water presence sensor*/
+		nrf_delay_ms(10);
+    waterp_pin_reading = nrf_gpio_pin_read(WATERP_GPIOTE_PIN);			/*Read pin 0.01*/		
+		nrf_delay_ms(10);																								/*delay for sensor response*/
+		nrf_gpio_pin_clear(WATER_SENSOR_ENERGIZE_PIN);	                /* Clear the pin P0.02 after reading*/
+	
+		current_water_presence = !(waterp_pin_reading);									/* Active Low voltage in pin indicates water presence.So invert the waterp_pin_reading */
+    
+	  data[0]=(m_time_stamp.year<<16)|(m_time_stamp.month<<8)|m_time_stamp.day;				 /* Firt word writeen to memory contains date (YYYYMMDD)*/
     data[1]=(m_time_stamp.hours<<16)|(m_time_stamp.minutes<<8)|m_time_stamp.seconds; /* Second word contains time HHMMSS*/
 
     data[2]=current_water_presence;										/* Third word contains water presence*/	
-    data[3]=current_water_level;                      /* Fouth word contains water level*/
-
 }
 
 
@@ -1127,7 +1042,7 @@ static void create_log_data(uint32_t * data)
 */
 static void data_log_check()
 {
-    uint32_t log_data[4];                                 /* Array storing the data to be logged */
+    uint32_t log_data[4] = {0x00,0x00,0x00,0x00};                                 /* Array storing the data to be logged */
 
     if(ENABLE_DATA_LOG && !READ_DATA)									    /* If enabled, start data logging functionality*/
     {   
@@ -1271,8 +1186,9 @@ void connectable_mode(void)
     ble_stack_init();											        
     timers_init();
     gpiote_init();
-    buttons_init();
-	   device_manager_init();
+		buttons_init();
+		waterps_pins_config();
+	  device_manager_init();
     gap_params_init();
     advertising_init();
     services_init();
@@ -1281,37 +1197,17 @@ void connectable_mode(void)
     radio_notification_init();
     application_timers_start();   
     advertising_start();
+		 
 
     // Enter main loop.
     for (;;)
     {
 
 			// If the dfu enable flag is true and services are not connected go to the bootloader
-        if(DFU_ENABLE && (!DEVICE_CONNECTED_STATE) && (!WATERPS_CONNECTED_STATE) && (!WATERLS_CONNECTED_STATE))  
+        if(DFU_ENABLE && (!DEVICE_CONNECTED_STATE) && (!WATERPS_CONNECTED_STATE))  
         {   
             sd_power_gpregret_set(1);     /* If DFU mode is enabled, set the general purpose retention register to 1*/
             sd_nvic_SystemReset();        /* Apply a system reset for jumping into bootloader*/
-        }
-
-        // If the WATERP_EVENT_FLAG is et , check for alarm condition 
-        if(WATERP_EVENT_FLAG)
-        {
-            err_code = ble_waterps_alarm_check(&m_waterps,&m_device);             /* Check whether alarm has to be raised for water presence */
-            if ((err_code != NRF_SUCCESS) &&																			/*passed device management service structure for getting time stamp in water presence service*/
-                    (err_code != NRF_ERROR_INVALID_STATE) &&
-                    (err_code != BLE_ERROR_NO_TX_BUFFERS) &&
-                    (err_code != BLE_ERROR_GATTS_SYS_ATTR_MISSING)
-                    )
-            {
-                APP_ERROR_HANDLER(err_code);
-            }  
-							
-					//updating the advertise/broadcast data	
-					if(ACTIVE_CONN_FLAG==false)               /* no active connection*/
-							advertising_init();                     
-					else																			/*an active connection exists*/
-							advertising_nonconn_init();
-          WATERP_EVENT_FLAG=false;																		 /* Reset the gpiote event flag*/
         }
 
         if (DATA_LOG_CHECK)

@@ -539,7 +539,7 @@ void write_data_flash(uint32_t *data)
 		if(first_write)                                         /* for the first write cycle set the start address and erase the page*/
     {
         pg_size   = NRF_FICR->CODEPAGESIZE;
-        write_pg  = DATA_LOGGER_BUFFER_START_PAGE;          /* th e first page to be written for logging data*/
+        write_pg  = DATA_LOGGER_BUFFER_START_PAGE;          /* the first page to be written for logging data*/
         pg_end  	= DATA_LOGGER_BUFFER_END_PAGE;						/* the last page for writing data*/
         read_pg 	= DATA_LOGGER_BUFFER_START_PAGE; 
         write_addr = (uint32_t *)(pg_size * write_pg);

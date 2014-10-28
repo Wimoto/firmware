@@ -163,10 +163,10 @@
             <RunIndependent>0</RunIndependent>
             <UpdateFlashBeforeDebugging>1</UpdateFlashBeforeDebugging>
             <Capability>1</Capability>
-            <DriverSelection>4096</DriverSelection>
+            <DriverSelection>4099</DriverSelection>
           </Flash1>
           <bUseTDR>1</bUseTDR>
-          <Flash2>BIN\UL2CM3.DLL</Flash2>
+          <Flash2>Segger\JL2CM3.dll</Flash2>
           <Flash3>"" ()</Flash3>
           <Flash4></Flash4>
         </Utilities>
@@ -418,11 +418,6 @@
               <FilePath>..\main.c</FilePath>
             </File>
             <File>
-              <FileName>adc_waterl_level.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\adc_waterl_level.c</FilePath>
-            </File>
-            <File>
               <FileName>battery.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\battery.c</FilePath>
@@ -436,11 +431,6 @@
               <FileName>ble_waterp_alarm_service.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\ble_waterp_alarm_service.c</FilePath>
-            </File>
-            <File>
-              <FileName>ble_waterl_alarm_service.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\ble_waterl_alarm_service.c</FilePath>
             </File>
             <File>
               <FileName>ble_data_log_service.c</FileName>
@@ -958,11 +948,6 @@
               <FilePath>..\main.c</FilePath>
             </File>
             <File>
-              <FileName>adc_waterl_level.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\adc_waterl_level.c</FilePath>
-            </File>
-            <File>
               <FileName>battery.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\battery.c</FilePath>
@@ -976,11 +961,6 @@
               <FileName>ble_waterp_alarm_service.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\ble_waterp_alarm_service.c</FilePath>
-            </File>
-            <File>
-              <FileName>ble_waterl_alarm_service.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\ble_waterl_alarm_service.c</FilePath>
             </File>
             <File>
               <FileName>ble_data_log_service.c</FileName>

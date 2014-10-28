@@ -204,7 +204,7 @@
 
 #define SET_ALARM_NO_WATER                    	  0x01        /**< Set the alarm when water is not present*/
 #define DEFAULT_WATER_PRESENCE_ON_PULLUP          0x01        /**< Default value on GPIO pin detecting water presence in pull up enabled condition */
-#define WATER_NOT_PRESENT                         0x00        /**< GPIO Pin value read if the water is not present*/
+#define WATER_PRESENT                         		0x01        /**< GPIO Pin value 01 indicates water is not present*/
 
 
 /*Values to be assigned to the pins when used for ADC */
@@ -226,7 +226,7 @@
 #define PROBE_ADC_INPUT_AIN5_P04                    4         /**< Use analog input 5 as ADC input. (P0.04) (value is configured according to ADC analog input)*/
 
 /*ADC input pin Pin for Water level sensor*/
-#define WATER_LEVEL_PIN                             1         /**< Pin for water level sensor is P0.01 (value is configured according to ADC analog input) */
+//#define WATER_LEVEL_PIN                             1         /**< Pin for water level sensor is P0.01 (value is configured according to ADC analog input) */
 
 /*Pin for Movement detection GPIOTE. */                                                       
 #define NO_MOVEMENT                               0x01        /**< GPIOP in value read if there is no movement*/
@@ -243,9 +243,10 @@
 #define DEFAULT_PIR_STATE_ON_PULLUP               0x00        /**< Default value on GPIO pin when PIR sensor when not generating interrupt (ACTIVE HIGH SENSOR)*/             
 #define PIR_DETECTION                             0x01        /**< Default value on GPIO pin when PIR sensor has generated interrupt(ACTIVE HIGH SENSOR)*/
 /*Pin for water presence GPIOTE. */
-#define WATERP_GPIOTE_PIN                           0 
-#define WATERP_PINS_LOW_TO_HIGH_MASK              0x80000001  /**< Pin selection, so that a LOW to HIGH logic on chosen pin generates an interrupt >*/
-#define WATERP_PINS_HIGH_TO_LOW_MASK              0x80000001  /**< Pin selection, so that a HIGH to LOW logic on chosen pin generates an interrupt  >*/
+#define WATERP_GPIOTE_PIN                           1 				/**< Pin for water presence sensor is P0.01>*/
+#define WATERP_PINS_LOW_TO_HIGH_MASK              0x80000002  /**< Pin selection, so that a LOW to HIGH logic on chosen pin generates an interrupt >*/
+#define WATERP_PINS_HIGH_TO_LOW_MASK              0x80000002  /**< Pin selection, so that a HIGH to LOW logic on chosen pin generates an interrupt  >*/
+#define WATER_SENSOR_ENERGIZE_PIN										2					/**< Pin for energizing the sensor*/
 
 #define HTU21_DEFAULT_LOW_VALUE_LOWER_BYTE        0x00        /**< Default value of lowest temperature that HTU21 sensor can measure>*/
 #define HTU21_DEFAULT_LOW_VALUE_HIGHER_BYTE       0x00             

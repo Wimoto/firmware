@@ -30,7 +30,7 @@ extern bool 			WATERP_EVENT_FLAG;              /* This flag indicates whether th
 bool     	    		WATERPS_CONNECTED_STATE=false;  /* Indicates whether the water presence service is connected or not*/
 extern uint8_t		var_receive_uuid;								/*variable to receive uuid*/
 extern uint8_t	  curr_waterpresence;             /* water presence value for broadcast*/
-
+extern bool       CHECK_ALARM_TIMEOUT;
 
 /**@brief Function for handling the Connect event.
 *
@@ -41,6 +41,7 @@ static void on_connect(ble_waterps_t * p_waterps, ble_evt_t * p_ble_evt)
 {
     p_waterps->conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
     WATERPS_CONNECTED_STATE = true;  /*Set the flag to true so that state remains in connectable mode until disconnect*/
+		CHECK_ALARM_TIMEOUT = true;			 /*Set the flag to do alarm check on connection*/
 }
 
 
@@ -217,7 +218,7 @@ static uint32_t current_waterpresence_char_add(ble_waterps_t * p_waterps, const 
     ble_gatts_attr_md_t attr_md;
     static uint8_t      current_waterpresence;
 
-    current_waterpresence=nrf_gpio_pin_read(WATERP_GPIOTE_PIN);
+    current_waterpresence= 0x00;
 		
     if (p_waterps->is_notification_supported)
     {   
@@ -484,24 +485,27 @@ uint32_t ble_waterps_alarm_check(ble_waterps_t * p_waterps,ble_device_t *p_devic
 {
     uint32_t err_code;
     uint8_t  current_waterpresence;       				/* Current water presence*/
-    uint8_t alarm[8]= {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
+		uint8_t waterp_pin_reading;
+    static uint8_t alarm[8]= {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
     uint16_t len1 = sizeof(uint8_t);
-		uint16_t len	=8;	//length of alarm with time stamp characteristics
+		uint16_t len	= 8;	//length of alarm with time stamp characteristics
+	
+		 
+    nrf_gpio_pin_set(WATER_SENSOR_ENERGIZE_PIN);                    /* Set the value of P0.02 to high for water presence sensor*/
+		nrf_delay_ms(10);																								/*delay for sensor response*/
+    waterp_pin_reading = nrf_gpio_pin_read(WATERP_GPIOTE_PIN);			/*read the current water presence from p0.01. Active Low voltage indicates water presence*/
+		nrf_delay_ms(10);																								/*delay for sensor response*/
+		nrf_gpio_pin_clear(WATER_SENSOR_ENERGIZE_PIN);	                /* Clear the pin P0.02 after reading*/
+		
+		current_waterpresence = !(waterp_pin_reading);									/* Active Low voltage in pin indicates water presence.So invert the waterp_pin_reading */
+		curr_waterpresence =current_waterpresence; 											/*copy the current waterpresence value for global broadcast data*/							
 
-    current_waterpresence = nrf_gpio_pin_read(WATERP_GPIOTE_PIN);
-
-		/*copy the current waterpresence value for broadcast*/
-		curr_waterpresence =current_waterpresence;
-
-		bool     WATERPS_ALARM_SET_TIME_READ=false; 									  /*This flag for water presence service alarm set time read*/
-		bool     WATERPS_ALARM_RESET_TIME_STAMP=false;									/*This flag for water presence alarm reset read whether alarm set is 0x00 */
-
+		
     if ((p_waterps->conn_handle != BLE_CONN_HANDLE_INVALID) && p_waterps->is_notification_supported)
     {
         ble_gatts_hvx_params_t hvx_params;
 
         memset(&hvx_params, 0, sizeof(hvx_params));
-
 
         hvx_params.handle   = p_waterps->current_waterp_handles.value_handle;
         hvx_params.type     = BLE_GATT_HVX_NOTIFICATION;
@@ -509,49 +513,33 @@ uint32_t ble_waterps_alarm_check(ble_waterps_t * p_waterps,ble_device_t *p_devic
         hvx_params.p_len    = &len1;
         hvx_params.p_data   = &current_waterpresence;
 
-        err_code = sd_ble_gatts_hvx(p_waterps->conn_handle, &hvx_params);
+        err_code = sd_ble_gatts_hvx(p_waterps->conn_handle, &hvx_params);  /*Send the current water presence value*/
     }
     else
     {
         err_code = NRF_ERROR_INVALID_STATE;
     }
 
-
-
-
-    if(p_waterps->water_waterpresence_alarm_set != 0x00)
+		if(p_waterps->water_waterpresence_alarm_set == 0x01)
     {
-        if (nrf_gpio_pin_read(WATERP_GPIOTE_PIN)==WATER_NOT_PRESENT)
+					
+			  if (current_waterpresence == WATER_PRESENT)					/*Check the presence of water */
         {
-            alarm[0] = SET_ALARM_NO_WATER;
-						WATERPS_ALARM_SET_TIME_READ=true;
-        }
-        else 
-        {
-            alarm[0] = RESET_ALARM;	
-        }
+            alarm[0] = 0x01;																/*If water is present set the alarm and capture the timestamp of last occurance*/
+						alarm[1] = p_device->device_time_stamp_set[0];  
+						alarm[2] = p_device->device_time_stamp_set[1];
+						alarm[3] = p_device->device_time_stamp_set[2];
+						alarm[4] = p_device->device_time_stamp_set[3];
+						alarm[5] = p_device->device_time_stamp_set[4];
+						alarm[6] = p_device->device_time_stamp_set[5];
+						alarm[7] = p_device->device_time_stamp_set[6];
+				}
+        
     }
     else
     {	
-        alarm[0] = RESET_ALARM;								              /* Reset alarm to 0x00*/
-				WATERPS_ALARM_RESET_TIME_STAMP=true;
-    }	
-		/*reading of time stamp from device management service structure whether the alarm set*/
-		if(WATERPS_ALARM_SET_TIME_READ)
-		{
-				alarm[1]=p_device->device_time_stamp_set[0];
-				alarm[2]=p_device->device_time_stamp_set[1];
-				alarm[3]=p_device->device_time_stamp_set[2];
-				alarm[4]=p_device->device_time_stamp_set[3];
-				alarm[5]=p_device->device_time_stamp_set[4];
-				alarm[6]=p_device->device_time_stamp_set[5];
-				alarm[7]=p_device->device_time_stamp_set[6];
-				WATERPS_ALARM_SET_TIME_READ=false;
-		}
-		/*resetting of alarm time to zero whether the alarm set characteristics set as zero*/
-		if(WATERPS_ALARM_RESET_TIME_STAMP)
-		{		
-				alarm[0]=0x00;
+        								              
+				alarm[0]=0x00;																		/* If alarm set is cleared, reset alarm and clear timestamp*/
 				alarm[1]=0x00;
 				alarm[2]=0x00;
 				alarm[3]=0x00;
@@ -559,15 +547,14 @@ uint32_t ble_waterps_alarm_check(ble_waterps_t * p_waterps,ble_device_t *p_devic
 				alarm[5]=0x00;
 				alarm[6]=0x00;
 				alarm[7]=0x00;
-				WATERPS_ALARM_RESET_TIME_STAMP=false;
-		}
+				
+    }	
+		
 
-    if((alarm[0]!= 0)||(p_waterps->water_waterpresence_alarm_set == 0x00)) 	/*check whether the alarm sets as non zero or alarm set characteristics set as zero*/
+    if((alarm[0]== 0x01)&&(p_waterps->water_waterpresence_alarm_set == 0x01)) 	/*check whether the alarm is ON and alarm set characteristics is ON*/
     {	
 
-         
-
-        // Send value if connected and notifying
+        // Send the alarm value if connected and notifying
 
         if ((p_waterps->conn_handle != BLE_CONN_HANDLE_INVALID) && p_waterps->is_notification_supported)
         {
@@ -584,7 +571,7 @@ uint32_t ble_waterps_alarm_check(ble_waterps_t * p_waterps,ble_device_t *p_devic
 
             err_code = sd_ble_gatts_hvx(p_waterps->conn_handle, &hvx_params);
 						p_waterps->waterps_alarm_with_time_stamp[0]  = alarm[0]; 
-
+				
         }
         else
         {

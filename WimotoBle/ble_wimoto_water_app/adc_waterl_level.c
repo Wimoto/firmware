@@ -39,11 +39,11 @@ uint8_t do_waterl_adc_measurement()
 	
     uint8_t adc_result;            /* Result after ADC conversion*/
 		
-		nrf_gpio_cfg_output(PROBE_SENSOR_ENERGIZE_PIN);                              /* Configure P0.02 as output */
-    nrf_gpio_pin_dir_set(PROBE_SENSOR_ENERGIZE_PIN,NRF_GPIO_PIN_DIR_OUTPUT);     /* Set the direction of P0.02 as output*/
-    nrf_gpio_pin_set(PROBE_SENSOR_ENERGIZE_PIN);                                 /* Set the value of P0.02 to high for water level sensor*/
+//		nrf_gpio_cfg_output(PROBE_SENSOR_ENERGIZE_PIN);                              /* Configure P0.02 as output */
+//    nrf_gpio_pin_dir_set(PROBE_SENSOR_ENERGIZE_PIN,NRF_GPIO_PIN_DIR_OUTPUT);     /* Set the direction of P0.02 as output*/
+//    nrf_gpio_pin_set(PROBE_SENSOR_ENERGIZE_PIN);                                 /* Set the value of P0.02 to high for water level sensor*/
 		
-		nrf_gpio_cfg_input(WATER_LEVEL_PIN, NRF_GPIO_PIN_NOPULL);	/*configure p0.01 as ADC input*/
+//		nrf_gpio_cfg_input(WATER_LEVEL_PIN, NRF_GPIO_PIN_NOPULL);	/*configure p0.01 as ADC input*/
 	
     adc_init();                    /* Initialize ADC for water level measurement */
   
