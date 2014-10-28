@@ -254,7 +254,7 @@ static void water_param_meas_timeout_handler(void * p_context)
         DATA_LOG_CHECK=true;
     }
 
-    if (sensor_minutes < 0x05)
+    if (sensor_minutes < 0x02)
     {
         sensor_minutes++;
     }
