@@ -28,7 +28,8 @@ bool 	PROBES_CONNECTED_STATE=false;      /*This flag indicates whether a client 
 extern bool 	 		CHECK_ALARM_TIMEOUT;
 extern uint8_t	 	var_receive_uuid;										/*variable to receive uuid*/
 extern uint8_t	  curr_probe_temp_level[2];   /*variable to store current probe temperature to broadcast*/
-
+extern bool       CHECK_ALARM_TIMEOUT;
+bool              probe_alarm_set_changed = false;
 /**@brief Function for handling the Connect event.
 *
 * @param[in]   p_probes    probe temperature Service structure.
@@ -38,6 +39,7 @@ static void on_connect(ble_probes_t * p_probes, ble_evt_t * p_ble_evt)
 {
     p_probes->conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
     PROBES_CONNECTED_STATE = true;      /*Set the flag to true so that state remains in connectable mode until disconnected*/
+		CHECK_ALARM_TIMEOUT    = true;      /*set the flag to check alarm condition on connect*/
 }
 
 
@@ -247,6 +249,9 @@ static void on_write(ble_probes_t * p_probes, ble_evt_t * p_ble_evt)
     {
         // update the temperature service structure
         p_probes->probe_temp_alarm_set =   p_evt_write->data[0];
+			
+			  //set the flag to indicate the alarm set characteristics is changed
+				probe_alarm_set_changed = true;
 
         // call application event handler
         p_probes->write_evt_handler();
@@ -706,14 +711,12 @@ uint32_t ble_probes_level_alarm_check(ble_probes_t * p_probes,ble_device_t *p_de
     uint16_t current_probe_temp_level;
 		uint8_t current_probe_temp_level_array[2];
 	
-		bool     PROBE_ALARM_SET_TIME_READ=false; 									 /*This flag for temperature service alarm set time read*/
-		bool     PROBE_ALARM_RESET_TIME_STAMP=false;									/*This flag for Temperature alarm reset read whether alarm set is 0x00 */
 		uint16_t probe_temp_low_value;
 		uint16_t probe_temp_high_value;
 	
     static uint16_t previous_probe_temp_level = 0x00;
-    uint8_t alarm[8]= {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
-    uint16_t	len = 8;		//length of alarm with time stamp characteristics 
+    static uint8_t alarm[8]= {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
+    uint16_t	len = sizeof(alarm);																						//length of alarm with time stamp characteristics 
 		uint16_t  len1 = sizeof(current_probe_temp_level_array);
 
     current_probe_temp_level = read_probe_temp_level(); /* read the current probe temperature level*/
@@ -767,51 +770,46 @@ uint32_t ble_probes_level_alarm_check(ble_probes_t * p_probes,ble_device_t *p_de
 
         if(current_probe_temp_level < probe_temp_low_value)
         {
-            alarm[0] = SET_ALARM_LOW;		           /*set alarm to 01 if probe temperature level is low */
-						PROBE_ALARM_SET_TIME_READ=true;
+            alarm[0] = SET_ALARM_LOW;		           				  /*set alarm to 01 if probe temperature level is low */
+						alarm[1] = p_device->device_time_stamp_set[0];	/*capture the timestamp of occurance of alarm*/
+						alarm[2] = p_device->device_time_stamp_set[1];
+						alarm[3] = p_device->device_time_stamp_set[2];
+						alarm[4] = p_device->device_time_stamp_set[3];
+						alarm[5] = p_device->device_time_stamp_set[4];
+						alarm[6] = p_device->device_time_stamp_set[5];
+						alarm[7] = p_device->device_time_stamp_set[6];
         }
 
         else if(current_probe_temp_level > probe_temp_high_value )
         {
-            alarm[0]= SET_ALARM_HIGH;		          /*set alarm to 02 if probe temperature level is high */
-						PROBE_ALARM_SET_TIME_READ=true;
+            alarm[0] = SET_ALARM_HIGH;		                  /*set alarm to 02 if probe temperature level is high */
+						alarm[1] = p_device->device_time_stamp_set[0];	/*capture the timestamp of occurance of alarm*/
+						alarm[2] = p_device->device_time_stamp_set[1];
+						alarm[3] = p_device->device_time_stamp_set[2];
+						alarm[4] = p_device->device_time_stamp_set[3];
+						alarm[5] = p_device->device_time_stamp_set[4];
+						alarm[6] = p_device->device_time_stamp_set[5];
+						alarm[7] = p_device->device_time_stamp_set[6];
         } 
 
-        else
-        {	
-            alarm[0] = RESET_ALARM;		            /*reset alarm to 0x00*/
-        }	
     }
-    else
+    else if(probe_alarm_set_changed)
     {	
         alarm[0] = RESET_ALARM;							      /*reset alarm to 0x00*/
-				PROBE_ALARM_RESET_TIME_STAMP=true;
+				alarm[1] = 0x00;													/*clear the timestamp*/
+				alarm[2] = 0x00;
+				alarm[3] = 0x00;
+				alarm[4] = 0x00;
+				alarm[5] = 0x00;
+				alarm[6] = 0x00;
+				alarm[7] = 0x00;
+			 
+			  sd_ble_gatts_value_set(p_probes->probe_temp_alarm_handles.value_handle, 0, &len, alarm);  /*clear the value of alarm characteristics*/
+				p_probes->probe_alarm_with_time_stamp[0] = alarm[0];
+				probe_alarm_set_changed = false;
     }		
-		/*reading of time stamp from device management service structure whether the alarm set*/
-		if(PROBE_ALARM_SET_TIME_READ)
-		{
-				alarm[1]=p_device->device_time_stamp_set[0];
-				alarm[2]=p_device->device_time_stamp_set[1];
-				alarm[3]=p_device->device_time_stamp_set[2];
-				alarm[4]=p_device->device_time_stamp_set[3];
-				alarm[5]=p_device->device_time_stamp_set[4];
-				alarm[6]=p_device->device_time_stamp_set[5];
-				alarm[7]=p_device->device_time_stamp_set[6];
-				PROBE_ALARM_SET_TIME_READ=false;
-		}
-		if(PROBE_ALARM_RESET_TIME_STAMP)
-		{		
-				alarm[0]=0x00;
-				alarm[1]=0x00;
-				alarm[2]=0x00;
-				alarm[3]=0x00;
-				alarm[4]=0x00;
-				alarm[5]=0x00;
-				alarm[6]=0x00;
-				alarm[7]=0x00;
-				PROBE_ALARM_RESET_TIME_STAMP=false;
-		}
-    if((alarm[0]!= 0)||(p_probes->probe_temp_alarm_set == 0x00))  /*check whether the alarm sets as non zero or alarm set characteristics set as zero*/
+		
+    if((alarm[0]!= 0x00)&&(p_probes->probe_temp_alarm_set == 0x01))  /*check whether the alarm sets as non zero or alarm set characteristics set as zero*/
     {     
         // Send value if connected and notifying
 

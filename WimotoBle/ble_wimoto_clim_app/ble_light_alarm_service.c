@@ -15,6 +15,7 @@
 * Hariprasad        12/11/2013     Added 128bit Vendor specific  custom UUID's for the service and all characteristics 
 * Sruthi.k.s        10/01/2014     Migrated to soft device 7.0.0 and SDK 6.1.0
 * Sruthi.k.s 			  10/17/2014		 Added alarm characteristic with time stamp.
+* Shafy S           10/28/2014     Added changes to show last occurance timestamp of alarm
 */
 
 #include "ble_light_alarm_service.h"
@@ -29,7 +30,7 @@ bool   						LIGHTS_CONNECTED_STATE=false;          /*This flag indicates whethe
 extern bool     	CHECK_ALARM_TIMEOUT;         					 /*Flag to indicate whether to check for alarm conditions defined in connect.c*/
 extern uint8_t	 	var_receive_uuid;											 /*variable for receiving uuid*/
 extern uint8_t		light_level[2];            						 /*variable to store current light level value to broadcast*/
-
+bool              light_alarm_set_changed = false;
 
 /**@brief Function for handling the Connect event.
 *
@@ -40,6 +41,7 @@ static void on_connect(ble_lights_t * p_lights, ble_evt_t * p_ble_evt)
 {
     p_lights->conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
     LIGHTS_CONNECTED_STATE = true;  /*Set the flag to true so that state remains in connectable mode until disconnect*/
+	  CHECK_ALARM_TIMEOUT   = true;     /*set the flag to true to check the alarm condition on connection*/
 }
 
 
@@ -248,6 +250,7 @@ static void on_write(ble_lights_t * p_lights, ble_evt_t * p_ble_evt)
         // update the light service structure
         p_lights->climate_light_alarm_set =   p_evt_write->data[0];
 
+				light_alarm_set_changed = true;
         // call application event handler
         p_lights->write_evt_handler();
     }
@@ -711,14 +714,11 @@ uint32_t ble_lights_level_alarm_check(ble_lights_t * p_lights,ble_device_t * p_d
     uint16_t current_light_level;
     uint8_t  current_light_level_array[2];
 		
-		bool     LIGHTS_ALARM_SET_TIME_READ=false; 									 /*This flag for light service alarm set time read*/
-		bool     LIGHTS_ALARM_RESET_TIME_STAMP=false;								 /*This flag for light alarm reset read whether alarm set is 0x00 */
-	
-    uint16_t light_level_low_value;					   /*light low value set by user as uint16*/
+	  uint16_t light_level_low_value;					   /*light low value set by user as uint16*/
     uint16_t light_level_high_value;				   /*light low value set by user as uint16*/
 
     static uint16_t   previous_light_level = 0x00;
-    uint8_t alarm[8]= {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
+    static uint8_t alarm[8]= {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
 
     uint16_t	len  = 8;	//length of alarm with time stamp characteristics
     uint16_t  len1 = sizeof(current_light_level_array);
@@ -773,45 +773,34 @@ uint32_t ble_lights_level_alarm_check(ble_lights_t * p_lights,ble_device_t * p_d
     {
         if(current_light_level < light_level_low_value)
         {
-            alarm[0] = SET_ALARM_LOW;		         /*set alarm to 01 if light_level is low */
-						LIGHTS_ALARM_SET_TIME_READ=true;		 /*set true if alarm on*/
+            alarm[0] = SET_ALARM_LOW;		         						/*set alarm to 01 if light_level is low */
+						alarm[1]=p_device->device_time_stamp_set[0];		/*capture the timestamp when alarm occured*/
+						alarm[2]=p_device->device_time_stamp_set[1];
+						alarm[3]=p_device->device_time_stamp_set[2];
+						alarm[4]=p_device->device_time_stamp_set[3];
+						alarm[5]=p_device->device_time_stamp_set[4];
+						alarm[6]=p_device->device_time_stamp_set[5];
+						alarm[7]=p_device->device_time_stamp_set[6];
         }
         
         else if(current_light_level > light_level_high_value) 
         {
-            alarm[0] = SET_ALARM_HIGH;            /*set alarm to 02 if light_level is high */
-						LIGHTS_ALARM_SET_TIME_READ=true;			/*set true if alarm on*/
+            alarm[0] = SET_ALARM_HIGH;            					/*set alarm to 02 if light_level is high */
+						alarm[1]=p_device->device_time_stamp_set[0];		/*capture the timestamp when alarm occured*/
+						alarm[2]=p_device->device_time_stamp_set[1];
+						alarm[3]=p_device->device_time_stamp_set[2];
+						alarm[4]=p_device->device_time_stamp_set[3];
+						alarm[5]=p_device->device_time_stamp_set[4];
+						alarm[6]=p_device->device_time_stamp_set[5];
+						alarm[7]=p_device->device_time_stamp_set[6];
         } 
         
-        else
-        {	
-            alarm[0]= RESET_ALARM;		           /*reset alarm to 0x00*/
-        }	
+       
 
     }
-    else
+    else if(light_alarm_set_changed)							/*check whether the alarm set characteristics is set to 00*/
     {	
-        alarm[0] = RESET_ALARM;								    /*reset alarm to 0x00*/
-				LIGHTS_ALARM_RESET_TIME_STAMP=true;				/*Set true whether alarm set value is 0x00 */
-    }	
-		
-		/*reading of time stamp from device management service structure whether the alarm set*/
-		if(LIGHTS_ALARM_SET_TIME_READ)
-		{
-				alarm[1]=p_device->device_time_stamp_set[0];
-				alarm[2]=p_device->device_time_stamp_set[1];
-				alarm[3]=p_device->device_time_stamp_set[2];
-				alarm[4]=p_device->device_time_stamp_set[3];
-				alarm[5]=p_device->device_time_stamp_set[4];
-				alarm[6]=p_device->device_time_stamp_set[5];
-				alarm[7]=p_device->device_time_stamp_set[6];
-			
-				LIGHTS_ALARM_SET_TIME_READ=false;
-		}
-		/*resetting of alarm time to zero whether the alarm set characteristics set as zero*/
-		if(LIGHTS_ALARM_RESET_TIME_STAMP)
-		{		
-				alarm[0]=0x00;
+        alarm[0] = RESET_ALARM;								    /*reset alarm to 0x00 and clear the timestamp*/
 				alarm[1]=0x00;
 				alarm[2]=0x00;
 				alarm[3]=0x00;
@@ -819,11 +808,16 @@ uint32_t ble_lights_level_alarm_check(ble_lights_t * p_lights,ble_device_t * p_d
 				alarm[5]=0x00;
 				alarm[6]=0x00;
 				alarm[7]=0x00;
+				
+				sd_ble_gatts_value_set(p_lights->climate_light_alarm_handles.value_handle, 0, &len, alarm);  /*clear the value of alarm characteristics*/
+				p_lights->lights_alarm_with_time_stamp[0] = alarm[0];
+				light_alarm_set_changed = false;
+    }	
+		
+		/*reading of time stamp from device management service structure whether the alarm set*/
+		
 
-				LIGHTS_ALARM_RESET_TIME_STAMP=false;
-		}
-
-    if((alarm[0]!= 0)||(p_lights->climate_light_alarm_set == 0x00))  /*check whether the alarm sets as non zero or alarm set characteristics set as zero*/
+    if((alarm[0]!= 0x00)&&(p_lights->climate_light_alarm_set == 0x01))  /*check whether the alarm sets as non zero or alarm set characteristics set as zero*/
     {	
         // Send value if connected and notifying
         if ((p_lights->conn_handle != BLE_CONN_HANDLE_INVALID) && p_lights->is_notification_supported)

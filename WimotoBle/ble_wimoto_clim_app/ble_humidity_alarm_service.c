@@ -14,6 +14,7 @@
 * Hariprasad       12/11/2013     Added 128bit Vendor specific  custom UUID's for the service and all characteristics 
 * Sruthi.k.s     	 10/01/2014     migrated to soft device 7.0.0 and SDK 6.1.0
 * Sruthi.k.s 			 10/17/2014			Added alarm characteristic with time stamp.
+* Shafy S          10/28/2014     Added changes to show last occurance timestamp of alarm
 */
 
 #include "ble_humidity_alarm_service.h"
@@ -28,7 +29,7 @@ extern bool     CHECK_ALARM_TIMEOUT;          /*Flag to indicate whether to chec
 bool 						HUMS_CONNECTED_STATE=false;   /*This flag indicates whether a client is connected to the peripheral in humidity service*/
 extern uint8_t	var_receive_uuid;							/*variable for receiving uuid*/
 extern uint8_t	htu_hum_level[2];             /*variable to store current humidity value to broadcast*/ 
-
+bool            hum_alarm_set_changed = false;
 
 /**@brief Function for handling the Connect event.
 *
@@ -39,6 +40,7 @@ static void on_connect(ble_hums_t * p_hums, ble_evt_t * p_ble_evt)
 {		
     p_hums->conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
     HUMS_CONNECTED_STATE = true;      /*Set the flag to true so that state remains in connectable mode until disconnect*/
+		CHECK_ALARM_TIMEOUT   = true;     /*set the flag to true to check the alarm condition on connection*/
 }
 
 
@@ -245,7 +247,10 @@ static void on_write(ble_hums_t * p_hums, ble_evt_t * p_ble_evt)
         {
             // update the humidity service structure
             p_hums->climate_hum_alarm_set =   p_evt_write->data[0];
-
+						
+						//set the flag to indicate the alarm set characteristics is changed
+						hum_alarm_set_changed = true;
+					
             // call application event handler
             p_hums->write_evt_handler();
         }
@@ -707,20 +712,17 @@ uint32_t ble_hums_level_alarm_check(ble_hums_t * p_hums,ble_device_t *p_device)
     uint16_t current_hum_level;
     uint8_t  current_hum_level_array[2];
 		
-		bool     HUMS_ALARM_SET_TIME_READ=false; 									 /*This flag for humidity service alarm set time read*/
-		bool     HUMS_ALARM_RESET_TIME_STAMP=false;								 /*This flag for humidity alarm reset read whether alarm set is 0x00 */
-	
-    uint16_t hum_level_low_value;					   /*humidity low value set by user as uint16*/
-    uint16_t hum_level_high_value;				   /*humidity low value set by user as uint16*/
+	  uint16_t hum_level_low_value;					   									 /*humidity low value set by user as uint16*/
+    uint16_t hum_level_high_value;				   									 /*humidity low value set by user as uint16*/
 
     static uint16_t previous_hum_level = 0x00;
-    uint8_t alarm[8]= {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
+    static uint8_t alarm[8]= {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
 
 
-    uint16_t	len = 8;		//length of alarm with time stamp characteristics
+    uint16_t	len = sizeof(alarm);								/*length of alarm with time stamp characteristics*/
     uint16_t len1 = sizeof(current_hum_level_array);
 
-    current_hum_level = read_hum_level(); /* read the current hum_level*/
+    current_hum_level = read_hum_level(); 				/* read the current hum_level*/
 
 
     if(current_hum_level != previous_hum_level)  /*Check whether hum_level value has changed*/
@@ -773,41 +775,31 @@ uint32_t ble_hums_level_alarm_check(ble_hums_t * p_hums,ble_device_t *p_device)
         if(current_hum_level < hum_level_low_value)
         {
             alarm[0] = SET_ALARM_LOW;		/*set alarm to 01 if humidity level is low */
-						HUMS_ALARM_SET_TIME_READ=true;
+						alarm[1]=p_device->device_time_stamp_set[0];
+						alarm[2]=p_device->device_time_stamp_set[1];
+						alarm[3]=p_device->device_time_stamp_set[2];
+						alarm[4]=p_device->device_time_stamp_set[3];
+						alarm[5]=p_device->device_time_stamp_set[4];
+						alarm[6]=p_device->device_time_stamp_set[5];
+						alarm[7]=p_device->device_time_stamp_set[6];
         }
         
         else if(current_hum_level > hum_level_high_value)
         {
             alarm[0] = SET_ALARM_HIGH;		       /*set alarm to 02 if humidity level is high */
-						HUMS_ALARM_SET_TIME_READ=true;
+						alarm[1]=p_device->device_time_stamp_set[0];
+						alarm[2]=p_device->device_time_stamp_set[1];
+						alarm[3]=p_device->device_time_stamp_set[2];
+						alarm[4]=p_device->device_time_stamp_set[3];
+						alarm[5]=p_device->device_time_stamp_set[4];
+						alarm[6]=p_device->device_time_stamp_set[5];
+						alarm[7]=p_device->device_time_stamp_set[6];
         } 
-
-        else
-        {	
-            alarm[0] = RESET_ALARM;		         /*reset alarm to 0x00*/
-        }	
+	
     }
-    else
+    else if(hum_alarm_set_changed)						/*check whether the alarm set characteristics is set to 00*/
     {	
-        alarm[0] = RESET_ALARM;							   /*reset alarm to 0x00*/
-				HUMS_ALARM_RESET_TIME_STAMP=true;
-    }	
-		/*reading of time stamp from device management service structure whether the alarm set*/
-		if(HUMS_ALARM_SET_TIME_READ)
-		{
-				alarm[1]=p_device->device_time_stamp_set[0];
-				alarm[2]=p_device->device_time_stamp_set[1];
-				alarm[3]=p_device->device_time_stamp_set[2];
-				alarm[4]=p_device->device_time_stamp_set[3];
-				alarm[5]=p_device->device_time_stamp_set[4];
-				alarm[6]=p_device->device_time_stamp_set[5];
-				alarm[7]=p_device->device_time_stamp_set[6];
-				HUMS_ALARM_SET_TIME_READ=false;
-		}
-		/*resetting of alarm time to zero whether the alarm set characteristics set as zero*/
-		if(HUMS_ALARM_RESET_TIME_STAMP)
-		{		
-				alarm[0]=0x00;
+        alarm[0] = RESET_ALARM;							   /*reset alarm to 0x00 and clear the timestamp*/
 				alarm[1]=0x00;
 				alarm[2]=0x00;
 				alarm[3]=0x00;
@@ -815,9 +807,13 @@ uint32_t ble_hums_level_alarm_check(ble_hums_t * p_hums,ble_device_t *p_device)
 				alarm[5]=0x00;
 				alarm[6]=0x00;
 				alarm[7]=0x00;
-				HUMS_ALARM_RESET_TIME_STAMP=false;
-  	}
-    if((alarm[0]!= 0)||(p_hums->climate_hum_alarm_set == 0x00))  /*check whether the alarm sets as non zero or alarm set characteristics set as zero*/
+			
+				sd_ble_gatts_value_set(p_hums->climate_hum_alarm_handles.value_handle, 0, &len, alarm);  /*clear the value of alarm characteristics*/
+				p_hums->hums_alarm_with_time_stamp[0]= alarm[0];
+				hum_alarm_set_changed = false;
+    }	
+		
+    if((alarm[0]!= 0x00)&&(p_hums->climate_hum_alarm_set == 0x01))  /*check whether the alarm is tripped and alarm set characteristics is set to ON*/
     {	
         // Send value if connected and notifying
 

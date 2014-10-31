@@ -15,6 +15,7 @@
 * Hariprasad C R 05/01/2014     Chaneged the clock source to LFCLKSRC_RC in ble_stack_init()
 * sruthiraj      10/01/2014     Migrated to soft device 7.0.0 and SDK 6.1.0
 *	sruthiraj			 10/17/2014     Added concurrent broadcast of sensor data  in active connection
+* Shafy S        10/28/2014     Changed the water presence measurement time interval to 5 seconds
 */
 
 #include <stdint.h>
@@ -243,7 +244,7 @@ static void alarm_check(void)
 static void water_param_meas_timeout_handler(void * p_context)
 {
     UNUSED_PARAMETER(p_context);
-    static uint8_t minutes_count = 0x01, sensor_minutes = 0x01;
+    static uint8_t minutes_count = 0x01;
     if (minutes_count < 0x0F)
     {
         minutes_count++;
@@ -254,16 +255,6 @@ static void water_param_meas_timeout_handler(void * p_context)
         DATA_LOG_CHECK=true;
     }
 
-    if (sensor_minutes < 0x02)
-    {
-        sensor_minutes++;
-    }
-    else 
-    {
-        sensor_minutes =0x01;
-        CHECK_ALARM_TIMEOUT=true;                           /* Set the flag to indicate alarm conditions check*/
-    }
-
 }
 
 
@@ -272,7 +263,7 @@ static void water_param_meas_timeout_handler(void * p_context)
 static void real_time_timeout_handler(void * p_context)
 {
     uint32_t err_code;
-
+		static uint8_t sensor_check_sec = 0x01;
     //Store the number of days in every month to an array
     uint8_t days_in_month[]={0,31,28,31,30,31,30,31,31,30,31,30,31};
 
@@ -288,6 +279,17 @@ static void real_time_timeout_handler(void * p_context)
 
     //Increment the time stamp
     m_time_stamp.seconds += 1;
+		
+		if(sensor_check_sec < 0x05)
+		{
+			sensor_check_sec += 1;
+		}
+		else
+		{
+		  sensor_check_sec = 1;
+			CHECK_ALARM_TIMEOUT=true;                           /* Set the flag to  check alarm conditions */
+		}
+		
     if (m_time_stamp.seconds > 59)
     {
         m_time_stamp.seconds -= 60;

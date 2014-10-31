@@ -243,7 +243,7 @@
 #define DEFAULT_PIR_STATE_ON_PULLUP               0x00        /**< Default value on GPIO pin when PIR sensor when not generating interrupt (ACTIVE HIGH SENSOR)*/             
 #define PIR_DETECTION                             0x01        /**< Default value on GPIO pin when PIR sensor has generated interrupt(ACTIVE HIGH SENSOR)*/
 /*Pin for water presence GPIOTE. */
-#define WATERP_GPIOTE_PIN                           1 				/**< Pin for water presence sensor is P0.01>*/
+#define WATERP_GPIOTE_PIN                           1 				/**< Pin for water presence sensor>*/
 #define WATERP_PINS_LOW_TO_HIGH_MASK              0x80000002  /**< Pin selection, so that a LOW to HIGH logic on chosen pin generates an interrupt >*/
 #define WATERP_PINS_HIGH_TO_LOW_MASK              0x80000002  /**< Pin selection, so that a HIGH to LOW logic on chosen pin generates an interrupt  >*/
 #define WATER_SENSOR_ENERGIZE_PIN										2					/**< Pin for energizing the sensor*/

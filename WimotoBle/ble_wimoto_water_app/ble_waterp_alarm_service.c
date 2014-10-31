@@ -16,6 +16,7 @@
 * Hariprasad        12/11/2013     Added 128bit Vendor specific  custom UUID's for the service and all characteristics 
 * sruthiraj         01/10/2014     Migrated to soft device 7.0.0 and SDK 6.1.0
 * Sruthi.k.s				10/17/2014		 Added time stamp with alarm services
+* Shafy S           10/28/2014     Added changes to show last occurance timestamp of alarm
 */
 
 #include "ble_waterp_alarm_service.h"
@@ -31,7 +32,7 @@ bool     	    		WATERPS_CONNECTED_STATE=false;  /* Indicates whether the water p
 extern uint8_t		var_receive_uuid;								/*variable to receive uuid*/
 extern uint8_t	  curr_waterpresence;             /* water presence value for broadcast*/
 extern bool       CHECK_ALARM_TIMEOUT;
-
+bool              waterp_alarm_set_changed = false;
 /**@brief Function for handling the Connect event.
 *
 * @param[in]   p_waterps   water presence Service structure.
@@ -172,6 +173,8 @@ static void on_write(ble_waterps_t * p_waterps, ble_evt_t * p_ble_evt)
         // update the temperature service structure
         p_waterps->water_waterpresence_alarm_set =   p_evt_write->data[0];
 
+			  //set the flag to indicate the alarm set characteristics is changed
+			  waterp_alarm_set_changed = true;
         // call application event handler
         p_waterps->write_evt_handler();
     }
@@ -536,7 +539,7 @@ uint32_t ble_waterps_alarm_check(ble_waterps_t * p_waterps,ble_device_t *p_devic
 				}
         
     }
-    else
+    else if(waterp_alarm_set_changed)
     {	
         								              
 				alarm[0]=0x00;																		/* If alarm set is cleared, reset alarm and clear timestamp*/
@@ -547,6 +550,10 @@ uint32_t ble_waterps_alarm_check(ble_waterps_t * p_waterps,ble_device_t *p_devic
 				alarm[5]=0x00;
 				alarm[6]=0x00;
 				alarm[7]=0x00;
+			
+				waterp_alarm_set_changed = false;
+				sd_ble_gatts_value_set(p_waterps->water_waterp_alarm_handles.value_handle, 0, &len, alarm);  /*clear the value of alarm characteristics*/
+				p_waterps->waterps_alarm_with_time_stamp[0] = alarm[0];
 				
     }	
 		

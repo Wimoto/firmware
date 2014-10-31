@@ -71,7 +71,7 @@ static bool                                  m_memory_access_in_progress = false
 #define APP_TIMER_MAX_TIMERS                 5                                          /**< Maximum number of simultaneously created timers. */
 #define APP_TIMER_OP_QUEUE_SIZE              4                                          /**< Size of timer operation queues. */
 
-#define THERMOPILE_LEVEL_MEAS_INTERVAL       APP_TIMER_TICKS(3000, APP_TIMER_PRESCALER)/**< temperature level measurement interval (ticks). */
+#define THERMOPILE_LEVEL_MEAS_INTERVAL       APP_TIMER_TICKS(60000, APP_TIMER_PRESCALER)/**< temperature level measurement interval (ticks). */
 #define CONNECTED_MODE_TIMEOUT_INTERVAL      APP_TIMER_TICKS(30000, APP_TIMER_PRESCALER)/**< Connected mode timeout interval (ticks). */
 #define SECONDS_INTERVAL                     APP_TIMER_TICKS(1000, APP_TIMER_PRESCALER) /**< seconds measurement interval (ticks). */
 #define BROADCAST_INTERVAL       						 APP_TIMER_TICKS(1000, APP_TIMER_PRESCALER) /**< updating interval of broadcast data*/ 
@@ -149,7 +149,7 @@ uint8_t  																		 var_receive_uuid;													/**< variable to recei
 #define CONNECTED_LED_PIN_NO								 LED_1
 #define ASSERT_LED_PIN_NO										 LED_1
 extern uint8_t  current_thermopile_temp_store[THERMOP_CHAR_SIZE];                       /**< defined in ble_thermop_alarm_service.c*/
-#define THERMOPILE_LEVEL_MEAS_INTERVAL       APP_TIMER_TICKS(3000, APP_TIMER_PRESCALER)/**< temperature level measurement interval (ticks). */
+
 uint32_t buf[4];  													 					/*buffer for flash write operation*/
 uint8_t				             thermopile[5];    					/*variable to store current Thermopile temperature to broadcast*/
 uint8_t				             curr_probe_temp_level[2];	/*variable to store current probe temperature to broadcast*/
@@ -518,26 +518,7 @@ static void advertising_init(void)
         {THERMO_PROFILE_PROBES_SERVICE_UUID, 				  BLE_UUID_TYPE_BLE}, 	
     };
 
-    // Build and set advertising data
-//    memset(&advdata, 0, sizeof(advdata));
-
-//    advdata.name_type               = BLE_ADVDATA_FULL_NAME;
-//    advdata.include_appearance      = true;
-//    advdata.flags.size              = sizeof(flags);
-//    advdata.flags.p_data            = &flags;
-//    advdata.uuids_complete.uuid_cnt = sizeof(adv_uuids) / sizeof(adv_uuids[0]);
-//    advdata.uuids_complete.p_uuids  = adv_uuids;
-
-//    memset(&advdata2, 0, sizeof(advdata2));
-
-//    advdata2.name_type               = BLE_ADVDATA_NO_NAME;
-//    advdata2.include_appearance      = false;
-//    advdata2.flags.size              = 0;
-//    advdata2.p_manuf_specific_data   = &manuf_data; 
-
-//    err_code = ble_advdata_set(&advdata, &advdata2);
-//    APP_ERROR_CHECK(err_code);
-
+ 
     // Initialize advertising parameters (used when starting advertising)
     memset(&m_adv_params, 0, sizeof(m_adv_params));
 

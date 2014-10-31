@@ -33,8 +33,8 @@ extern bool 	  	CHECK_ALARM_TIMEOUT;
 uint8_t         	current_thermopile_temp_store[THERMOP_CHAR_SIZE];
 extern uint8_t	 	var_receive_uuid;									/*variable to receive uuid*/
 extern uint8_t		thermopile[5];                    /*variable to store current Thermopile temperature to broadcast*/
-
-
+extern bool       CHECK_ALARM_TIMEOUT;							
+bool              thermop_alarm_set_changed = false;
 /**@brief Function for handling the Connect event.
 *
 * @param[in]   p_thermops       Thermopile Service structure.
@@ -42,8 +42,9 @@ extern uint8_t		thermopile[5];                    /*variable to store current Th
 */
 static void on_connect(ble_thermops_t * p_thermops, ble_evt_t * p_ble_evt)
 {
-    p_thermops->conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
+    p_thermops->conn_handle  = p_ble_evt->evt.gap_evt.conn_handle;
     THERMOPS_CONNECTED_STATE = true;  /*Set the flag to true so that state remains in connectable mode until disconnect*/
+		CHECK_ALARM_TIMEOUT      = true;  /*set the flag to check alarm condition on connect*/
 }
 
 
@@ -260,6 +261,9 @@ static void on_write(ble_thermops_t * p_thermops, ble_evt_t * p_ble_evt)
     {
         // update the temperature service structure
         p_thermops->thermo_thermopile_alarm_set =   p_evt_write->data[0];
+			
+				//set the flag to indicate that the alarm set characteristics is changed
+				thermop_alarm_set_changed = true;
 
         // call application event handler
         p_thermops->write_evt_handler();
@@ -740,13 +744,13 @@ uint32_t ble_thermops_level_alarm_check(ble_thermops_t * p_thermops,ble_device_t
 	  float thermopile_low_value;		
     float thermopile_high_value;		
 	
-		bool     THERMO_ALARM_SET_TIME_READ=false; 									 /*This flag for thermopile service alarm set time read*/
-		bool     THERMO_ALARM_RESET_TIME_STAMP=false;									/*This flag for Thermopile alarm reset read whether alarm set is 0x00 */
+		
+		
     static float  previous_thermopile = 0x00;
 	
-    uint8_t alarm[8]= {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
+    static uint8_t alarm[8]= {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
 
-    uint16_t len = 8;		//length of alarm with time stamp characteristics 
+    uint16_t len = sizeof(alarm);																			//length of alarm with time stamp characteristics 
     uint16_t len1 = sizeof(current_thermopile_array);
 
     read_thermopile_connectable(current_thermopile_array, &current_thermopile); /* read the current thermopile*/
@@ -756,8 +760,7 @@ uint32_t ble_thermops_level_alarm_check(ble_thermops_t * p_thermops,ble_device_t
     {
         current_thermopile_temp_store[i] =current_thermopile_array[i]; /*store the current thermopile to a global array to be used for data logging*/
 				
-			/*copy the current Thermopile temperature for broadcast*/
-				thermopile[i]=current_thermopile_array[i];
+				thermopile[i]=current_thermopile_array[i];										 /*copy the current Thermopile temperature for broadcast*/
 		}
 		    if(current_thermopile != previous_thermopile)                   /*Check whether thermopile value has changed*/
     {   
@@ -790,59 +793,53 @@ uint32_t ble_thermops_level_alarm_check(ble_thermops_t * p_thermops,ble_device_t
     /*Get the thermopile high value set by the user from the service */
     thermopile_high_value = stof(((char *)p_thermops->thermo_thermopile_high_level));
 
-    /*Check whether the thermopile is out of range if alarm is set by user */		
+   
+		/*Check whether the thermopile temperature is out of range if alarm is set by user */		
     if(p_thermops->thermo_thermopile_alarm_set != 0x00)
     {
-			//	current_thermopile=00.00;
-				if(current_thermopile < thermopile_low_value)
+			  if(current_thermopile < thermopile_low_value)
         {
-            alarm[0] = SET_ALARM_THERMOP_LOW;		//set alarm to 01 if thermopile is low 
-						THERMO_ALARM_SET_TIME_READ=true;
-        }
+            alarm[0] = SET_ALARM_THERMOP_LOW;		               /*set alarm to 01 if thermopile is low*/
+						alarm[1]=p_device->device_time_stamp_set[0];       /*capture the current timestamp when alarm occured*/
+				    alarm[2]=p_device->device_time_stamp_set[1];
+				    alarm[3]=p_device->device_time_stamp_set[2];
+				    alarm[4]=p_device->device_time_stamp_set[3];
+				    alarm[5]=p_device->device_time_stamp_set[4];
+				    alarm[6]=p_device->device_time_stamp_set[5];
+				    alarm[7]=p_device->device_time_stamp_set[6];
+				}
 
         else if(current_thermopile > thermopile_high_value)
         {
-            alarm[0] = SET_ALARM_THERMOP_HIGH;		//set alarm to 02 if thermopile is high
-						THERMO_ALARM_SET_TIME_READ=true;
-        } 
+            alarm[0] = SET_ALARM_THERMOP_HIGH;									//set alarm to 02 if thermopile is high
+						alarm[1]=p_device->device_time_stamp_set[0];       //capture the current timestamp when alarm occured
+				    alarm[2]=p_device->device_time_stamp_set[1];
+				    alarm[3]=p_device->device_time_stamp_set[2];
+				    alarm[4]=p_device->device_time_stamp_set[3];
+				    alarm[5]=p_device->device_time_stamp_set[4];
+				    alarm[6]=p_device->device_time_stamp_set[5];
+				    alarm[7]=p_device->device_time_stamp_set[6];
+				} 
 
-        else
-        {	
-            alarm[0] = RESET_ALARM;		       //reset alarm to 0x00
-        }	
     }
-    else
+    else if(thermop_alarm_set_changed)       /*check whether the alarm set characteristics is cleared to 00*/
     {	
-        alarm[0] = RESET_ALARM;								           /*reset alarm to 0x00*/
-				THERMO_ALARM_RESET_TIME_STAMP=true;
-    }	
-		/*reading of time stamp from device management service structure whether the alarm set*/
-		if(THERMO_ALARM_SET_TIME_READ)
-		{
-				alarm[1]=p_device->device_time_stamp_set[0];
-				alarm[2]=p_device->device_time_stamp_set[1];
-				alarm[3]=p_device->device_time_stamp_set[2];
-				alarm[4]=p_device->device_time_stamp_set[3];
-				alarm[5]=p_device->device_time_stamp_set[4];
-				alarm[6]=p_device->device_time_stamp_set[5];
-				alarm[7]=p_device->device_time_stamp_set[6];
-				THERMO_ALARM_SET_TIME_READ=false;
-		}
-		/*resetting of alarm time to zero whether the alarm set characteristics set as zero*/
-		if(THERMO_ALARM_RESET_TIME_STAMP)
-		{		
-				alarm[0]=0x00;
-				alarm[1]=0x00;
-				alarm[2]=0x00;
-				alarm[3]=0x00;
-				alarm[4]=0x00;
-				alarm[5]=0x00;
-				alarm[6]=0x00;
-				alarm[7]=0x00;
-				THERMO_ALARM_RESET_TIME_STAMP=false;
-		}
+        alarm[0] = RESET_ALARM;						   /*if alarm set is cleared by user reset alarm to 0x00*/
+				alarm[1] = 0x00;											 /*and clear timestamp value*/			
+				alarm[2] = 0x00;
+				alarm[3] = 0x00;
+				alarm[4] = 0x00;
+				alarm[5] = 0x00;
+				alarm[6] = 0x00;
+				alarm[7] = 0x00;
+				sd_ble_gatts_value_set(p_thermops->thermo_thermop_alarm_handles.value_handle, 0, &len, alarm);  /*clear the value of alarm characteristics*/
+				p_thermops->thermo_alarm_with_time_stamp[0] = alarm[0];
+				thermop_alarm_set_changed = false;
+		}	
+		
+		
 
-    if((alarm[0]!= 0)||(p_thermops->thermo_thermopile_alarm_set == 0x00))/*check whether the alarm sets as non zero or alarm set characteristics set as zero*/
+    if((alarm[0]!= 0x00)&&(p_thermops->thermo_thermopile_alarm_set == 0x01)) /*check whether the alarm  is tripped and  alarm set characteristics in ON*/
     {	
         // Send value if connected and notifying
 

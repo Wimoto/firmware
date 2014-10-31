@@ -16,6 +16,7 @@
 * Hariprasad     12/11/2013       Added 128bit Vendor specific  custom UUID's for the service and all characteristics 
 * Sruthi.k.s     10/01/2014       migrated to soft device 7.0.0 and SDK 6.1.0
 * Sruthi.k.s 		 10/17/2014			  Added alarm characteristic with time stamp.
+* Shafy S        10/28/2014       Added changes to show last occurance timestamp of alarm
 */
 
 #include "ble_temp_alarm_service.h"
@@ -31,7 +32,7 @@ bool     	      TEMPS_CONNECTED_STATE=false;  /*Indicates whether the temperatur
 extern bool     CHECK_ALARM_TIMEOUT;          /*Flag to indicate whether to check for alarm conditions defined in connect.c*/
 extern uint8_t	var_receive_uuid;							/*variable for receiving uuid*/
 extern  uint8_t	temperature[2];               /*variable to store current temperature value to broadcast*/
-
+bool            temp_alarm_set_changed = false; 
 /**@brief Function for handling the Connect event.
 *
 * @param[in]   p_temps       Temperature Service structure.
@@ -39,9 +40,9 @@ extern  uint8_t	temperature[2];               /*variable to store current temper
 */
 static void on_connect(ble_temps_t * p_temps, ble_evt_t * p_ble_evt)
 {
-    p_temps->conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
+    p_temps->conn_handle  = p_ble_evt->evt.gap_evt.conn_handle;
 		TEMPS_CONNECTED_STATE = true;  /*Set the flag to true so that state remains in connectable mode until disconnect*/
-	
+		CHECK_ALARM_TIMEOUT   = true;  /*set the flag to true to check the alarm condition on connection*/
 }
 
 
@@ -253,6 +254,9 @@ static void on_write(ble_temps_t * p_temps, ble_evt_t * p_ble_evt)
         // update the temperature service structure
         p_temps->climate_temperature_alarm_set =   p_evt_write->data[0];
 
+				//set the flag to indicate that the alarm set characteristics is changed
+				temp_alarm_set_changed = true;
+			 
         // call application event handler
         p_temps->write_evt_handler();
     }
@@ -716,16 +720,13 @@ uint32_t ble_temps_level_alarm_check(ble_temps_t * p_temps,ble_device_t *p_devic
     uint16_t current_temperature;
     uint8_t  current_temperature_array[2];
 		
-		bool     TEMPS_ALARM_SET_TIME_READ=false; 									 /*This flag for temperature service alarm set time read*/
-		bool     TEMPS_ALARM_RESET_TIME_STAMP=false;								 /*This flag for Temperature alarm reset read whether alarm set is 0x00 */
-	
-    uint16_t temperature_low_value;					   /* Temperature low value set by user as uint16*/
-    uint16_t temperature_high_value;				   /* Temperature low value set by user as uint16*/
+		uint16_t temperature_low_value;					   			/* Temperature low value set by user as uint16*/
+    uint16_t temperature_high_value;				   			/* Temperature low value set by user as uint16*/
 
     static uint16_t previous_temperature = 0x00;
-    uint8_t alarm[8]= {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
+    static uint8_t alarm[8] = {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
 
-    uint16_t	len  = 8;	//length of alarm with time stamp characteristics 
+    uint16_t	len  = sizeof(alarm);										/*length of alarm with time stamp characteristics*/
     uint16_t  len1 = sizeof(current_temperature_array);
     
 
@@ -778,44 +779,32 @@ uint32_t ble_temps_level_alarm_check(ble_temps_t * p_temps,ble_device_t *p_devic
 
         if(current_temperature < temperature_low_value)
         {   
-            alarm[0] = SET_ALARM_LOW;					/*set alarm to 01 if temperature is low */
-						TEMPS_ALARM_SET_TIME_READ=true;		/*set true if alarm on*/
+            alarm[0] = SET_ALARM_LOW;											/*set alarm to 01 if temperature is low */
+						alarm[1]=p_device->device_time_stamp_set[0];	/*capture the timestamp when alarm occured*/
+						alarm[2]=p_device->device_time_stamp_set[1];
+						alarm[3]=p_device->device_time_stamp_set[2];
+						alarm[4]=p_device->device_time_stamp_set[3];
+						alarm[5]=p_device->device_time_stamp_set[4];
+						alarm[6]=p_device->device_time_stamp_set[5];
+						alarm[7]=p_device->device_time_stamp_set[6];
         }
         
         else if(current_temperature > temperature_high_value)
         {   
-            alarm[0] = SET_ALARM_HIGH;					/*set alarm to 02 if temperature is high */
-						TEMPS_ALARM_SET_TIME_READ=true;			/*set true if alarm on*/
+            alarm[0] = SET_ALARM_HIGH;										/*set alarm to 02 if temperature is high */
+						alarm[1]=p_device->device_time_stamp_set[0];	/*capture the timestamp when alarm occured*/
+						alarm[2]=p_device->device_time_stamp_set[1];
+						alarm[3]=p_device->device_time_stamp_set[2];
+						alarm[4]=p_device->device_time_stamp_set[3];
+						alarm[5]=p_device->device_time_stamp_set[4];
+						alarm[6]=p_device->device_time_stamp_set[5];
+						alarm[7]=p_device->device_time_stamp_set[6];
         } 
-
-        else
-        {	
-            alarm[0] = RESET_ALARM;		       	/*reset alarm to 0x00*/
-						
-        }	
+        	
     }
-    else
+    else if(temp_alarm_set_changed)						/*check whether the alarm set characteristics is set to 00*/
     {	
-        alarm[0] = RESET_ALARM;								/*reset alarm to 0x00*/
-				TEMPS_ALARM_RESET_TIME_STAMP=true;		/*Set true whether alarm set value is 0x00 */
-    }		
-		/*reading of time stamp from device management service structure whether the alarm set*/
-		
-		if(TEMPS_ALARM_SET_TIME_READ)
-		{
-				alarm[1]=p_device->device_time_stamp_set[0];
-				alarm[2]=p_device->device_time_stamp_set[1];
-				alarm[3]=p_device->device_time_stamp_set[2];
-				alarm[4]=p_device->device_time_stamp_set[3];
-				alarm[5]=p_device->device_time_stamp_set[4];
-				alarm[6]=p_device->device_time_stamp_set[5];
-				alarm[7]=p_device->device_time_stamp_set[6];
-				TEMPS_ALARM_SET_TIME_READ=false;
-		}
-		/*resetting of alarm time to zero whether the alarm set characteristics set as zero*/
-		if(TEMPS_ALARM_RESET_TIME_STAMP)
-		{		
-				alarm[0]=0x00;
+        alarm[0] = RESET_ALARM;								/*reset alarm to 0x00 and clear the timestamp*/
 				alarm[1]=0x00;
 				alarm[2]=0x00;
 				alarm[3]=0x00;
@@ -823,10 +812,14 @@ uint32_t ble_temps_level_alarm_check(ble_temps_t * p_temps,ble_device_t *p_devic
 				alarm[5]=0x00;
 				alarm[6]=0x00;
 				alarm[7]=0x00;
-				TEMPS_ALARM_RESET_TIME_STAMP=false;
-		}
-    
-    if((alarm[0]!= 0)||(p_temps->climate_temperature_alarm_set == 0x00))  	/*check whether the alarm sets as non zero or alarm set characteristics set as zero*/
+			
+				sd_ble_gatts_value_set(p_temps->climate_temp_alarm_handles.value_handle, 0, &len, alarm);  /*clear the value of alarm characteristics*/
+				p_temps->temps_alarm_with_time_stamp[0] = alarm[0];
+				temp_alarm_set_changed = false;
+    }		
+		 
+	 
+    if((alarm[0]!= 0x00)&&(p_temps->climate_temperature_alarm_set == 0x01))  	/*check whether the alarm is tripped and alarm set characteristics is set to ON*/
     {	
         // Send value if connected and notifying
         
