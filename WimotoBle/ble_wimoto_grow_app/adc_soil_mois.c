@@ -43,8 +43,6 @@ uint8_t do_soil_moisture_measurement()
     NRF_ADC->TASKS_STOP     = STOP_ADC;             /* Stop ADC */
     NRF_ADC->ENABLE         = ADC_ENABLE_ENABLE_Disabled;
 
-    NRF_TIMER2->TASKS_STOP  = 1; 	                  /* Stop TIMER 2 after conversion*/		
-
 		one_mhz_stop();                                 /* End the square wave and pull down the pin to low value*/
     return adc_result;		
 
