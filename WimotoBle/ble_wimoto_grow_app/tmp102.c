@@ -150,7 +150,7 @@ bool config_tmp102_shutdown_mode (void)
 uint16_t get_tmp102_oneshot_temp (void)
 {
 
-		int16_t tmp102_configuration_reg_val, tmp102_temperature_reg_val;
+		int16_t tmp102_configuration_reg_val, tmp102_temperature_reg_val = 0;
     uint8_t data_buffer[3];
      
     data_buffer[0]      = TMP102_CONFIG_REG ;  /* Select configuration register             */

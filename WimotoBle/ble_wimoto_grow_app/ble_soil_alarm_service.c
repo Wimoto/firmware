@@ -28,6 +28,7 @@ bool SOILS_CONNECTED_STATE=false;             /*This flag indicates whether a cl
 extern bool 	  CHECK_ALARM_TIMEOUT;
 extern uint8_t	 var_receive_uuid;								/*variable to receive uuid*/
 extern uint8_t  curr_soil_mois_level;            /*variable to store current Humidity value from htu21d to broadcast*/
+bool  soil_alarm_set_changed = false;
 
 
 /**@brief Function for handling the Connect event.
@@ -39,6 +40,7 @@ static void on_connect(ble_soils_t * p_soils, ble_evt_t * p_ble_evt)
 {
     p_soils->conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
     SOILS_CONNECTED_STATE = true;      /*Set the flag to true so that state remains in connectable mode until disconnect*/
+		CHECK_ALARM_TIMEOUT = true;        /* set the flag to check the alarm condiction on connection*/
 }
 
 
@@ -244,7 +246,10 @@ static void on_write(ble_soils_t * p_soils, ble_evt_t * p_ble_evt)
     {
         // update the soil moisture service structure
         p_soils->soil_mois_alarm_set =   p_evt_write->data[0];
-
+				
+			  //set the flag to indicate that the soil alarm set characteristics is changed
+			  soil_alarm_set_changed = true;
+			
         // call application event handler
         p_soils->write_evt_handler();
     }		
@@ -697,19 +702,17 @@ uint32_t ble_soils_level_alarm_check(ble_soils_t * p_soils,ble_device_t *p_devic
     uint32_t err_code = NRF_SUCCESS;
     uint8_t current_soil_mois_level;
 
-		bool     SOIL_ALARM_SET_TIME_READ=false; 									 /*This flag for soil moisture service alarm set time read*/
-		bool     SOIL_ALARM_RESET_TIME_STAMP=false;								 /*This flag for soil moisture alarm reset read whether alarm set is 0x00 */
 	
     static uint16_t previous_soil_mois_level = 0x00;
-    uint8_t alarm[8]= {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00}; 
+    static uint8_t alarm[8]= {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00}; 
 
 
     uint16_t len1 =sizeof(current_soil_mois_level);	
-		uint16_t len=8;	//length of alarm with time stamp characteristics
+		uint16_t len= sizeof(alarm);	                            //length of alarm with time stamp characteristics
     current_soil_mois_level = read_soil_mois_level();         /* Read the current soil moisture level*/
 		
 		/*copy the current soil moisture level value for broadcast*/
-		curr_soil_mois_level=current_soil_mois_level;
+		curr_soil_mois_level = current_soil_mois_level;
 
     if(current_soil_mois_level != previous_soil_mois_level)   /* Check whether soil moisture value has changed*/
     {
@@ -742,44 +745,32 @@ uint32_t ble_soils_level_alarm_check(ble_soils_t * p_soils,ble_device_t *p_devic
 
         if(current_soil_mois_level < p_soils->soil_mois_low_level)
         {
-            alarm[0] = SET_ALARM_LOW;		      /* Set alarm to 01 if soil moisture level is low */
-						SOIL_ALARM_SET_TIME_READ=true;
+            alarm[0] = SET_ALARM_LOW;		      						/* Set alarm to 01 if soil moisture level is low */
+						alarm[1] = p_device->device_time_stamp_set[0];	/*capture the timestamp when alarm occured*/
+						alarm[2] = p_device->device_time_stamp_set[1];
+						alarm[3] = p_device->device_time_stamp_set[2];
+						alarm[4] = p_device->device_time_stamp_set[3];
+						alarm[5] = p_device->device_time_stamp_set[4];
+						alarm[6] = p_device->device_time_stamp_set[5];
+						alarm[7] = p_device->device_time_stamp_set[6];
         }
 
         else if(current_soil_mois_level > p_soils->soil_mois_high_level)
         {
-            alarm[0] = SET_ALARM_HIGH;		    /* Set alarm to 02 if soil moisture level is high */
-						SOIL_ALARM_SET_TIME_READ=true;
+            alarm[0] = SET_ALARM_HIGH;		    						/* Set alarm to 02 if soil moisture level is high */
+						alarm[1] = p_device->device_time_stamp_set[0];	/*capture the timestamp when alarm occured*/
+						alarm[2] = p_device->device_time_stamp_set[1];
+						alarm[3] = p_device->device_time_stamp_set[2];
+						alarm[4] = p_device->device_time_stamp_set[3];
+						alarm[5] = p_device->device_time_stamp_set[4];
+						alarm[6] = p_device->device_time_stamp_set[5];
+						alarm[7] = p_device->device_time_stamp_set[6];
         }                                   
-        
-        else                                
-        {	                                  
-            alarm[0] = RESET_ALARM;		        /* Reset alarm to 0x00*/
-        }	                                  
+                                     
     }                                       
-    else                                    
+    else if(soil_alarm_set_changed)           /*check whether the soil alarm set characteristics is cleared to 00*/                                   
     {	
         alarm[0] = RESET_ALARM;					      /* Reset alarm to 0x00*/
-				SOIL_ALARM_RESET_TIME_STAMP=true;
-    }		
-		
-		/*reading of time stamp from device management service structure whether the alarm set*/
-		if(SOIL_ALARM_SET_TIME_READ)
-		{
-				alarm[1]=p_device->device_time_stamp_set[0];
-				alarm[2]=p_device->device_time_stamp_set[1];
-				alarm[3]=p_device->device_time_stamp_set[2];
-				alarm[4]=p_device->device_time_stamp_set[3];
-				alarm[5]=p_device->device_time_stamp_set[4];
-				alarm[6]=p_device->device_time_stamp_set[5];
-				alarm[7]=p_device->device_time_stamp_set[6];
-				SOIL_ALARM_SET_TIME_READ=false;
-		}
-		
-		/*resetting of alarm time to zero whether the alarm set characteristics set as zero*/
-		if(SOIL_ALARM_RESET_TIME_STAMP)
-		{		
-				alarm[0]=0x00;
 				alarm[1]=0x00;
 				alarm[2]=0x00;
 				alarm[3]=0x00;
@@ -787,9 +778,13 @@ uint32_t ble_soils_level_alarm_check(ble_soils_t * p_soils,ble_device_t *p_devic
 				alarm[5]=0x00;
 				alarm[6]=0x00;
 				alarm[7]=0x00;
-				SOIL_ALARM_RESET_TIME_STAMP=false;
-		}
-    if((alarm[0]!= 0)||(p_soils->soil_mois_alarm_set == 0x00))  /*check whether the alarm sets as non zero or alarm set characteristics set as zero*/
+				sd_ble_gatts_value_set(p_soils->soil_mois_alarm_handles.value_handle, 0, &len, alarm);  /*clear the value of alarm characteristics*/
+				p_soils->soil_alarm_with_time_stamp[0] = alarm[0];
+				soil_alarm_set_changed = false;
+    }		
+		
+		
+    if((alarm[0]!= 0x00)&&(p_soils->soil_mois_alarm_set == 0x01))  /*check whether the alarm sets as non zero or alarm set characteristics set as zero*/
     {	
 				// Send value if connected and notifying
         if ((p_soils->conn_handle != BLE_CONN_HANDLE_INVALID) && p_soils->is_notification_supported)

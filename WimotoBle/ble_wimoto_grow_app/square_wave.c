@@ -78,14 +78,11 @@ void gpiote1_init(void)
     // Configure PWM_OUTPUT_PIN_NUMBER as an output.
     nrf_gpio_cfg_output(PWM_OUTPUT_PIN_NUMBER);
 
-    //    NRF_GPIO->OUT = 0x00000000UL;
+    // Configure GPIOTE channel 0 to toggle the PWM pin state
+    // @note Only one GPIOTE task can be connected to an output pin.
+    
 
-    //    // Configure GPIOTE channel 0 to toggle the PWM pin state
-    //	// @note Only one GPIOTE task can be connected to an output pin.
-    //    nrf_gpiote_task_config(0, PWM_OUTPUT_PIN_NUMBER, \
-    //                           NRF_GPIOTE_POLARITY_TOGGLE, NRF_GPIOTE_INITIAL_VALUE_LOW);
-
-    nrf_gpio_pin_set(PWM_OUTPUT_PIN_NUMBER);
+    nrf_gpio_pin_clear(PWM_OUTPUT_PIN_NUMBER);
 
     NRF_GPIOTE->CONFIG[0] = GPIOTE_CONFIG_MODE_Task << GPIOTE_CONFIG_MODE_Pos |
     GPIOTE_CONFIG_POLARITY_Toggle << GPIOTE_CONFIG_POLARITY_Pos |
@@ -119,7 +116,7 @@ void ppi_init(void)
 
 
 /**
-* @brief Function for application main entry.
+* @brief Function for starting the square wave.
 */
 int one_mhz_start(void)
 {
@@ -133,6 +130,21 @@ int one_mhz_start(void)
 }
 
 /** @} */
+
+/**
+* @brief Function for stopping the square wave.
+*/
+
+int one_mhz_stop(void)
+{
+		NRF_GPIOTE->CONFIG[0] = GPIOTE_CONFIG_MODE_Task << GPIOTE_CONFIG_MODE_Pos |     /*pull down the pwm pin*/
+    GPIOTE_CONFIG_POLARITY_HiToLo << GPIOTE_CONFIG_POLARITY_Pos |
+    PWM_OUTPUT_PIN_NUMBER << GPIOTE_CONFIG_PSEL_Pos;
+		
+		NRF_TIMER2->TASKS_STOP  = 1; 	                  /* Stop TIMER 2 after conversion*/		
+		
+		return 0;
+}
 
 
 

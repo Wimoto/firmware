@@ -317,6 +317,7 @@ void    timer2_init(void);                                               /**< In
 void    gpiote1_init(void);                                              /**< Initialize GPIOTE*/
 void    ppi_init(void);                                                  /**< Initialize PPI*/
 int     one_mhz_start(void);                                             /**< Start 1Mhz wave*/
+int     one_mhz_stop(void);																							/**< Stop 1Mhz wave*/
 
 
 /********************************************************************************************/ 

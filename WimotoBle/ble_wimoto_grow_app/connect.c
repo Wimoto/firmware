@@ -75,7 +75,7 @@
 #define APP_TIMER_MAX_TIMERS                 5                                          /**< Maximum number of simultaneously created timers. */
 #define APP_TIMER_OP_QUEUE_SIZE              4                                          /**< Size of timer operation queues. */
 
-#define TEMPERATURE_LEVEL_MEAS_INTERVAL      APP_TIMER_TICKS(2000, APP_TIMER_PRESCALER)/**< temperature level measurement interval (ticks). */
+#define TEMPERATURE_LEVEL_MEAS_INTERVAL      APP_TIMER_TICKS(60000, APP_TIMER_PRESCALER)/**< temperature level measurement interval (ticks). */
 #define CONNECTED_MODE_TIMEOUT_INTERVAL      APP_TIMER_TICKS(30000, APP_TIMER_PRESCALER)/**< Connected mode timeout interval (ticks). */
 #define SECONDS_INTERVAL                     APP_TIMER_TICKS(1000, APP_TIMER_PRESCALER) /**< seconds measurement interval (ticks). */
 #define BROADCAST_INTERVAL       						 APP_TIMER_TICKS(500, APP_TIMER_PRESCALER) /**< updating interval of broadcast data*/ 
@@ -525,26 +525,7 @@ static void advertising_init(void)
         {GROW_PROFILE_SOILS_SERVICE_UUID, 								BLE_UUID_TYPE_BLE}, 								
     };
 
-    // Build and set advertising data
-//    memset(&advdata, 0, sizeof(advdata));
-
-//    advdata.name_type               = BLE_ADVDATA_FULL_NAME;
-//    advdata.include_appearance      = true;
-//    advdata.flags.size              = sizeof(flags);
-//    advdata.flags.p_data            = &flags;
-//    advdata.uuids_complete.uuid_cnt = sizeof(adv_uuids) / sizeof(adv_uuids[0]);
-//    advdata.uuids_complete.p_uuids  = adv_uuids;
-//		
-//		memset(&advdata2, 0, sizeof(advdata2));
-
-//    advdata2.name_type               = BLE_ADVDATA_NO_NAME;
-//    advdata2.include_appearance      = false;
-//    advdata2.flags.size              = 0;
-//    advdata2.p_manuf_specific_data   = &manuf_data; 
-
-//    err_code = ble_advdata_set(&advdata,&advdata2);
-//    APP_ERROR_CHECK(err_code);
-
+    
     // Initialize advertising parameters (used when starting advertising)
     memset(&m_adv_params, 0, sizeof(m_adv_params));
 
