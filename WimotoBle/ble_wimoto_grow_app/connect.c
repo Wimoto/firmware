@@ -278,15 +278,15 @@ static void grow_param_meas_timeout_handler(void * p_context)
         DATA_LOG_CHECK=true;
     }
 
-    if (sensor_minutes < 0x02)
-    {
-        sensor_minutes++;
-    }
-    else 
-    {
-        sensor_minutes =0x01;
-        CHECK_ALARM_TIMEOUT=true;                           /* Set the flag to indicate alarm conditions check*/
-    }
+//    if (sensor_minutes < 0x02)
+//    {
+//        sensor_minutes++;
+//    }
+//    else 
+//    {
+//        sensor_minutes =0x01;
+//        CHECK_ALARM_TIMEOUT=true;                           /* Set the flag to indicate alarm conditions check*/
+//    }
 
 }
 
@@ -298,7 +298,7 @@ static void real_time_timeout_handler(void * p_context)
     uint32_t err_code;
     // Store days in every month in an array
     uint8_t days_in_month[]={0,31,28,31,30,31,30,31,31,30,31,30,31};
-
+		 static uint8_t meas_interval_seconds = 0x01;
     // Check for leap year
     if((m_time_stamp.year% 4 == 0 && m_time_stamp.year%100 != 0) || m_time_stamp.year%400 == 0)
     {
@@ -309,6 +309,17 @@ static void real_time_timeout_handler(void * p_context)
         days_in_month[2] = 28;
     }
 
+		meas_interval_seconds += 1;													
+			
+		if(meas_interval_seconds < 0x02)			   //set the sensor measurement timeout interval to 2 sec				
+		{
+			meas_interval_seconds++;
+		}
+		else
+		{
+			meas_interval_seconds = 0x00;
+			CHECK_ALARM_TIMEOUT=true;
+		}
     // Increment time stamp
     m_time_stamp.seconds += 1;
     if (m_time_stamp.seconds > 59)

@@ -29,10 +29,13 @@ void adc_init(void)
 {	
 		nrf_gpio_cfg_input_high_drive(ADC_SOIL_MOISTURE_PIN,NRF_GPIO_PIN_NOPULL);
 	
+		// interrupt ADC
+		NRF_ADC->INTENSET = (ADC_INTENSET_END_Enabled << ADC_INTENSET_END_Pos);	
+	
     NRF_ADC->CONFIG = ADC_CONFIG_RES_8bit << ADC_CONFIG_RES_Pos |                                 /*!< 8bit ADC resolution. */ 
                       ADC_CONFIG_INPSEL_AnalogInputOneThirdPrescaling << ADC_CONFIG_INPSEL_Pos |  /*!< Analog input specified by PSEL with no prescaling used as input for the conversion. */
                       ADC_CONFIG_REFSEL_SupplyOneThirdPrescaling << ADC_CONFIG_REFSEL_Pos |       /*!< Use internal 1.2V bandgap voltage as reference for conversion. */
-                      (ADC_CONFIG_PSEL_AnalogInput2) << ADC_CONFIG_PSEL_Pos;                        /*!< Use P0.01 as analog input 2. ) */
+                      (ADC_CONFIG_PSEL_AnalogInput5) << ADC_CONFIG_PSEL_Pos;                        /*!< Use P0.01 as analog input 2. ) */
     NRF_ADC->ENABLE = ADC_ENABLE_ENABLE_Enabled; 
 }
 

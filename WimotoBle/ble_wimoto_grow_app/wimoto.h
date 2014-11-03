@@ -218,7 +218,7 @@
 /**< = Analog input pin P0.06  = 7       */
 
 /*ADC input pin Pin for Soil moisture sensor */
-#define ADC_SOIL_MOISTURE_PIN                       1         /**< Soil moisture pin is p0.01(value is configured according to ADC analog input)*/
+#define ADC_SOIL_MOISTURE_PIN                       4         /**< Soil moisture pin is p0.04(value is configured according to ADC analog input)*/
 
 /*ADC input pin Pin for Probe temperature sensor*/
 #define PROBE_SENSOR_ENERGIZE_PIN                  GPIO_OUTCLR_PIN2_Pos  /**< Pin P0.02 is used to energize the soil moisture sensor*/
