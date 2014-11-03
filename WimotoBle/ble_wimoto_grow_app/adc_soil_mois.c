@@ -49,7 +49,7 @@ uint8_t do_soil_moisture_measurement()
 
     uint8_t adc_result;            /* Result after ADC convertion*/
 
-    //adc_init();                    /* Initialize ADC for probe temperature measurement */
+    adc_init();                    /* Initialize ADC for probe temperature measurement */
     one_mhz_start();               /* Start 1Mhz timer*/
     nrf_delay_ms(10); 
 
