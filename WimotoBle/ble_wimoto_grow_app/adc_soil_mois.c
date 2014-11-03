@@ -27,7 +27,7 @@ static __INLINE void nrf_gpio_cfg_input_high_drive(uint32_t pin_number, nrf_gpio
 */
 void adc_init(void)
 {	
-		nrf_gpio_cfg_input_high_drive(ADC_SOIL_MOISTURE_PIN,NRF_GPIO_PIN_NOPULL);
+		//nrf_gpio_cfg_input_high_drive(ADC_SOIL_MOISTURE_PIN,NRF_GPIO_PIN_NOPULL);
 	
 		// interrupt ADC
 		NRF_ADC->INTENSET = (ADC_INTENSET_END_Enabled << ADC_INTENSET_END_Pos);	
@@ -49,7 +49,7 @@ uint8_t do_soil_moisture_measurement()
 
     uint8_t adc_result;            /* Result after ADC convertion*/
 
-    adc_init();                    /* Initialize ADC for probe temperature measurement */
+		NRF_ADC->ENABLE = ADC_ENABLE_ENABLE_Enabled;
     one_mhz_start();               /* Start 1Mhz timer*/
     nrf_delay_ms(10); 
 
