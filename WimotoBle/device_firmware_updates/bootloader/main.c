@@ -197,7 +197,7 @@ static void ble_stack_init(bool init_softdevice)
     err_code = sd_softdevice_vector_table_base_set(BOOTLOADER_REGION_START);
     APP_ERROR_CHECK(err_code);
    
-    SOFTDEVICE_HANDLER_INIT(NRF_CLOCK_LFCLKSRC_SYNTH_250_PPM, true);
+    SOFTDEVICE_HANDLER_INIT(NRF_CLOCK_LFCLKSRC_XTAL_20_PPM, true);
 
     // Enable BLE stack 
     ble_enable_params_t ble_enable_params;
@@ -259,7 +259,8 @@ int main(void)
     }
 
     dfu_start  = app_reset;
-		/* Read the value of general purpose retention register */
+		
+			/* Read the value of general purpose retention register */
 		uint8_t retention_reg_val = NRF_POWER->GPREGRET;
 		
 		bool switch_to_dfu = false;
@@ -268,6 +269,7 @@ int main(void)
 		{
 			switch_to_dfu = true;
 		}
+		
     dfu_start |= ((nrf_gpio_pin_read(BOOTLOADER_BUTTON_PIN) == 0) ? true: false);
     
     if (switch_to_dfu||dfu_start || (!bootloader_app_is_valid(DFU_BANK_0_REGION_START)))
