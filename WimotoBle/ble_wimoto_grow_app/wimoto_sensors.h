@@ -311,8 +311,6 @@ uint8_t do_waterl_adc_measurement(void);                                 /**< Re
 #define PWM_OUTPUT_PIN_NUMBER    1    /**< Pin number for PWM output.*/
 #define TICKS (4UL)                   /**< Ticks */
 #define TIMER_PRESCALERS 1U           /**< Prescaler setting for timer, as 1. */
-#define CC1_HIGH_TOGGLE (7UL)					/**value of CC1 register for toggling low */
-#define CC0_LOW_TOGGLE (8UL)					/**value of CC0 register for toggling high */
 
 /**< Functions   */
 void    timer2_init(void);                                               /**< Initialize timer 2 module*/
