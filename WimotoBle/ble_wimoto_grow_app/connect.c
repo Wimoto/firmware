@@ -267,7 +267,8 @@ static void alarm_check(void)
 static void grow_param_meas_timeout_handler(void * p_context)
 {
     UNUSED_PARAMETER(p_context);
-    static uint8_t minutes_15_count = 0x01, sensor_minutes= 0x01;
+    static uint8_t minutes_15_count = 0x01; 
+	  //static uint8_t sensor_minutes= 0x01;
     if (minutes_15_count < 0x0F)
     {
         minutes_15_count++;
