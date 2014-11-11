@@ -37,7 +37,17 @@ typedef struct
 {
     ble_temps_low_evt_type_t evt_type;                                  /**< Type of event. */
 } ble_temps_low_evt_t;
+typedef enum
+{
+    BLE_TEMPS_EVT_INDICATION_ENABLED,                                         /**< Temperature  alarm value indication enabled event. */
+    BLE_TEMPS_EVT_INDICATION_DISABLED,                                        /**< Temperature  alarm value indication disabled event. */
+    BLE_TEMPS_EVT_INDICATION_CONFIRMED                                        /**< Confirmation of a Temperature  alarm indication has been received. */
+} ble_temps_alarm_type_t;
 
+typedef struct
+{
+    ble_temps_alarm_type_t evt_type;                                            /**< Type of event. */
+} ble_temps_alarm_evt_t;
 // Forward declaration of the ble_temps_low_t type. 
 typedef struct ble_temps_s ble_temps_t;
 

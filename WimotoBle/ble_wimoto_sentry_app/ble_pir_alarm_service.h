@@ -38,7 +38,17 @@ typedef struct
 {
     ble_pir_low_evt_type_t evt_type;                               /**< Type of event. */
 } ble_pir_low_evt_t;
+typedef enum
+{
+    BLE_PIR_EVT_INDICATION_ENABLED,                                         /**< PIR  alarm value indication enabled event. */
+    BLE_PIR_EVT_INDICATION_DISABLED,                                        /**< PIR  alarm value indication disabled event. */
+    BLE_PIR_EVT_INDICATION_CONFIRMED                                        /**< Confirmation of a PIR  alarm indication has been received. */
+} ble_pir_alarm_type_t;
 
+typedef struct
+{
+    ble_pir_alarm_type_t evt_type;                                            /**< Type of event. */
+} ble_pir_alarm_evt_t;
 // Forward declaration of the ble_pir_low_t type. 
 typedef struct ble_pir_s ble_pir_t;
 

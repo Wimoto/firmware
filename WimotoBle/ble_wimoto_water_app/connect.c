@@ -31,7 +31,6 @@
 #include "ble_srv_common.h"
 #include "ble_advdata.h"
 #include "ble_waterp_alarm_service.h"
-#include "ble_waterl_alarm_service.h"
 #include "ble_data_log_service.h"
 #include "ble_hts.h"
 #include "ble_dis.h"
@@ -77,7 +76,7 @@
 #define APP_TIMER_PRESCALER                  0                                          /**< Value of the RTC1 PRESCALER register. */
 #define APP_TIMER_MAX_TIMERS                 5                                          /**< Maximum number of simultaneously created timers. */
 #define APP_TIMER_OP_QUEUE_SIZE              4                                          /**< Size of timer operation queues. */
-
+																														
 #define WATER_LEVEL_MEAS_INTERVAL            APP_TIMER_TICKS(60000, APP_TIMER_PRESCALER) /**< water level measurement interval (ticks). */
 #define CONNECTED_MODE_TIMEOUT_INTERVAL      APP_TIMER_TICKS(30000, APP_TIMER_PRESCALER)/**< Connected mode timeout interval (ticks). */
 #define SECONDS_INTERVAL                     APP_TIMER_TICKS(1000, APP_TIMER_PRESCALER) /**< seconds measurement interval (ticks). */
@@ -85,8 +84,8 @@
 
 #define WATER_TYPE_AS_CHARACTERISTIC         0                                          /**< Determines if water type is given as characteristic (1) or as a field of measurement (0). */
 
-#define MIN_CONN_INTERVAL                    MSEC_TO_UNITS(500, UNIT_1_25_MS)           /**< Minimum acceptable connection interval (0.5 seconds) */
-#define MAX_CONN_INTERVAL                    MSEC_TO_UNITS(1000, UNIT_1_25_MS)          /**< Maximum acceptable connection interval (1 second). */
+#define MIN_CONN_INTERVAL                    MSEC_TO_UNITS(50, UNIT_1_25_MS)           /**< Minimum acceptable connection interval (25 milliseconds) */
+#define MAX_CONN_INTERVAL                    MSEC_TO_UNITS(500, UNIT_1_25_MS)          /**< Maximum acceptable connection interval (125 millisecond). */
 #define SLAVE_LATENCY                        0                                          /**< Slave latency. */
 #define CONN_SUP_TIMEOUT                     MSEC_TO_UNITS(4000, UNIT_10_MS)            /**< Connection supervisory timeout (4 seconds). */
 
@@ -148,7 +147,7 @@ volatile bool                                ACTIVE_CONN_FLAG = false;          
 volatile bool                                m_radio_event = false;                     /**< Radio notification event */
 uint8_t  																		 var_receive_uuid;  												/**<variable for receiving uuid >*/
 uint32_t buf[4];                                        															  /*buffer for flash write operation*/
-uint8_t				             curr_waterpresence=0x01;                                     /* water presence value for broadcast*/
+uint8_t				                               curr_waterpresence=0x01;                   /* water presence value for broadcast*/
 static void device_init(void);
 static void dlogs_init(void);
 static void waterps_init(void);
@@ -223,14 +222,15 @@ static void alarm_check(void)
 {
     uint32_t err_code;
 		err_code = ble_waterps_alarm_check(&m_waterps,&m_device);             /* Check whether alarm has to be raised for water presence */
-    if ((err_code != NRF_SUCCESS) &&																			/*passed device management service structure for getting time stamp in water presence service*/
+    if ((err_code != NRF_SUCCESS) &&																			 
              (err_code != NRF_ERROR_INVALID_STATE) &&
              (err_code != BLE_ERROR_NO_TX_BUFFERS) &&
              (err_code != BLE_ERROR_GATTS_SYS_ATTR_MISSING)
              )
     {
         APP_ERROR_HANDLER(err_code);
-    } 
+    }
+		nrf_delay_ms(100);																										 
 		//updating the advertise/broadcast data
 		if(ACTIVE_CONN_FLAG==false)               /* no active connection*/
 			advertising_init();                     
@@ -981,8 +981,8 @@ static void buttons_init(void)
 /**@brief Function for configuring the pins for water presence sensor.
 */
 static void waterps_pins_config(void)
-{
-		nrf_gpio_cfg_input(WATERP_GPIOTE_PIN,GPIO_PIN_CNF_PULL_Disabled);     			/* Configure pin p0.01 as input with pull-up disabled*/
+{																	 				
+		nrf_gpio_cfg_input(WATERP_GPIOTE_PIN,GPIO_PIN_CNF_PULL_Disabled);           /* Configure pin p0.01 as input with pull-up disabled*/
 		nrf_gpio_cfg_output(WATER_SENSOR_ENERGIZE_PIN);                             /* Configure P0.02 as output to energize the water presence sensor */
     nrf_gpio_pin_dir_set(WATER_SENSOR_ENERGIZE_PIN,NRF_GPIO_PIN_DIR_OUTPUT);    /* Set the direction of P0.02 as output*/
 }
@@ -1025,11 +1025,11 @@ static void create_log_data(uint32_t * data)
     uint8_t current_water_presence;
 		uint8_t waterp_pin_reading;
 		
-		nrf_gpio_pin_set(WATER_SENSOR_ENERGIZE_PIN);                    /* Set the value of P0.02 to high for water presence sensor*/
+		nrf_gpio_pin_set(WATER_SENSOR_ENERGIZE_PIN);                    /* Set the value of energize to high for water presence sensor*/
 		nrf_delay_ms(10);
-    waterp_pin_reading = nrf_gpio_pin_read(WATERP_GPIOTE_PIN);			/*Read pin 0.01*/		
+    waterp_pin_reading = nrf_gpio_pin_read(WATERP_GPIOTE_PIN);			/*Read pin connected to water presence*/		
 		nrf_delay_ms(10);																								/*delay for sensor response*/
-		nrf_gpio_pin_clear(WATER_SENSOR_ENERGIZE_PIN);	                /* Clear the pin P0.02 after reading*/
+		nrf_gpio_pin_clear(WATER_SENSOR_ENERGIZE_PIN);	                /* Clear the pin after reading*/
 	
 		current_water_presence = !(waterp_pin_reading);									/* Active Low voltage in pin indicates water presence.So invert the waterp_pin_reading */
     

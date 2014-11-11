@@ -40,7 +40,17 @@ typedef struct
 {
     ble_movement_low_evt_type_t evt_type;                         /**< Type of event. */
 } ble_movement_low_evt_t;
+typedef enum
+{
+    BLE_MOVEMENT_EVT_INDICATION_ENABLED,                                         /**< movement  alarm value indication enabled event. */
+    BLE_MOVEMENT_EVT_INDICATION_DISABLED,                                        /**< movement  alarm value indication disabled event. */
+    BLE_MOVEMENT_EVT_INDICATION_CONFIRMED                                        /**< Confirmation of a movement  alarm indication has been received. */
+} ble_movement_alarm_type_t;
 
+typedef struct
+{
+    ble_movement_alarm_type_t evt_type;                                            /**< Type of event. */
+} ble_movement_alarm_evt_t;
 /**@brief movement Service value write event type. */
 typedef enum
 {
@@ -139,6 +149,9 @@ void ble_movement_on_ble_evt(ble_movement_t * p_movement, ble_evt_t * p_ble_evt)
 * @return      NRF_SUCCESS on success, otherwise an error code.
 */
 uint32_t ble_movement_alarm_check(ble_movement_t * p_movement,ble_device_t *p_device);
+
+
+void update_movement_alarmtimestamp_on_connect(ble_movement_t * p_movement,ble_device_t *p_device);
 
 /**@brief Function for clearing alarm if alarm-clear is set the movement level.
 *

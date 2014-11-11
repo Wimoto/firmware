@@ -74,7 +74,7 @@
 #define APP_TIMER_PRESCALER                  0                                          /**< Value of the RTC1 PRESCALER register. */
 #define APP_TIMER_MAX_TIMERS                 5                                          /**< Maximum number of simultaneously created timers. */
 #define APP_TIMER_OP_QUEUE_SIZE              4                                          /**< Size of timer operation queues. */
-
+																														 
 #define SENTRY_LEVEL_MEAS_INTERVAL           APP_TIMER_TICKS(60000, APP_TIMER_PRESCALER)/**< sentry level measurement interval (ticks). */
 #define CONNECTED_MODE_TIMEOUT_INTERVAL      APP_TIMER_TICKS(30000, APP_TIMER_PRESCALER)/**< Connected mode timeout interval (ticks). */
 #define SECONDS_INTERVAL                     APP_TIMER_TICKS(1000, APP_TIMER_PRESCALER) /**< seconds measurement interval (ticks). */
@@ -82,8 +82,8 @@
 
 #define WATER_TYPE_AS_CHARACTERISTIC         0                                          /**< Determines if water type is given as characteristic (1) or as a field of measurement (0). */
 
-#define MIN_CONN_INTERVAL                    MSEC_TO_UNITS(500, UNIT_1_25_MS)           /**< Minimum acceptable connection interval (0.5 seconds) */
-#define MAX_CONN_INTERVAL                    MSEC_TO_UNITS(1000, UNIT_1_25_MS)          /**< Maximum acceptable connection interval (1 second). */
+#define MIN_CONN_INTERVAL                    MSEC_TO_UNITS(50, UNIT_1_25_MS)           /**< Minimum acceptable connection interval (25 milliseconds) */
+#define MAX_CONN_INTERVAL                    MSEC_TO_UNITS(500, UNIT_1_25_MS)          /**< Maximum acceptable connection interval (125 millisecond). */
 #define SLAVE_LATENCY                        0                                          /**< Slave latency. */
 #define CONN_SUP_TIMEOUT                     MSEC_TO_UNITS(4000, UNIT_10_MS)            /**< Connection supervisory timeout (4 seconds). */
 
@@ -137,6 +137,7 @@ bool                                         MOVEMENT_EVENT_FLAG = false;       
 bool                                         CHECK_ALARM_TIMEOUT=false;                 /**< Flag to indicate whether to check for alarm conditions*/
 bool                                         DATA_LOG_CHECK=false;
 bool                                         CLEAR_MOVE_ALARM=false;
+bool                                         CENTRAL_DEVICE_CONNECTED = false;          /**<Flag to indicate when a central device is connected >**/    
 
 extern bool																	 DLOGS_CONNECTED_STATE;                     /**< Specifies data logger service is connected or not */
 extern bool  																 DFU_ENABLE;                                /**< This flag indicates DFU mode is enabled/not */       
@@ -157,7 +158,7 @@ static void movement_init(void);
 static void bas_init(void);
 void data_log_sys_event_handler(uint32_t sys_evt);																			/**<function definition of datalog event handler>*/
 static void advertising_init(void);
-uint8_t														        	 var_receive_uuid;    											/**< varible for receiving the uuid type>**/
+uint8_t										 var_receive_uuid;    											/**< varible for receiving the uuid type>**/
 uint8_t				             curr_pir_presence;                              	/* water pir value for broadcast*/
 uint32_t                   xyz_coordinates;                                 /*accelerometer value for broadcast*/
 
@@ -194,7 +195,7 @@ void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p
     //                The flash write will happen EVEN if the radio is active, thus interrupting
     //                any communication.
     //                Use with care. Un-comment the line below to use.
-  //  ble_debug_assert_handler(error_code, line_num, p_file_name);
+    //ble_debug_assert_handler(error_code, line_num, p_file_name);
 
     // On assert, the system can only recover on reset
     NVIC_SystemReset();
@@ -455,27 +456,6 @@ static void advertising_init(void)
         {SENTRY_PROFILE_MOVEMENT_SERVICE_UUID,	  				BLE_UUID_TYPE_BLE}, 
         {SENTRY_PROFILE_PIR_SERVICE_UUID,									BLE_UUID_TYPE_BLE},
     };
-
-    // Build and set advertising data
-
-//    memset(&advdata, 0, sizeof(advdata));
-
-//    advdata.name_type               = BLE_ADVDATA_FULL_NAME;
-//    advdata.include_appearance      = true;
-//    advdata.flags.size              = sizeof(flags);
-//    advdata.flags.p_data            = &flags;
-//    advdata.uuids_complete.uuid_cnt = sizeof(adv_uuids) / sizeof(adv_uuids[0]);
-//    advdata.uuids_complete.p_uuids  = adv_uuids;
-
-//    memset(&advdata2, 0, sizeof(advdata2));
-
-//    advdata2.name_type               = BLE_ADVDATA_NO_NAME;
-//    advdata2.include_appearance      = false;
-//    advdata2.flags.size              = 0;
-//    advdata2.p_manuf_specific_data   = &manuf_data; 
-
-//    err_code = ble_advdata_set(&advdata, &advdata2);
-//    APP_ERROR_CHECK(err_code);
 
     // Initialize advertising parameters (used when starting advertising)
     memset(&m_adv_params, 0, sizeof(m_adv_params));
@@ -1343,7 +1323,7 @@ void connectable_mode(void)
             {
                 APP_ERROR_HANDLER(err_code);
             }  
-						
+						nrf_delay_ms(100);
 						//updating the advertise/broadcast data
 						if(ACTIVE_CONN_FLAG==false)               /* no active connection*/
 							advertising_init();                     
@@ -1396,9 +1376,28 @@ void connectable_mode(void)
             {
                 APP_ERROR_HANDLER(err_code);
 
-            } 
+            }
+						nrf_delay_ms(100);
             CLEAR_MOVE_ALARM= false;
-        }				 
+        }
+				
+				if(CENTRAL_DEVICE_CONNECTED)
+				{
+					update_movement_alarmtimestamp_on_connect(&m_movement,&m_device);   	/*Function to update the last occurance of movement alarm when a central device is connected*/         
+          
+					err_code = ble_pir_alarm_check(&m_pir,&m_device);     /*Function to update the last occurance of pir alarm when a central device is connected*/                 
+            if ((err_code != NRF_SUCCESS) &&									 
+                    (err_code != NRF_ERROR_INVALID_STATE) &&
+                    (err_code != BLE_ERROR_NO_TX_BUFFERS) &&
+                    (err_code != BLE_ERROR_GATTS_SYS_ATTR_MISSING)
+                    )
+            {
+                APP_ERROR_HANDLER(err_code);
+            }
+						nrf_delay_ms(100);
+					CENTRAL_DEVICE_CONNECTED = false;
+					
+				}
         
         power_manage(); 
 

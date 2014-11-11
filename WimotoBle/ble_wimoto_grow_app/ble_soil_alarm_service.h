@@ -36,7 +36,17 @@ typedef struct
 {
     ble_soils_evt_type_t evt_type;                                  /**< Type of event. */
 } ble_soils_evt_t;
+typedef enum
+{
+    BLE_SOILS_EVT_INDICATION_ENABLED,                                         /**< soil moisture  alarm value indication enabled event. */
+    BLE_SOILS_EVT_INDICATION_DISABLED,                                        /**< soil moisture  alarm value indication disabled event. */
+    BLE_SOILS_EVT_INDICATION_CONFIRMED                                        /**< Confirmation of a soil moisture  alarm indication has been received. */
+} ble_soils_alarm_type_t;
 
+typedef struct
+{
+    ble_soils_alarm_type_t evt_type;                                            /**< Type of event. */
+} ble_soils_alarm_evt_t;
 // Forward declaration of the ble_soils_t type. 
 typedef struct ble_soils_s ble_soils_t;
 

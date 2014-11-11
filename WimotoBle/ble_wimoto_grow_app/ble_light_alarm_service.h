@@ -40,7 +40,17 @@ typedef struct
     ble_lights_low_evt_type_t evt_type;                                  /**< Type of event. */
 } ble_lights_evt_t;
 
+typedef enum
+{
+    BLE_LIGHTS_EVT_INDICATION_ENABLED,                                         /**< Lights  alarm value indication enabled event. */
+    BLE_LIGHTS_EVT_INDICATION_DISABLED,                                        /**< Lights  alarm value indication disabled event. */
+    BLE_LIGHTS_EVT_INDICATION_CONFIRMED                                        /**< Confirmation of a Lights  alarm indication has been received. */
+} ble_lights_alarm_type_t;
 
+typedef struct
+{
+    ble_lights_alarm_type_t evt_type;                                            /**< Type of event. */
+} ble_lights_alarm_evt_t;
 typedef struct ble_lights_s ble_lights_t;
 
 /**@brief Light Service event handler type. */

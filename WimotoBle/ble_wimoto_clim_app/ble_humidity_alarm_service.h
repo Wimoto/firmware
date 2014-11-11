@@ -40,6 +40,17 @@ typedef struct
     ble_hums_low_evt_type_t evt_type;                                  /**< Type of event. */
 } ble_hums_evt_t;
 
+typedef enum
+{
+    BLE_HUMS_EVT_INDICATION_ENABLED,                                         /**< humidity alarm value indication enabled event. */
+    BLE_HUMS_EVT_INDICATION_DISABLED,                                        /**< humidity  alarm value indication disabled event. */
+    BLE_HUMS_EVT_INDICATION_CONFIRMED                                        /**< Confirmation of a humidity  alarm indication has been received. */
+} ble_hums_alarm_type_t;
+
+typedef struct
+{
+    ble_hums_alarm_type_t evt_type;                                            /**< Type of event. */
+} ble_hums_alarm_evt_t;
 // Forward declaration of the ble_hums_t type. 
 typedef struct ble_hums_s ble_hums_t;
 

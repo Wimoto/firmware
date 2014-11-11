@@ -17,6 +17,7 @@
 * sruthiraj         01/10/2014     Migrated to soft device 7.0.0 and SDK 6.1.0
 * Sruthi.k.s				10/17/2014		 Added time stamp with alarm services
 * Shafy S           10/28/2014     Added changes to show last occurance timestamp of alarm
+* Sruthi.k.s				11/07/2014 		 Changed the notification property of alarm characteristics to indication
 */
 
 #include "ble_waterp_alarm_service.h"
@@ -33,6 +34,7 @@ extern uint8_t		var_receive_uuid;								/*variable to receive uuid*/
 extern uint8_t	  curr_waterpresence;             /* water presence value for broadcast*/
 extern bool       CHECK_ALARM_TIMEOUT;
 bool              waterp_alarm_set_changed = false;
+bool     					m_waterps_alarm_ind_conf_pending = false;       /**< Flag to keep track of when an indication confirmation is pending. */
 /**@brief Function for handling the Connect event.
 *
 * @param[in]   p_waterps   water presence Service structure.
@@ -69,7 +71,24 @@ static void write_evt_handler(void)
     WATERP_EVENT_FLAG = true; 
 }
 
+static void on_waterps_evt(ble_waterps_t * p_waterps, ble_waterps_alarm_evt_t *p_evt)
+{
+    switch (p_evt->evt_type)
+    {
+        case BLE_WATERPS_EVT_INDICATION_ENABLED:
+            // Indication has been enabled, send a single temperature measurement
+            //temperature_measurement_send();
+            break;
 
+        case BLE_WATERPS_EVT_INDICATION_CONFIRMED:
+            m_waterps_alarm_ind_conf_pending = false;
+            break;
+
+        default:
+            // No implementation needed.
+            break;
+    }
+}
 /**@brief Function for handling the Write event.
 *
 * @param[in]   p_waterps   water presence Service structure.
@@ -107,34 +126,6 @@ static void on_write(ble_waterps_t * p_waterps, ble_evt_t * p_ble_evt)
                 p_waterps->evt_handler(p_waterps, &evt);
             }
         } 
-
-        //write event for water presence alarm
-
-        if (
-                (p_evt_write->handle == p_waterps->water_waterp_alarm_handles.cccd_handle)
-                &&
-                (p_evt_write->len == 2)
-                )
-        {
-            // CCCD written, call application event handler
-            if (p_waterps->evt_handler != NULL)
-            {
-                ble_waterps_low_evt_t evt;
-
-                if (ble_srv_is_notification_enabled(p_evt_write->data))
-                {
-                    evt.evt_type = BLE_WATERPS_LOW_EVT_NOTIFICATION_ENABLED;
-                }
-                else
-                {
-                    evt.evt_type = BLE_WATERPS_LOW_EVT_NOTIFICATION_DISABLED;
-                }
-
-                p_waterps->evt_handler(p_waterps, &evt);
-            }
-        } 
-
-
         //write event for current water presence
 
         if (
@@ -161,7 +152,31 @@ static void on_write(ble_waterps_t * p_waterps, ble_evt_t * p_ble_evt)
             }
         }
     }
+				//write event for water presence alarm
 
+        if (
+                (p_evt_write->handle == p_waterps->water_waterp_alarm_handles.cccd_handle)
+                &&
+                (p_evt_write->len == 2)
+                )
+        {
+            // CCCD written, call application event handler
+            if (p_waterps->evt_handler != NULL)
+            {
+                ble_waterps_alarm_evt_t evt;
+
+                if (ble_srv_is_indication_enabled(p_evt_write->data))
+                {
+                    evt.evt_type = BLE_WATERPS_EVT_INDICATION_ENABLED;
+                }
+                else
+                {
+                    evt.evt_type = BLE_WATERPS_EVT_INDICATION_DISABLED;
+                }
+
+                on_waterps_evt(p_waterps, &evt);
+            }
+        } 
     // Write event for alarm set char value
 
     if (
@@ -180,7 +195,23 @@ static void on_write(ble_waterps_t * p_waterps, ble_evt_t * p_ble_evt)
     }
 }
 
-
+/**@brief Function for handling the HVC event.
+ *
+ * @details Handles HVC events from the BLE stack.
+ *
+ * @param[in]   p_temps_t   temperature Service structure.
+ * @param[in]   p_ble_evt   Event received from the BLE stack.
+ */
+static void on_hvc(ble_waterps_t * p_waterps, ble_evt_t * p_ble_evt)
+{
+    ble_gatts_evt_hvc_t * p_hvc = &p_ble_evt->evt.gatts_evt.params.hvc;
+    if (p_hvc->handle == p_waterps->water_waterp_alarm_handles.value_handle)
+    {
+        ble_waterps_alarm_evt_t evt;
+        evt.evt_type = BLE_WATERPS_EVT_INDICATION_CONFIRMED;
+        on_waterps_evt(p_waterps, &evt);
+    }
+}
 void ble_waterps_on_ble_evt(ble_waterps_t * p_waterps, ble_evt_t * p_ble_evt)
 {
     switch (p_ble_evt->header.evt_id)
@@ -196,7 +227,9 @@ void ble_waterps_on_ble_evt(ble_waterps_t * p_waterps, ble_evt_t * p_ble_evt)
     case BLE_GATTS_EVT_WRITE:
         on_write(p_waterps, p_ble_evt);
         break;
-
+		case BLE_GATTS_EVT_HVC:    //Handle Value Confirmation event
+            on_hvc(p_waterps, p_ble_evt);
+            break;	
     default:
         break;
     }
@@ -368,12 +401,12 @@ static uint32_t waterpresence_alarm_char_add(ble_waterps_t * p_waterps, const bl
 
     memset(&char_md, 0, sizeof(char_md));
 
-    char_md.char_props.read   = 1;
-    char_md.char_props.notify = (p_waterps->is_notification_supported) ? 1 : 0;
-    char_md.p_char_pf         = NULL;
-    char_md.p_user_desc_md    = NULL;
-    char_md.p_cccd_md         = (p_waterps->is_notification_supported) ? &cccd_md : NULL;
-    char_md.p_sccd_md         = NULL;
+    char_md.char_props.read   	= 1;
+    char_md.char_props.indicate = (p_waterps->is_notification_supported) ? 1 : 0;
+    char_md.p_char_pf        	  = NULL;
+    char_md.p_user_desc_md    	= NULL;
+    char_md.p_cccd_md         	= (p_waterps->is_notification_supported) ? &cccd_md : NULL;
+    char_md.p_sccd_md         	= NULL;
 
     ble_uuid.type = p_waterps->uuid_type;
     ble_uuid.uuid = WATER_PROFILE_WATERPS_ALARM_CHAR_UUID;			
@@ -560,7 +593,8 @@ uint32_t ble_waterps_alarm_check(ble_waterps_t * p_waterps,ble_device_t *p_devic
 
     if((alarm[0]== 0x01)&&(p_waterps->water_waterpresence_alarm_set == 0x01)) 	/*check whether the alarm is ON and alarm set characteristics is ON*/
     {	
-
+				if(!m_waterps_alarm_ind_conf_pending)
+				{
         // Send the alarm value if connected and notifying
 
         if ((p_waterps->conn_handle != BLE_CONN_HANDLE_INVALID) && p_waterps->is_notification_supported)
@@ -571,20 +605,24 @@ uint32_t ble_waterps_alarm_check(ble_waterps_t * p_waterps,ble_device_t *p_devic
 
 
             hvx_params.handle   = p_waterps->water_waterp_alarm_handles.value_handle;
-            hvx_params.type     = BLE_GATT_HVX_NOTIFICATION;
+            hvx_params.type     = BLE_GATT_HVX_INDICATION;
             hvx_params.offset   = 0;
             hvx_params.p_len    = &len;
             hvx_params.p_data   = alarm;
 
             err_code = sd_ble_gatts_hvx(p_waterps->conn_handle, &hvx_params);
 						p_waterps->waterps_alarm_with_time_stamp[0]  = alarm[0]; 
+						if(err_code == NRF_SUCCESS)
+						{
+							m_waterps_alarm_ind_conf_pending = true;
+						}					
 				
         }
         else
         {
             err_code = NRF_ERROR_INVALID_STATE;
         }
-
+				}
     }
 
     return err_code;

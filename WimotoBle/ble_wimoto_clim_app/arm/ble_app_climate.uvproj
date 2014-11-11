@@ -337,7 +337,7 @@
             <interw>1</interw>
             <Optim>2</Optim>
             <oTime>1</oTime>
-            <SplitLS>1</SplitLS>
+            <SplitLS>0</SplitLS>
             <OneElfS>0</OneElfS>
             <Strict>0</Strict>
             <EnumInt>1</EnumInt>

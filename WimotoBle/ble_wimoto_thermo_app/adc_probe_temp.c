@@ -34,15 +34,15 @@ void adc_init()
 */
 uint16_t do_probe_temperature_measurement()
 {
-    uint16_t adc_result;            /* Result after ADC conversion*/
+    uint16_t adc_result;                                                         /* Result after ADC conversion*/
 	
-		nrf_gpio_cfg_output(PROBE_SENSOR_ENERGIZE_PIN);                              /* Configure P0.02 as output */
-    nrf_gpio_pin_dir_set(PROBE_SENSOR_ENERGIZE_PIN,NRF_GPIO_PIN_DIR_OUTPUT);     /* Set the direction of P0.02 as output*/
-    nrf_gpio_pin_set(PROBE_SENSOR_ENERGIZE_PIN);                                 /* Set the value of P0.02 to high for soil moisture sensor*/
+		nrf_gpio_cfg_output(PROBE_SENSOR_ENERGIZE_PIN);                              /* Configure energize pin as output */
+    nrf_gpio_pin_dir_set(PROBE_SENSOR_ENERGIZE_PIN,NRF_GPIO_PIN_DIR_OUTPUT);     /* Set the direction of output pin*/
+    nrf_gpio_pin_set(PROBE_SENSOR_ENERGIZE_PIN);                                 /* Set the value of energize pin for ADC probe*/
 		
-		nrf_gpio_cfg_input(PROBE_ADC_INPUT_AIN5_P04, NRF_GPIO_PIN_NOPULL);						/*configure p0.05 as ADC input*/
+		nrf_gpio_cfg_input(PROBE_ADC_INPUT_AIN5_P04, NRF_GPIO_PIN_NOPULL);					 /*configure ADC input*/
 	
-	  adc_init();                    /* Initialize ADC for probe temperature measurement */
+	  adc_init();                                                                  /* Initialize ADC for probe temperature measurement */
     
 		// start ADC conversion
 		NRF_ADC->TASKS_START = 1;
@@ -58,7 +58,7 @@ uint16_t do_probe_temperature_measurement()
 		
 		NRF_ADC->TASKS_STOP = 1;	
 			
-    nrf_gpio_pin_clear(PROBE_SENSOR_ENERGIZE_PIN);	                             /* Clear the pin P0.02 after the use of sensor*/
+    nrf_gpio_pin_clear(PROBE_SENSOR_ENERGIZE_PIN);	                             /* Clear the energize pin after the use of sensor*/
 		
     return adc_result;
 		

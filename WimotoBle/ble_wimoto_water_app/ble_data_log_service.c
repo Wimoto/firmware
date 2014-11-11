@@ -8,7 +8,8 @@
 * Sherin           12/10/2013     Added write events for value fields
 * Hariprasad       12/11/2013     Added 128bit Vendor specific  custom UUID's for the service and all characteristics 
 * Shafy S          12/19/2013     Added a tx complete event check in reset_data_log() to avoid tx buffer overflow
-* sruthiraj        01/10/2014     Migrated to soft device 7.0.0 and SDK 6.1.0
+* sruthi.k.s       01/10/2014     migrated to soft device 7.0.0 and SDK 6.1.0
+* Shafy            11/10/2014     Changes in handling flash completion event and in reset data log function
 */
 
 #include <string.h>
@@ -35,12 +36,12 @@ uint32_t            write_pg;                     /* flash page number to which 
 static uint32_t *write_addr;                      /* write_address of the word to which data is being written*/
 static uint32_t pg_end;                           /* last page in the buffer*/ 
 
-bool                DLOGS_CONNECTED_STATE=false;  /* Indicates whether the data logger service is connected or not*/
+bool   DLOGS_CONNECTED_STATE=false;               /* Indicates whether the data logger service is connected or not*/
 
-bool                done_read = false;            /* flag to indicate whether data logger reading is over*/ 
-bool                ret_sys_evt = false;
+bool   done_read = false;                         /* flag to indicate whether data logger reading is over*/ 
+bool   flash_comp_evt = false;			              /*flag to indicate flash operation completion event*/
 extern ble_date_time_t m_time_stamp;              /* time stamp structure*/ 
-extern uint8_t	 var_receive_uuid;  							/*variable to receive uuid*/
+extern uint8_t	 var_receive_uuid;  							/*variable for receiving uuid*/
 extern uint32_t buf[4];														/*buffer for flash write operation*/
 /**@brief Function for handling the Connect event.
 *
@@ -293,7 +294,7 @@ static uint32_t data_logger_enable_char_add(ble_dlogs_t * ble_dlogs, const ble_d
 
     // Adding custom UUID
     ble_uuid.type = ble_dlogs->uuid_type;
-    ble_uuid.uuid = WATER_PROFILE_DLOGS_DLOGS_EN_UUID;    
+    ble_uuid.uuid = CLIMATE_PROFILE_DLOGS_DLOGS_EN_UUID;    
 
     memset(&attr_md, 0, sizeof(attr_md));
 
@@ -362,7 +363,7 @@ static uint32_t data_char_add(ble_dlogs_t * ble_dlogs, const ble_dlogs_init_t * 
 
     // Adding custom UUID
     ble_uuid.type = ble_dlogs->uuid_type;
-    ble_uuid.uuid = WATER_PROFILE_DLOGS_DATA_UUID ;    
+    ble_uuid.uuid = CLIMATE_PROFILE_DLOGS_DATA_UUID;    
 
     memset(&attr_md, 0, sizeof(attr_md));
 
@@ -423,9 +424,9 @@ static uint32_t read_data_switch_char_add(ble_dlogs_t * ble_dlogs, const ble_dlo
 
     memset(&char_md, 0, sizeof(char_md));
 
-    char_md.char_props.read     			= 1;    
-		char_md.char_props.write					=	1;                        /*add fix for characteristic write issue*/
-		char_md.char_props.write_wo_resp 	= 1;                        /*add fix for characteristic write issue*/   
+    char_md.char_props.read     			= 1;
+		char_md.char_props.write					=	1;                                /*add fix for characteristic write issue*/
+		char_md.char_props.write_wo_resp 	= 1;                                /*add fix for characteristic write issue*/
     char_md.char_props.notify   			= (ble_dlogs->is_notification_supported) ? 1 : 0;
     char_md.p_char_pf           			= NULL;
     char_md.p_user_desc_md      			= NULL;
@@ -434,7 +435,7 @@ static uint32_t read_data_switch_char_add(ble_dlogs_t * ble_dlogs, const ble_dlo
 
     // Adding custom UUID
     ble_uuid.type = ble_dlogs->uuid_type;
-    ble_uuid.uuid = WATER_PROFILE_DLOGS_READ_DATA_UUID;    
+    ble_uuid.uuid = CLIMATE_PROFILE_DLOGS_READ_DATA_UUID;    
 
     memset(&attr_md, 0, sizeof(attr_md));
 
@@ -482,7 +483,7 @@ uint32_t ble_dlogs_init(ble_dlogs_t * ble_dlogs, const ble_dlogs_init_t * ble_dl
     // Add service
     ble_uuid.type = var_receive_uuid ;
 		ble_dlogs->uuid_type= var_receive_uuid;
-    ble_uuid.uuid = WATER_PROFILE_DLOGS_SERVICE_UUID;
+    ble_uuid.uuid = CLIMATE_PROFILE_DLOGS_SERVICE_UUID;
 
     // Initialize service structure
     ble_dlogs->evt_handler               = ble_dlogs_init->evt_handler;
@@ -527,8 +528,7 @@ uint32_t ble_dlogs_init(ble_dlogs_t * ble_dlogs, const ble_dlogs_init_t * ble_dl
 */
 void write_data_flash(uint32_t *data)
 {		
-		uint32_t retval;
-    static uint32_t i=0;
+		static uint32_t i=0;
     static uint32_t pg_size;         												 /*size of a page*/
     static bool first_write=true;    												 /*flag indicates whether a write is done for the first time in the flash*/
     static unsigned char write_cycle=0;
@@ -539,48 +539,51 @@ void write_data_flash(uint32_t *data)
 		if(first_write)                                         /* for the first write cycle set the start address and erase the page*/
     {
         pg_size   = NRF_FICR->CODEPAGESIZE;
-        write_pg  = DATA_LOGGER_BUFFER_START_PAGE;          /* the first page to be written for logging data*/
+        write_pg  = DATA_LOGGER_BUFFER_START_PAGE;          /* th e first page to be written for logging data*/
         pg_end  	= DATA_LOGGER_BUFFER_END_PAGE;						/* the last page for writing data*/
         read_pg 	= DATA_LOGGER_BUFFER_START_PAGE; 
         write_addr = (uint32_t *)(pg_size * write_pg);
-				retval=sd_flash_page_erase(write_pg);
-				while((ret_sys_evt!=true)&&(retval!=NRF_SUCCESS))	/*wait for the completeion of flash erase*/
+				
+				flash_comp_evt = false;
+				sd_flash_page_erase(write_pg);
+				
+				while(flash_comp_evt!=true)	                       /*wait for the completeion of flash erase*/
 				{
 							sd_app_evt_wait();
-							ret_sys_evt=false;					/*set the parameter from the system evt handler to false*/
 				}
         first_write = false;
-			
     }
     
     if(write_pg <= pg_end)								
     {		
-      
+        
         if(i < pg_size)                                    /* stay in same page if the page size(1024 bytes) is not exceeded*/
         {		
-					retval=sd_flash_write(write_addr,buf,4);      /* write four words*/
-					while((ret_sys_evt!=true)&&(retval!=NRF_SUCCESS))
+						flash_comp_evt = false;
+						sd_flash_write(write_addr,buf,4);      /* write four words*/
+						while(flash_comp_evt!=true)
 						{
 								sd_app_evt_wait();
-								ret_sys_evt=false;
 						}
 						i += 16;                                       /* for each block write 16 bytes are written to flash*/
 						write_addr+=4;                                 /* increment the address by four words*/
 				}
         else if((++write_pg) <= pg_end)                    /* increment the page number when the current page size is exceeded*/
         {
-            retval=sd_flash_page_erase(write_pg);              			  /* Erase the page before writing*/
-						while((ret_sys_evt!=true)&&(retval!=NRF_SUCCESS))	/*wait for the completeion of flash erase*/
+						flash_comp_evt = false;
+            sd_flash_page_erase(write_pg);         /* Erase the page before writing*/
+						while(flash_comp_evt!=true)	                  /*wait for the completeion of flash erase*/
 						{
 								sd_app_evt_wait();
-								ret_sys_evt=false;
+								
 						}
             write_addr = (uint32_t *)(pg_size * write_pg);
-            retval=sd_flash_write(write_addr,buf,4);
-						while((ret_sys_evt!=true)&&(retval!=NRF_SUCCESS))
+						flash_comp_evt = false;
+            sd_flash_write(write_addr,buf,4);
+						while(flash_comp_evt != true)
 						{
 								sd_app_evt_wait();
-								ret_sys_evt=false;
+							
 						}
 						i = 16;															
 						write_addr+=4;
@@ -599,15 +602,17 @@ void write_data_flash(uint32_t *data)
     {
         write_pg  = DATA_LOGGER_BUFFER_START_PAGE;        /* when the last page is reached, go back to the first page*/
         read_pg = write_pg + 1;
-        retval=sd_flash_page_erase(write_pg);
-				while((ret_sys_evt!=true)&&(retval!=NRF_SUCCESS))
+				flash_comp_evt = false;
+        sd_flash_page_erase(write_pg);
+				while(flash_comp_evt!=true)
 				{
 						sd_app_evt_wait();
-						ret_sys_evt=false;
 				}
+				
         write_addr = (uint32_t *)(pg_size * write_pg);
-        retval=sd_flash_write(write_addr,buf,4);
-				while(retval==NRF_ERROR_BUSY)
+				flash_comp_evt = false;
+        sd_flash_write(write_addr,buf,4);
+				while(flash_comp_evt != true)
 				{
 						sd_app_evt_wait();
 				}
@@ -825,7 +830,7 @@ uint32_t reset_data_log(ble_dlogs_t * ble_dlogs)
     ble_dlogs->data_logger_enable =data_logger_enable;
     ble_dlogs->read_data_switch   =read_data_switch;	
     
-    TX_COMPLETE=false;																	/*Set the TX Complete flag to false before updating characteristics value*/
+    
 
     // Send the updated value of data logger enable if connected and notifying
     if ((ble_dlogs->conn_handle != BLE_CONN_HANDLE_INVALID) && ble_dlogs->is_notification_supported)
@@ -841,22 +846,22 @@ uint32_t reset_data_log(ble_dlogs_t * ble_dlogs)
         hvx_params.p_len    = &len;
         hvx_params.p_data   = &data_logger_enable;
         
+				TX_COMPLETE = false;																	/*Set the TX Complete flag to false before updating characteristics value*/
         err_code = sd_ble_gatts_hvx(ble_dlogs->conn_handle, &hvx_params);
+				
     }
     else
     {
         err_code = NRF_ERROR_INVALID_STATE;
     }
-    if (err_code != NRF_SUCCESS)
+    if ((err_code != NRF_SUCCESS) &&															 
+        (err_code != NRF_ERROR_INVALID_STATE) &&
+        (err_code != BLE_ERROR_NO_TX_BUFFERS) &&
+        (err_code != BLE_ERROR_GATTS_SYS_ATTR_MISSING)
+        )
     {
         return err_code;
         
-    }
-    
-    while(!TX_COMPLETE)														 				/*Wait for previous TX complete event*/
-    {
-        uint32_t err_code = sd_app_evt_wait();
-        APP_ERROR_CHECK(err_code);
     }
     
     // Send the updated value of read data switch if connected and notifying						
@@ -879,11 +884,17 @@ uint32_t reset_data_log(ble_dlogs_t * ble_dlogs)
     {
         err_code = NRF_ERROR_INVALID_STATE;
     }
-    if (err_code != NRF_SUCCESS)
+    if ((err_code != NRF_SUCCESS) &&															 
+        (err_code != NRF_ERROR_INVALID_STATE) &&
+        (err_code != BLE_ERROR_NO_TX_BUFFERS) &&
+        (err_code != BLE_ERROR_GATTS_SYS_ATTR_MISSING)
+        )
     {
         return err_code;
         
     }
+		sd_ble_gatts_value_set(ble_dlogs->data_logger_enable_handles.value_handle, 0, &len, 0);  /*clear the value of data logger enable characteristics*/
+		sd_ble_gatts_value_set(ble_dlogs->read_data_handles.value_handle, 0, &len, 0);  /*clear the value of read data enable characteristics*/
     done_read=false;
     return NRF_SUCCESS;
     
@@ -897,6 +908,6 @@ void data_log_sys_event_handler(uint32_t sys_evt)
 {
 		if (sys_evt == NRF_EVT_FLASH_OPERATION_SUCCESS)
 		{ 
-				ret_sys_evt=true;
+				flash_comp_evt = true;
 		}
 } 

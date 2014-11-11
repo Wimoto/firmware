@@ -74,7 +74,7 @@
 #define APP_TIMER_PRESCALER                  0                                          /**< Value of the RTC1 PRESCALER register. */
 #define APP_TIMER_MAX_TIMERS                 5                                          /**< Maximum number of simultaneously created timers. */
 #define APP_TIMER_OP_QUEUE_SIZE              4                                          /**< Size of timer operation queues. */
-
+																														 
 #define TEMPERATURE_LEVEL_MEAS_INTERVAL      APP_TIMER_TICKS(60000, APP_TIMER_PRESCALER)/**< temperature level measurement interval (ticks). */
 #define CONNECTED_MODE_TIMEOUT_INTERVAL      APP_TIMER_TICKS(30000, APP_TIMER_PRESCALER)/**< Connected mode timeout interval (ticks). */
 #define SECONDS_INTERVAL                     APP_TIMER_TICKS(1000, APP_TIMER_PRESCALER) /**< seconds measurement interval (ticks). */
@@ -86,8 +86,8 @@
 #define MAX_CELCIUS_DEGRESS                  3972                                       /**< Maximum temperature in celcius for use in the simulated measurement function (multiplied by 100 to avoid floating point arithmetic). */
 #define CELCIUS_DEGREES_INCREMENT            36                                         /**< Value by which temperature is incremented/decremented for each call to the simulated measurement function (multiplied by 100 to avoid floating point arithmetic). */
 
-#define MIN_CONN_INTERVAL                    MSEC_TO_UNITS(500, UNIT_1_25_MS)           /**< Minimum acceptable connection interval (0.5 seconds) */
-#define MAX_CONN_INTERVAL                    MSEC_TO_UNITS(1000, UNIT_1_25_MS)          /**< Maximum acceptable connection interval (1 second). */
+#define MIN_CONN_INTERVAL                    MSEC_TO_UNITS(50, UNIT_1_25_MS)           /**< Minimum acceptable connection interval (25 milliseconds) */
+#define MAX_CONN_INTERVAL                    MSEC_TO_UNITS(500, UNIT_1_25_MS)          /**< Maximum acceptable connection interval (125 millisecond). */
 #define SLAVE_LATENCY                        0                                          /**< Slave latency. */
 #define CONN_SUP_TIMEOUT                     MSEC_TO_UNITS(4000, UNIT_10_MS)            /**< Connection supervisory timeout (4 seconds). */
 
@@ -194,7 +194,7 @@ void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p
     //                The flash write will happen EVEN if the radio is active, thus interrupting
     //                any communication.
     //                Use with care. Un-comment the line below to use.
-    //ble_debug_assert_handler(error_code, line_num, p_file_name);
+//    ble_debug_assert_handler(error_code, line_num, p_file_name);
 
     // On assert, the system can only recover on reset
     NVIC_SystemReset();
@@ -233,7 +233,7 @@ static void alarm_check(void)
     {
         APP_ERROR_HANDLER(err_code);
     }
-
+		nrf_delay_ms(100);																							
     err_code = ble_lights_level_alarm_check(&m_lights,&m_device);  /* Check whether the light level is out of range*/
     if ((err_code != NRF_SUCCESS) &&																/*passed device management service structure for getting time stamp in light service*/
             (err_code != NRF_ERROR_INVALID_STATE) &&
@@ -242,7 +242,8 @@ static void alarm_check(void)
             )
     {
         APP_ERROR_HANDLER(err_code);
-    }                       
+    } 
+		nrf_delay_ms(100);																							
     err_code = ble_soils_level_alarm_check(&m_soils,&m_device);    /* Check whether the soil moisture level is out of range*/  
     if ((err_code != NRF_SUCCESS) &&																/*passed device management service structure for getting time stamp in soil moisture service*/
             (err_code != NRF_ERROR_INVALID_STATE) &&
@@ -267,7 +268,8 @@ static void alarm_check(void)
 static void grow_param_meas_timeout_handler(void * p_context)
 {
     UNUSED_PARAMETER(p_context);
-    static uint8_t minutes_15_count = 0x01, sensor_minutes= 0x01;
+    static uint8_t minutes_15_count = 0x01; 
+	  //static uint8_t sensor_minutes= 0x01;
     if (minutes_15_count < 0x0F)
     {
         minutes_15_count++;

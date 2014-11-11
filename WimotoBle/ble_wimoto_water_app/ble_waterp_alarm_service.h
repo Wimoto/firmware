@@ -38,7 +38,17 @@ typedef struct
 {
     ble_waterps_low_evt_type_t evt_type;                                  /**< Type of event. */
 } ble_waterps_low_evt_t;
+typedef enum
+{
+    BLE_WATERPS_EVT_INDICATION_ENABLED,                                         /**< water presence  alarm value indication enabled event. */
+    BLE_WATERPS_EVT_INDICATION_DISABLED,                                        /**< water presence  alarm value indication disabled event. */
+    BLE_WATERPS_EVT_INDICATION_CONFIRMED                                        /**< Confirmation of a water presence  alarm indication has been received. */
+} ble_waterps_alarm_type_t;
 
+typedef struct
+{
+    ble_waterps_alarm_type_t evt_type;                                            /**< Type of event. */
+} ble_waterps_alarm_evt_t;
 // Forward declaration of the ble_waterps_low_t type. 
 typedef struct ble_waterps_s ble_waterps_t;
 

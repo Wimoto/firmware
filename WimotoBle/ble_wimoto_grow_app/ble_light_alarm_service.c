@@ -15,6 +15,7 @@
 * Hariprasad        12/11/2013     Added 128bit Vendor specific  custom UUID's for the service and all characteristics 
 * Sruthi.k.s        10/01/2014     migrated to soft device 7.0.0 and SDK 6.1.0
 * Sruthi.k.s				10/17/2014		 Added time stamp with light alarm characteristics
+* Sruthi.k.s				11/07/2014		 Changed the notification property of alarm characteristics to indication
 */
 
 #include "ble_light_alarm_service.h"
@@ -30,6 +31,10 @@ extern bool 	  CHECK_ALARM_TIMEOUT;
 extern uint8_t	var_receive_uuid;										/*variable to receive uuid*/
 extern uint8_t	light_level[2];                    /*variable to store current light level value to broadcast*/
 bool  light_alarm_set_changed = false;
+
+bool     				m_lights_alarm_ind_conf_pending = false;       /**< Flag to keep track of when an indication confirmation is pending.*/
+extern bool     m_temps_alarm_ind_conf_pending;
+extern bool     m_soils_alarm_ind_conf_pending;
 
 /**@brief Function for handling the Connect event.
 *
@@ -67,7 +72,24 @@ static void write_evt_handler(void)
     CHECK_ALARM_TIMEOUT = true; 
 }
 
+static void on_lights_evt(ble_lights_t * p_lights, ble_lights_alarm_evt_t *p_evt)
+{
+    switch (p_evt->evt_type)
+    {
+        case BLE_LIGHTS_EVT_INDICATION_ENABLED:
+            // Indication has been enabled, send a single temperature measurement
+            //temperature_measurement_send();
+            break;
 
+        case BLE_LIGHTS_EVT_INDICATION_CONFIRMED:
+            m_lights_alarm_ind_conf_pending = false;
+            break;
+
+        default:
+            // No implementation needed.
+            break;
+    }
+}
 /**@brief Function for handling the Write event.
 *
 * @param[in]   p_lights       Light Service structure.
@@ -155,33 +177,7 @@ static void on_write(ble_lights_t * p_lights, ble_evt_t * p_ble_evt)
 
                 p_lights->evt_handler(p_lights, &evt);
             }
-        } 
-
-        //write event for light_level alarm
-
-        if (
-                (p_evt_write->handle == p_lights->light_alarm_handles.cccd_handle)
-                &&
-                (p_evt_write->len == 2)
-                )
-        {
-            // CCCD written, call application event handler
-            if (p_lights->evt_handler != NULL)
-            {
-                ble_lights_evt_t evt;
-
-                if (ble_srv_is_notification_enabled(p_evt_write->data))
-                {
-                    evt.evt_type = BLE_LIGHTS_LOW_EVT_NOTIFICATION_ENABLED;
-                }
-                else
-                {
-                    evt.evt_type = BLE_LIGHTS_LOW_EVT_NOTIFICATION_DISABLED;
-                }
-
-                p_lights->evt_handler(p_lights, &evt);
-            }
-        } 
+        }  
 
         //write event for current light level
 
@@ -209,7 +205,30 @@ static void on_write(ble_lights_t * p_lights, ble_evt_t * p_ble_evt)
             }
         }
     }
+				//write event for light_level alarm cccd.
+        
+        if (
+                (p_evt_write->handle == p_lights->light_alarm_handles.cccd_handle)
+                &&
+                (p_evt_write->len == 2)
+                )
+        {
+            // CCCD written, call application event handler
+            if (p_lights->evt_handler != NULL)
+            {
+                ble_lights_alarm_evt_t evt;
 
+                if (ble_srv_is_indication_enabled(p_evt_write->data))
+                {
+                    evt.evt_type = BLE_LIGHTS_EVT_INDICATION_ENABLED;
+                }
+                else
+                {
+                    evt.evt_type = BLE_LIGHTS_EVT_INDICATION_DISABLED;
+                }
+                on_lights_evt(p_lights, &evt);
+            }
+        }
     // write event for light low value char value. 
     if (
             (p_evt_write->handle == p_lights->light_low_level_handles.value_handle) 
@@ -257,7 +276,23 @@ static void on_write(ble_lights_t * p_lights, ble_evt_t * p_ble_evt)
     }		
 }
 
-
+/**@brief Function for handling the HVC event.
+ *
+ * @details Handles HVC events from the BLE stack.
+ *
+ * @param[in]   p_lights       lights Service structure.
+ * @param[in]   p_ble_evt      Event received from the BLE stack.
+ */
+static void on_hvc(ble_lights_t * p_lights, ble_evt_t * p_ble_evt)
+{
+    ble_gatts_evt_hvc_t * p_hvc = &p_ble_evt->evt.gatts_evt.params.hvc;
+    if (p_hvc->handle == p_lights->light_alarm_handles.value_handle)
+    {
+        ble_lights_alarm_evt_t evt;
+        evt.evt_type = BLE_LIGHTS_EVT_INDICATION_CONFIRMED;
+        on_lights_evt(p_lights, &evt);
+    }
+}
 void ble_lights_on_ble_evt(ble_lights_t * p_lights, ble_evt_t * p_ble_evt)
 {
     switch (p_ble_evt->header.evt_id)
@@ -273,6 +308,9 @@ void ble_lights_on_ble_evt(ble_lights_t * p_lights, ble_evt_t * p_ble_evt)
     case BLE_GATTS_EVT_WRITE:
         on_write(p_lights, p_ble_evt);
         break;
+		case BLE_GATTS_EVT_HVC:
+            on_hvc(p_lights, p_ble_evt);
+            break;
 
     default:
         break;
@@ -575,7 +613,7 @@ static uint32_t light_alarm_char_add(ble_lights_t * p_lights, const ble_lights_i
     memset(&char_md, 0, sizeof(char_md));
 
     char_md.char_props.read   = 1;
-    char_md.char_props.notify = (p_lights->is_notification_supported) ? 1 : 0;
+    char_md.char_props.indicate = (p_lights->is_notification_supported) ? 1 : 0;
     char_md.p_char_pf         = NULL;
     char_md.p_user_desc_md    = NULL;
     char_md.p_cccd_md         = (p_lights->is_notification_supported) ? &cccd_md : NULL;
@@ -810,28 +848,35 @@ uint32_t ble_lights_level_alarm_check(ble_lights_t * p_lights,ble_device_t *p_de
 		
 
     if((alarm[0]!= 0x00)&&(p_lights->light_alarm_set == 0x01))   /*check whether the alarm sets as non zero or alarm set characteristics set as zero*/
-    {	
+    {		
+				//check whether the confirmation for indication is not pending
+				if((!m_temps_alarm_ind_conf_pending)&&(!m_lights_alarm_ind_conf_pending)&&(!m_soils_alarm_ind_conf_pending))
+				{
         // Send value if connected and notifying
-        if ((p_lights->conn_handle != BLE_CONN_HANDLE_INVALID) && p_lights->is_notification_supported)
-        {
+          if ((p_lights->conn_handle != BLE_CONN_HANDLE_INVALID) && p_lights->is_notification_supported)
+          {
             ble_gatts_hvx_params_t hvx_params;
 
             memset(&hvx_params, 0, sizeof(hvx_params));
 
             hvx_params.handle   = p_lights->light_alarm_handles.value_handle;
-            hvx_params.type     = BLE_GATT_HVX_NOTIFICATION;
+            hvx_params.type     = BLE_GATT_HVX_INDICATION;
             hvx_params.offset   = 0;
             hvx_params.p_len    = &len;
             hvx_params.p_data   = alarm;
 
             err_code = sd_ble_gatts_hvx(p_lights->conn_handle, &hvx_params);
 						p_lights->lights_alarm_with_time_stamp[0] = alarm[0];
-        }
-        else
-        {
+						if(err_code == NRF_SUCCESS)
+						{
+							m_lights_alarm_ind_conf_pending = true;
+						}
+          }
+          else
+          {
             err_code = NRF_ERROR_INVALID_STATE;
-        }
-
+          }
+				}
     }
     return err_code;
 }

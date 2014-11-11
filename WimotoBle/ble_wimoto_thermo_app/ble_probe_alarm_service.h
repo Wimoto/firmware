@@ -36,7 +36,17 @@ typedef struct
 {
     ble_probes_evt_type_t evt_type;                                  /**< Type of event. */
 } ble_probes_evt_t;
+typedef enum
+{
+    BLE_PROBES_EVT_INDICATION_ENABLED,                                         /**< probe temperature value indication enabled event. */
+    BLE_PROBES_EVT_INDICATION_DISABLED,                                        /**< probe temperature value indication disabled event. */
+    BLE_PROBES_EVT_INDICATION_CONFIRMED                                        /**< Confirmation of a probe temperature  alarm indication has been received. */
+} ble_probes_alarm_type_t;
 
+typedef struct
+{
+    ble_probes_alarm_type_t evt_type;                                            /**< Type of event. */
+} ble_probes_alarm_evt_t;
 // Forward declaration of the ble_probes_t type. 
 typedef struct ble_probes_s ble_probes_t;
 

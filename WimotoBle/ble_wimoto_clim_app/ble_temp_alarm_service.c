@@ -17,6 +17,7 @@
 * Sruthi.k.s     10/01/2014       migrated to soft device 7.0.0 and SDK 6.1.0
 * Sruthi.k.s 		 10/17/2014			  Added alarm characteristic with time stamp.
 * Shafy S        10/28/2014       Added changes to show last occurance timestamp of alarm
+*	Sruthi.k.s		 11/07/2014				Changed notification property of alarm characteristics to indication
 */
 
 #include "ble_temp_alarm_service.h"
@@ -30,9 +31,14 @@
 
 bool     	      TEMPS_CONNECTED_STATE=false;  /*Indicates whether the temperature service is connected or not*/
 extern bool     CHECK_ALARM_TIMEOUT;          /*Flag to indicate whether to check for alarm conditions defined in connect.c*/
-extern uint8_t	var_receive_uuid;							/*variable for receiving uuid*/
+extern 	uint8_t	var_receive_uuid;							/*variable for receiving uuid*/
 extern  uint8_t	temperature[2];               /*variable to store current temperature value to broadcast*/
 bool            temp_alarm_set_changed = false; 
+
+bool     				m_temps_alarm_ind_conf_pending = false;       /**< Flag to keep track of when an indication confirmation is pending. */
+extern bool     m_lights_alarm_ind_conf_pending;
+extern bool     m_hums_alarm_ind_conf_pending;
+
 /**@brief Function for handling the Connect event.
 *
 * @param[in]   p_temps       Temperature Service structure.
@@ -69,7 +75,22 @@ static void write_evt_handler(void)
     CHECK_ALARM_TIMEOUT = true; 
 }
 
+static void on_temps_evt(ble_temps_t * p_temps, ble_temps_alarm_evt_t *p_evt)
+{
+    switch (p_evt->evt_type)
+    {
+        case BLE_TEMPS_EVT_INDICATION_ENABLED:
+            break;
 
+        case BLE_TEMPS_EVT_INDICATION_CONFIRMED:
+            m_temps_alarm_ind_conf_pending = false;
+            break;
+
+        default:
+            // No implementation needed.
+            break;
+    }
+}
 /**@brief Function for handling the Write event.
 *
 * @param[in]   p_temps       Temperature Service structure.
@@ -158,32 +179,6 @@ static void on_write(ble_temps_t * p_temps, ble_evt_t * p_ble_evt)
             }
         } 
         
-        //write event for temperature alarm with time stamp cccd 
-        
-        if (
-                (p_evt_write->handle == p_temps->climate_temp_alarm_handles.cccd_handle)
-                &&
-                (p_evt_write->len == 2)
-                )
-        {
-            // CCCD written, call application event handler
-            if (p_temps->evt_handler != NULL)
-            {
-                ble_temps_low_evt_t evt;
-                
-                if (ble_srv_is_notification_enabled(p_evt_write->data))
-                {
-                    evt.evt_type = BLE_TEMPS_LOW_EVT_NOTIFICATION_ENABLED;
-                }
-                else
-                {
-                    evt.evt_type = BLE_TEMPS_LOW_EVT_NOTIFICATION_DISABLED;
-                }
-
-                p_temps->evt_handler(p_temps, &evt);
-            }
-        } 
-        
         //write event for temperature cccd
         
         if (
@@ -211,7 +206,31 @@ static void on_write(ble_temps_t * p_temps, ble_evt_t * p_ble_evt)
         }
 
     }
+		//write event for temperature alarm with time stamp cccd 
+        
+        if (
+                (p_evt_write->handle == p_temps->climate_temp_alarm_handles.cccd_handle)
+                &&
+                (p_evt_write->len == 2)
+                )
+        {
+            // CCCD written, call application event handler
+            if (p_temps->evt_handler != NULL)
+            {
+                ble_temps_alarm_evt_t evt;
+                
+                if (ble_srv_is_indication_enabled(p_evt_write->data))
+                {
+                    evt.evt_type = BLE_TEMPS_EVT_INDICATION_ENABLED;
+                }
+                else
+                {
+                    evt.evt_type = BLE_TEMPS_EVT_INDICATION_DISABLED;
+                }
 
+                on_temps_evt(p_temps, &evt);
+            }
+        } 
     // write event for temperature low value char value. 
     if (
             (p_evt_write->handle == p_temps->temp_low_level_handles.value_handle) 
@@ -263,7 +282,23 @@ static void on_write(ble_temps_t * p_temps, ble_evt_t * p_ble_evt)
 
 
 }
-
+/**@brief Function for handling the HVC event.
+ *
+ * @details Handles HVC events from the BLE stack.
+ *
+ * @param[in]   p_temps_t   temperature Service structure.
+ * @param[in]   p_ble_evt   Event received from the BLE stack.
+ */
+static void on_hvc(ble_temps_t * p_temps, ble_evt_t * p_ble_evt)
+{
+    ble_gatts_evt_hvc_t * p_hvc = &p_ble_evt->evt.gatts_evt.params.hvc;
+    if (p_hvc->handle == p_temps->climate_temp_alarm_handles.value_handle)
+    {
+        ble_temps_alarm_evt_t evt;
+        evt.evt_type = BLE_TEMPS_EVT_INDICATION_CONFIRMED;
+        on_temps_evt(p_temps, &evt);
+    }
+}
 
 void ble_temps_on_ble_evt(ble_temps_t * p_temps, ble_evt_t * p_ble_evt)
 {
@@ -280,6 +315,9 @@ void ble_temps_on_ble_evt(ble_temps_t * p_temps, ble_evt_t * p_ble_evt)
     case BLE_GATTS_EVT_WRITE:
         on_write(p_temps, p_ble_evt);
         break;
+		case BLE_GATTS_EVT_HVC:    //Handle Value Confirmation event
+            on_hvc(p_temps, p_ble_evt);
+            break;		
 
     default:
         break;
@@ -585,7 +623,7 @@ static uint32_t temperature_alarm_char_add(ble_temps_t * p_temps, const ble_temp
     memset(&char_md, 0, sizeof(char_md));
 
     char_md.char_props.read   = 1;
-    char_md.char_props.notify = (p_temps->is_notification_supported) ? 1 : 0;
+    char_md.char_props.indicate = (p_temps->is_notification_supported) ? 1 : 0;
     char_md.p_char_user_desc  =	NULL;
     char_md.p_char_pf         = NULL;
     char_md.p_user_desc_md    = NULL;
@@ -820,9 +858,11 @@ uint32_t ble_temps_level_alarm_check(ble_temps_t * p_temps,ble_device_t *p_devic
 		 
 	 
     if((alarm[0]!= 0x00)&&(p_temps->climate_temperature_alarm_set == 0x01))  	/*check whether the alarm is tripped and alarm set characteristics is set to ON*/
-    {	
-        // Send value if connected and notifying
-        
+    {		
+				//check whether the confirmation for indication is not pending
+        if((!m_temps_alarm_ind_conf_pending)&&(!m_lights_alarm_ind_conf_pending)&&(!m_hums_alarm_ind_conf_pending))
+				{
+				// Send value if connected 
         if ((p_temps->conn_handle != BLE_CONN_HANDLE_INVALID) && p_temps->is_notification_supported)
         {		
             ble_gatts_hvx_params_t hvx_params;
@@ -830,18 +870,23 @@ uint32_t ble_temps_level_alarm_check(ble_temps_t * p_temps,ble_device_t *p_devic
             memset(&hvx_params, 0, sizeof(hvx_params));
             
             hvx_params.handle   = p_temps->climate_temp_alarm_handles.value_handle;
-            hvx_params.type     = BLE_GATT_HVX_NOTIFICATION;
+            hvx_params.type     = BLE_GATT_HVX_INDICATION;
             hvx_params.offset   = 0;
             hvx_params.p_len    = &len;
             hvx_params.p_data   = alarm;
 
             err_code = sd_ble_gatts_hvx(p_temps->conn_handle, &hvx_params);
 						p_temps->temps_alarm_with_time_stamp[0] = alarm[0];
+						if(err_code == NRF_SUCCESS)
+						{
+							m_temps_alarm_ind_conf_pending = true;
+						}
         }
         else
         {
             err_code = NRF_ERROR_INVALID_STATE;
         }
+			  }
         
     }
     return err_code;

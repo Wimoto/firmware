@@ -70,7 +70,7 @@ static bool                                  m_memory_access_in_progress = false
 #define APP_TIMER_PRESCALER                  0                                          /**< Value of the RTC1 PRESCALER register. */
 #define APP_TIMER_MAX_TIMERS                 5                                          /**< Maximum number of simultaneously created timers. */
 #define APP_TIMER_OP_QUEUE_SIZE              4                                          /**< Size of timer operation queues. */
-
+																														
 #define THERMOPILE_LEVEL_MEAS_INTERVAL       APP_TIMER_TICKS(60000, APP_TIMER_PRESCALER)/**< temperature level measurement interval (ticks). */
 #define CONNECTED_MODE_TIMEOUT_INTERVAL      APP_TIMER_TICKS(30000, APP_TIMER_PRESCALER)/**< Connected mode timeout interval (ticks). */
 #define SECONDS_INTERVAL                     APP_TIMER_TICKS(1000, APP_TIMER_PRESCALER) /**< seconds measurement interval (ticks). */
@@ -82,8 +82,8 @@ static bool                                  m_memory_access_in_progress = false
 #define MAX_CELCIUS_DEGRESS                  3972                                       /**< Maximum temperature in celcius for use in the simulated measurement function (multiplied by 100 to avoid floating point arithmetic). */
 #define CELCIUS_DEGREES_INCREMENT            36                                         /**< Value by which temperature is incremented/decremented for each call to the simulated measurement function (multiplied by 100 to avoid floating point arithmetic). */
 
-#define MIN_CONN_INTERVAL                    MSEC_TO_UNITS(500, UNIT_1_25_MS)           /**< Minimum acceptable connection interval (0.5 seconds) */
-#define MAX_CONN_INTERVAL                    MSEC_TO_UNITS(1000, UNIT_1_25_MS)          /**< Maximum acceptable connection interval (1 second). */
+#define MIN_CONN_INTERVAL                    MSEC_TO_UNITS(50, UNIT_1_25_MS)           /**< Minimum acceptable connection interval (25 milliseconds) */
+#define MAX_CONN_INTERVAL                    MSEC_TO_UNITS(500, UNIT_1_25_MS)          /**< Maximum acceptable connection interval (125 millisecond). */
 #define SLAVE_LATENCY                        0                                          /**< Slave latency. */
 #define CONN_SUP_TIMEOUT                     MSEC_TO_UNITS(4000, UNIT_10_MS)            /**< Connection supervisory timeout (4 seconds). */
 
@@ -140,7 +140,7 @@ extern bool                                  PROBES_CONNECTED_STATE;            
 extern bool																	 DLOGS_CONNECTED_STATE;                     /**< This flag indicates data logger is connected/not*/
 extern bool  																 DFU_ENABLE;                                /**< This flag indicates DFU mode is connected/not*/       
 extern bool                                  DEVICE_CONNECTED_STATE;                    /**< This flag indicates device management service is in connected start or now*/
-volatile bool                                ACTIVE_CONN_FLAG = false;                  /**<flag indicating active connection*/
+bool                                         ACTIVE_CONN_FLAG = false;                  /**<flag indicating active connection*/
 
 static dm_application_instance_t             m_app_handle; 
 volatile bool                                m_radio_event = false;                     /**< This flag indicates radio event*/
@@ -151,8 +151,8 @@ uint8_t  																		 var_receive_uuid;													/**< variable to recei
 extern uint8_t  current_thermopile_temp_store[THERMOP_CHAR_SIZE];                       /**< defined in ble_thermop_alarm_service.c*/
 
 uint32_t buf[4];  													 					/*buffer for flash write operation*/
-uint8_t				             thermopile[5];    					/*variable to store current Thermopile temperature to broadcast*/
-uint8_t				             curr_probe_temp_level[2];	/*variable to store current probe temperature to broadcast*/
+uint8_t	 thermopile[5];    														/*variable to store current Thermopile temperature to broadcast*/
+uint8_t	 curr_probe_temp_level[2];										/*variable to store current probe temperature to broadcast*/
 		
 static void device_init(void);
 static void thermops_init(void);
@@ -200,7 +200,7 @@ void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p
 		//	ble_debug_assert_handler(error_code, line_num, p_file_name);
 
     // On assert, the system can only recover on reset
-     NVIC_SystemReset();
+    NVIC_SystemReset();
 }
 
 
@@ -236,7 +236,7 @@ static void alarm_check(void)
     {
         APP_ERROR_HANDLER(err_code);
     }
-
+		nrf_delay_ms(100);																							 
     err_code = ble_probes_level_alarm_check(&m_probes,&m_device);   /*check whether the probe temperature is out of range*/
     if ((err_code != NRF_SUCCESS) &&																/*passed device management service structure for getting time stamp in probe level service*/
             (err_code != NRF_ERROR_INVALID_STATE) &&
@@ -246,7 +246,7 @@ static void alarm_check(void)
     {
         APP_ERROR_HANDLER(err_code);
     } 
-		
+		nrf_delay_ms(100);																							 
 		//updating the advertise/broadcast data
 		if(ACTIVE_CONN_FLAG==false)               /* no active connection*/
 			advertising_init();                     

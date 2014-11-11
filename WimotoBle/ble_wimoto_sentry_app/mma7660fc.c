@@ -136,7 +136,7 @@ bool MMA7660_config_standby_and_initialize()
     uint8_t Mode_Reg_Val;
 
     // Enable standby mode for writing 
-    if (false == MMA7660_enable_standby_mode()) {simple_uart_putstring((const uint8_t *)"standby messed up \r\r"); return false;}
+    // if (false == MMA7660_enable_standby_mode()) {simple_uart_putstring((const uint8_t *)"standby messed up \r\r"); return false;}
     // Sleep count value is 20 i.e.; waits for 5 seconds while sleeping 
     if (false == MMA7660_write_to_reg (MMA7660_SPCNT_REG,MMA7660_SLEEP_COUNT_5S)) {simple_uart_putstring((const uint8_t *)"sleep messed up \r\r"); return false;}	
     // Enable shake and orientation interrupt

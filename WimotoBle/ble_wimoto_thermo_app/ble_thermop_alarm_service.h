@@ -40,7 +40,17 @@ typedef struct
 {
     ble_thermops_low_evt_type_t evt_type;                                  /**< Type of event. */
 } ble_thermops_low_evt_t;
+typedef enum
+{
+    BLE_THERMOPS_EVT_INDICATION_ENABLED,                                         /**< Thermopile  alarm value indication enabled event. */
+    BLE_THERMOPS_EVT_INDICATION_DISABLED,                                        /**< Thermopile alarm value indication disabled event. */
+    BLE_THERMOPS_EVT_INDICATION_CONFIRMED                                        /**< Confirmation of a Thermopile  alarm indication has been received. */
+} ble_thermops_alarm_type_t;
 
+typedef struct
+{
+    ble_thermops_alarm_type_t evt_type;                                            /**< Type of event. */
+} ble_thermops_alarm_evt_t;
 // Forward declaration of the ble_thermops_low_t type. 
 typedef struct ble_thermops_s ble_thermops_t;
 
