@@ -294,7 +294,7 @@ static uint32_t data_logger_enable_char_add(ble_dlogs_t * ble_dlogs, const ble_d
 
     // Adding custom UUID
     ble_uuid.type = ble_dlogs->uuid_type;
-    ble_uuid.uuid = CLIMATE_PROFILE_DLOGS_DLOGS_EN_UUID;    
+    ble_uuid.uuid = THERMO_PROFILE_DLOGS_DLOGS_EN_UUID;    
 
     memset(&attr_md, 0, sizeof(attr_md));
 
@@ -363,7 +363,7 @@ static uint32_t data_char_add(ble_dlogs_t * ble_dlogs, const ble_dlogs_init_t * 
 
     // Adding custom UUID
     ble_uuid.type = ble_dlogs->uuid_type;
-    ble_uuid.uuid = CLIMATE_PROFILE_DLOGS_DATA_UUID;    
+    ble_uuid.uuid = THERMO_PROFILE_DLOGS_DATA_UUID;    
 
     memset(&attr_md, 0, sizeof(attr_md));
 
@@ -435,7 +435,7 @@ static uint32_t read_data_switch_char_add(ble_dlogs_t * ble_dlogs, const ble_dlo
 
     // Adding custom UUID
     ble_uuid.type = ble_dlogs->uuid_type;
-    ble_uuid.uuid = CLIMATE_PROFILE_DLOGS_READ_DATA_UUID;    
+    ble_uuid.uuid = THERMO_PROFILE_DLOGS_READ_DATA_UUID;    
 
     memset(&attr_md, 0, sizeof(attr_md));
 
@@ -483,7 +483,7 @@ uint32_t ble_dlogs_init(ble_dlogs_t * ble_dlogs, const ble_dlogs_init_t * ble_dl
     // Add service
     ble_uuid.type = var_receive_uuid ;
 		ble_dlogs->uuid_type= var_receive_uuid;
-    ble_uuid.uuid = CLIMATE_PROFILE_DLOGS_SERVICE_UUID;
+    ble_uuid.uuid = THERMO_PROFILE_DLOGS_SERVICE_UUID;
 
     // Initialize service structure
     ble_dlogs->evt_handler               = ble_dlogs_init->evt_handler;
