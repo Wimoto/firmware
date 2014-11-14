@@ -52,6 +52,7 @@
 #include "pstorage_platform.h"
 #include "nrf_mbr.h"
 
+
 #define IS_SRVC_CHANGED_CHARACT_PRESENT 0                                                       /**< Include or not the service_changed characteristic. if not enabled, the server's database cannot be changed for the lifetime of the device*/
 
 #define BOOTLOADER_BUTTON_PIN           BUTTON_7                                                /**< Button used to enter SW update mode. */
@@ -88,10 +89,10 @@ void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p
     //                The flash write will happen EVEN if the radio is active, thus interrupting
     //                any communication.
     //                Use with care. Un-comment the line below to use.
-    // ble_debug_assert_handler(error_code, line_num, p_file_name);
+   //  ble_debug_assert_handler(error_code, line_num, p_file_name);
 
     // On assert, the system can only recover on reset.
-    NVIC_SystemReset();
+  NVIC_SystemReset();
 }
 
 
@@ -109,28 +110,6 @@ void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p
 void assert_nrf_callback(uint16_t line_num, const uint8_t * p_file_name)
 {
     app_error_handler(0xDEADBEEF, line_num, p_file_name);
-}
-
-
-/**@brief Function for initialization of LEDs.
- */
-static void leds_init(void)
-{
-    nrf_gpio_cfg_output(LED_0);
-    nrf_gpio_cfg_output(LED_1);
-    nrf_gpio_cfg_output(LED_2);
-    nrf_gpio_cfg_output(LED_7);
-}
-
-
-/**@brief Function for clearing the LEDs.
- */
-static void leds_off(void)
-{
-    nrf_gpio_pin_clear(LED_0);
-    nrf_gpio_pin_clear(LED_1);
-    nrf_gpio_pin_clear(LED_2);
-    nrf_gpio_pin_clear(LED_7);
 }
 
 
@@ -197,7 +176,7 @@ static void ble_stack_init(bool init_softdevice)
     err_code = sd_softdevice_vector_table_base_set(BOOTLOADER_REGION_START);
     APP_ERROR_CHECK(err_code);
    
-    SOFTDEVICE_HANDLER_INIT(NRF_CLOCK_LFCLKSRC_XTAL_20_PPM, true);
+    SOFTDEVICE_HANDLER_INIT(NRF_CLOCK_LFCLKSRC_SYNTH_250_PPM, true);
 
     // Enable BLE stack 
     ble_enable_params_t ble_enable_params;
@@ -227,7 +206,6 @@ int main(void)
     bool     dfu_start = false;
     bool     app_reset = (NRF_POWER->GPREGRET == BOOTLOADER_DFU_START);
 
-    leds_init();
 
     // This check ensures that the defined fields in the bootloader corresponds with actual
     // setting in the nRF51 chip.
@@ -265,12 +243,11 @@ int main(void)
 		
 		bool switch_to_dfu = false;
 		
-		if (retention_reg_val == 1)
+		if (retention_reg_val == 1)   
 		{
-			switch_to_dfu = true;
+			switch_to_dfu = true;        /* if retention register is 1, set the flag for switching to DFU */
 		}
 		
-    dfu_start |= ((nrf_gpio_pin_read(BOOTLOADER_BUTTON_PIN) == 0) ? true: false);
     
     if (switch_to_dfu||dfu_start || (!bootloader_app_is_valid(DFU_BANK_0_REGION_START)))
     {
@@ -288,17 +265,11 @@ int main(void)
 
     if (bootloader_app_is_valid(DFU_BANK_0_REGION_START))
     {
-        leds_off();
 
         // Select a bank region to use as application region.
         // @note: Only applications running from DFU_BANK_0_REGION_START is supported.
         bootloader_app_start(DFU_BANK_0_REGION_START);
     }
-
-    nrf_gpio_pin_clear(LED_0);
-    nrf_gpio_pin_clear(LED_1);
-    nrf_gpio_pin_clear(LED_2);
-    nrf_gpio_pin_clear(LED_7);
     
     NVIC_SystemReset();
 }
