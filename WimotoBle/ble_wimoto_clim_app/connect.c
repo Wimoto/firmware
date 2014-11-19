@@ -371,7 +371,7 @@ static void real_time_timeout_handler(void * p_context)
 		
 		meas_interval_seconds += 1;													
 			
-		if(meas_interval_seconds < 0x02)			   //set the sensor measurement timeout interval to 2 sec				
+		if(meas_interval_seconds < 0x05)			   //set the sensor measurement timeout interval to 2 sec				
 		{
 			meas_interval_seconds++;
 		}
@@ -1142,7 +1142,7 @@ static void ble_stack_init(void)
     uint32_t err_code;
     
     // Initialize the SoftDevice handler module.
-		SOFTDEVICE_HANDLER_INIT(NRF_CLOCK_LFCLKSRC_SYNTH_250_PPM, false);     /*changed the clock frequency for HRM board*/
+		SOFTDEVICE_HANDLER_INIT(NRF_CLOCK_LFCLKSRC_RC_250_PPM_4000MS_CALIBRATION, false);     /*changed the clock frequency for HRM board*/
 
     // Register with the SoftDevice handler module for BLE events.
     err_code = softdevice_ble_evt_handler_set(ble_evt_dispatch);
