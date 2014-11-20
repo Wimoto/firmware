@@ -25,7 +25,6 @@
 #include "wimoto.h"
 #include "wimoto_sensors.h"
 #include "ble_accelerometer_alarm_service.h"
-#include "simple_uart.h"
 #include "app_error.h"
 
 extern   bool       	MOVEMENT_EVENT_FLAG;
@@ -691,9 +690,7 @@ uint32_t ble_movement_alarm_check(ble_movement_t * p_movement,ble_device_t *p_de
 		uint8_t i = 0;
 
 
-		//Debug Code
-		simple_uart_putstring ((const uint8_t *)"Checking XYZ...\r");
-		//End Debug Code
+
     twi_turn_ON();
 
 
@@ -708,12 +705,7 @@ uint32_t ble_movement_alarm_check(ble_movement_t * p_movement,ble_device_t *p_de
     current_xyz_array[1] = current_xyz >> 8;
     current_xyz_array[2] = current_xyz >> 16;
 
-		//Debug Code
-		for (i=0; i<3; i++){
-			sprintf(output, "%c = %d\r", dimension[i], current_xyz_array[i]);
-			simple_uart_putstring((const uint8_t *)output);
-		}
-		//End Debug Code
+
 
     if ((p_movement->conn_handle != BLE_CONN_HANDLE_INVALID) && p_movement->is_notification_supported)
     {

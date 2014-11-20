@@ -53,7 +53,7 @@
 #include "boards.h"
 #include "battery.h"
 #include "pstorage.h"
-#include "simple_uart.h"
+
 
 #define SEND_MEAS_BUTTON_PIN_NO              16                                         /**< Button used for sending a measurement. */
 #define BONDMNGR_DELETE_BUTTON_PIN_NO        17                                         /**< Button used for deleting all bonded masters during startup. */
@@ -1055,7 +1055,7 @@ static void movement_gpiote_evt_handler(uint32_t pins_low_to_high_mask, uint32_t
     movement_gpio_pin_val = nrf_gpio_pin_read(MOVEMENT_GPIOTE_PIN);	
     MOVEMENT_EVENT_FLAG=true;																			/*the flag is set when an event occurs on gpiote*/
 		
-		simple_uart_putstring((const uint8_t *)"Event triggered\r");
+
 
 }
 
@@ -1304,11 +1304,6 @@ void connectable_mode(void)
             PIR_EVENT_FLAG=false;				         /* Reset the gpiote event flag*/
 
         }
-				
-				//test code
-				//sprintf(pinReading, "Int pin reads %d \r",nrf_gpio_pin_read(MOVEMENT_GPIOTE_PIN));
-				//simple_uart_putstring((const uint8_t *)pinReading);	
-				//end test code
 				
         // If the Movement event mode flag is true and go for alarm check condition			 
         if(MOVEMENT_EVENT_FLAG) 

@@ -7,7 +7,7 @@
 
 #include <stdio.h>
 #include "wimoto_sensors.h"
-#include "simple_uart.h"
+
 
 
 /********************************************************************************************/
@@ -136,23 +136,23 @@ bool MMA7660_config_standby_and_initialize()
     uint8_t Mode_Reg_Val;
 
     // Enable standby mode for writing 
-    // if (false == MMA7660_enable_standby_mode()) {simple_uart_putstring((const uint8_t *)"standby messed up \r\r"); return false;}
+    if (false == MMA7660_enable_standby_mode()) {return false;}
     // Sleep count value is 20 i.e.; waits for 5 seconds while sleeping 
-    if (false == MMA7660_write_to_reg (MMA7660_SPCNT_REG,MMA7660_SLEEP_COUNT_5S)) {simple_uart_putstring((const uint8_t *)"sleep messed up \r\r"); return false;}	
+    if (false == MMA7660_write_to_reg (MMA7660_SPCNT_REG,MMA7660_SLEEP_COUNT_5S)) {return false;}	
     // Enable shake and orientation interrupt
-    if (false == MMA7660_write_to_reg (MMA7660_INTSU_REG,MMA7660_SHAKE_ORIENT_INTERRUPT)) {simple_uart_putstring((const uint8_t *)"shake messed up \r\r"); return false;}
+    if (false == MMA7660_write_to_reg (MMA7660_INTSU_REG,MMA7660_SHAKE_ORIENT_INTERRUPT)) {return false;}
     // Enable the Auto-wake and Auto-sleep mode
     Mode_Reg_Val = MMA7660_read_register (MMA7660_MODE_REG);
-    if (false == MMA7660_write_to_reg (MMA7660_MODE_REG,(Mode_Reg_Val | MMA7660_AWE_ASE_SET))) {simple_uart_putstring((const uint8_t *)"autowake-autosleep messed up \r\r"); return false;}
+    if (false == MMA7660_write_to_reg (MMA7660_MODE_REG,(Mode_Reg_Val | MMA7660_AWE_ASE_SET))) {return false;}
     // Configure 1 sample/s while sleeping and 4 sample/s in wake 
-    if (false == MMA7660_write_to_reg (MMA7660_SR_REG,(MMA7660_AMSR_4SAMPLES | MMA7660_AWSR_1SAMPLES))) {simple_uart_putstring((const uint8_t *)"setting sample speed messed up \r\r"); return false;}
+    if (false == MMA7660_write_to_reg (MMA7660_SR_REG,(MMA7660_AMSR_4SAMPLES | MMA7660_AWSR_1SAMPLES))) {return false;}
     // Disable tap detection in MMA7660
-    if (false == MMA7660_write_to_reg (MMA7660_PDET_REG,MMA7660_DISABLE_TAP_DETECTION)) {simple_uart_putstring((const uint8_t *)"tap det messed up \r\r"); return false;}                
+    if (false == MMA7660_write_to_reg (MMA7660_PDET_REG,MMA7660_DISABLE_TAP_DETECTION)) { return false;}                
     // Enable Active mode
     Mode_Reg_Val = MMA7660_read_register (MMA7660_MODE_REG);
-    if (false == MMA7660_write_to_reg (MMA7660_MODE_REG,(Mode_Reg_Val | MMA7660_ENABLE_ACTIVE_MODE))) {simple_uart_putstring((const uint8_t *)"active mode messed up \r\r"); return false;}
+    if (false == MMA7660_write_to_reg (MMA7660_MODE_REG,(Mode_Reg_Val | MMA7660_ENABLE_ACTIVE_MODE))) { return false;}
 		
-		//simple_uart_putstring((const uint8_t *)"Everything initialized fine.\r\r\r");
+
     return true;
 
 }

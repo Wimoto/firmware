@@ -29,7 +29,6 @@
 #include "wimoto_sensors.h"
 #include "wimoto.h"
 
-#include "simple_uart.h"
 
 
 int main()
@@ -40,14 +39,11 @@ int main()
 * Otherwise it remains in connected state.
 */ 
 		
-		//int j = 5;
-		//char test[3];
+
 	
     NRF_POWER->GPREGRET = 0;  /*Initialize the value of general purpose retention register to 0 */
 	
-		simple_uart_config(RTS_PIN_NUMBER, 9, CTS_PIN_NUMBER, 10, false); /*Initialize UART*/
-		simple_uart_putstring((const uint8_t *)"Welcome to the sentry\r");
-		simple_uart_putstring((const uint8_t *)"-------------------------------------------\r\r");
+
 	
 
 		
