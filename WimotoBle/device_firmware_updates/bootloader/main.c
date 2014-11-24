@@ -81,7 +81,7 @@
  */
 void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
 {    
-    nrf_gpio_pin_set(LED_7);
+    //nrf_gpio_pin_set(LED_7);
     // This call can be used for debug purposes during application development.
     // @note CAUTION: Activating this code will write the stack to flash on an error.
     //                This function should NOT be used in a final product.
@@ -214,8 +214,8 @@ int main(void)
 
     // Initialize.
     timers_init();
-    gpiote_init();
-    buttons_init();
+    //gpiote_init();
+    //buttons_init();
     (void)bootloader_init();
 
     if (bootloader_dfu_sd_in_progress())
@@ -254,13 +254,13 @@ int main(void)
         err_code = sd_power_gpregret_clr(POWER_GPREGRET_GPREGRET_Msk);
         APP_ERROR_CHECK(err_code);
 
-        nrf_gpio_pin_set(LED_2);
+        //nrf_gpio_pin_set(LED_2);
 
         // Initiate an update of the firmware.
         err_code = bootloader_dfu_start();
         APP_ERROR_CHECK(err_code);
 
-        nrf_gpio_pin_clear(LED_2);
+        //nrf_gpio_pin_clear(LED_2);
     }
 
     if (bootloader_app_is_valid(DFU_BANK_0_REGION_START))

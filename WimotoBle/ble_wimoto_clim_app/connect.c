@@ -894,7 +894,7 @@ static void advertising_start(void)
     err_code = sd_ble_gap_adv_start(&m_adv_params);
     APP_ERROR_CHECK(err_code);
 
-    nrf_gpio_pin_set(ADVERTISING_LED_PIN_NO);
+    //nrf_gpio_pin_set(ADVERTISING_LED_PIN_NO);
 }
 
 
