@@ -1,0 +1,54 @@
+--- connect_old.c	Fri Nov 21 21:10:00 2014
++++ connect.c	Mon Nov 24 20:10:14 2014
+@@ -322,10 +322,10 @@
+         APP_ERROR_HANDLER(err_code);
+     } 
+ 		//updating the advertise/broadcast data
+-		if(ACTIVE_CONN_FLAG==false)               /* no active connection*/
+-			advertising_init();                     
+-		else																			/*an active connection exists*/
+-			advertising_nonconn_init();	
++//		if(ACTIVE_CONN_FLAG==false)               /* no active connection*/
++//			advertising_init();                     
++//		else																			/*an active connection exists*/
++//			advertising_nonconn_init();	
+ }
+ 
+ 
+@@ -542,18 +542,18 @@
+ 		
+     ble_advdata_service_data_t service_data[1];
+     ble_advdata_manuf_data_t   manuf_specific_data;
+-    uint8_t                    manuf_data_array[6];	
++//    uint8_t                    manuf_data_array[6];	
+ 
+-    manuf_data_array[0] = temperature[0];
+-    manuf_data_array[1] = temperature[1];
+-    manuf_data_array[2] = light_level[0];
+-    manuf_data_array[3] = light_level[1];
+-    manuf_data_array[4] = htu_hum_level[0];
+-    manuf_data_array[5] = htu_hum_level[1];
++//    manuf_data_array[0] = temperature[0];
++//    manuf_data_array[1] = temperature[1];
++//    manuf_data_array[2] = light_level[0];
++//    manuf_data_array[3] = light_level[1];
++//    manuf_data_array[4] = htu_hum_level[0];
++//    manuf_data_array[5] = htu_hum_level[1];
+ 
+     manuf_specific_data.company_identifier = COMPANY_IDENTIFER;     /* COMPANY IDENTIFIER */
+-    manuf_specific_data.data.p_data = manuf_data_array;
+-    manuf_specific_data.data.size = sizeof(manuf_data_array);
++//    manuf_specific_data.data.p_data = manuf_data_array;
++//    manuf_specific_data.data.size = sizeof(manuf_data_array);
+ 
+     uint8_t battery              = do_battery_measurement();
+     service_data[0].service_uuid = BLE_UUID_BATTERY_SERVICE;
+@@ -1016,7 +1016,7 @@
+ 				ACTIVE_CONN_FLAG=true;
+ 		
+ 				//starting non-connectable advertising
+-				advertising_nonconn_start();
++				//advertising_nonconn_start();
+         break;
+ 
+     case BLE_GAP_EVT_DISCONNECTED:
