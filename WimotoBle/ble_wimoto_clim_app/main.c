@@ -31,11 +31,7 @@
 
 int main()
 {
-/*
-* The loop starts with conectable_mode().  
-* Once the connected Peripheral device sets the switch mode characteristic and disconnects,
-* Otherwise it remains in connected state.
-*/ 
+
 
     NRF_POWER->GPREGRET = 0;  /*Initialize the value of general purpose retention register to 0 */
 

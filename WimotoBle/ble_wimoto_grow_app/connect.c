@@ -55,13 +55,6 @@
 #include "pstorage.h"
 #include "boards.h"
 
-#define SEND_MEAS_BUTTON_PIN_NO              16                                        /**< Button used for sending a measurement. */
-#define BONDMNGR_DELETE_BUTTON_PIN_NO        17                                        /**< Button used for deleting all bonded masters during startup. */
-
-#define ADVERTISING_LED_PIN_NO							 LED_0
-#define CONNECTED_LED_PIN_NO								 LED_1
-#define ASSERT_LED_PIN_NO										 LED_1
-
 #define DEVICE_NAME                          "Wimoto_Grow"                              /**< Name of device. Will be included in the advertising data. */
 #define MANUFACTURER_NAME                    "Wimoto"                                   /**< Manufacturer. Will be passed to Device Information Service. */
 #define MODEL_NUM                            "Wimoto_Grow"                                   /**< Model number. Will be passed to Device Information Service. */
@@ -86,8 +79,8 @@
 #define MAX_CELCIUS_DEGRESS                  3972                                       /**< Maximum temperature in celcius for use in the simulated measurement function (multiplied by 100 to avoid floating point arithmetic). */
 #define CELCIUS_DEGREES_INCREMENT            36                                         /**< Value by which temperature is incremented/decremented for each call to the simulated measurement function (multiplied by 100 to avoid floating point arithmetic). */
 
-#define MIN_CONN_INTERVAL                    MSEC_TO_UNITS(50, UNIT_1_25_MS)           /**< Minimum acceptable connection interval (25 milliseconds) */
-#define MAX_CONN_INTERVAL                    MSEC_TO_UNITS(500, UNIT_1_25_MS)          /**< Maximum acceptable connection interval (125 millisecond). */
+#define MIN_CONN_INTERVAL                    MSEC_TO_UNITS(500, UNIT_1_25_MS)           /**< Minimum acceptable connection interval (25 milliseconds) */
+#define MAX_CONN_INTERVAL                    MSEC_TO_UNITS(1000, UNIT_1_25_MS)          /**< Maximum acceptable connection interval (125 millisecond). */
 #define SLAVE_LATENCY                        0                                          /**< Slave latency. */
 #define CONN_SUP_TIMEOUT                     MSEC_TO_UNITS(4000, UNIT_10_MS)            /**< Connection supervisory timeout (4 seconds). */
 
@@ -185,8 +178,6 @@ uint8_t				             curr_soil_mois_level;           															 /* Humid
 */
 void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
 {
-    nrf_gpio_pin_set(ASSERT_LED_PIN_NO);
-
     // This call can be used for debug purposes during development of an application.
     // @note CAUTION: Activating this code will write the stack to flash on an error.
     //                This function should NOT be used in a final product.
@@ -902,8 +893,6 @@ static void advertising_start(void)
     uint32_t err_code;
     err_code = sd_ble_gap_adv_start(&m_adv_params);
     APP_ERROR_CHECK(err_code);
-
-    //    nrf_gpio_pin_set(ADVERTISING_LED_PIN_NO);
 }
 
 
@@ -1019,11 +1008,7 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
     switch (p_ble_evt->header.evt_id)
 		{
     case BLE_GAP_EVT_CONNECTED:
-        nrf_gpio_pin_set(CONNECTED_LED_PIN_NO);
-        nrf_gpio_pin_clear(ADVERTISING_LED_PIN_NO);
-        
-				// Start detecting button presses
-        err_code = app_button_enable();
+                
         m_conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
 				
 				ACTIVE_CONN_FLAG=true;
@@ -1033,14 +1018,8 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
         break;
 
     case BLE_GAP_EVT_DISCONNECTED:
-        nrf_gpio_pin_clear(CONNECTED_LED_PIN_NO);
-
         m_conn_handle               = BLE_CONN_HANDLE_INVALID;
-
-        // Stop detecting button presses when not connected
-        err_code = app_button_disable();
-        APP_ERROR_CHECK(err_code);
-			
+ 
 				//stop non-connectable advertising
 				sd_ble_gap_adv_stop();
 				
@@ -1059,14 +1038,7 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
     case BLE_GAP_EVT_TIMEOUT:
         if (p_ble_evt->evt.gap_evt.params.timeout.src == BLE_GAP_TIMEOUT_SRC_ADVERTISEMENT)
         {
-            nrf_gpio_pin_clear(ADVERTISING_LED_PIN_NO);
-
             // Go to system-off mode (this function will not return; wakeup will cause a reset).
-            nrf_gpio_cfg_sense_input(SEND_MEAS_BUTTON_PIN_NO,BUTTON_PULL, 
-                                         NRF_GPIO_PIN_SENSE_LOW);
-            nrf_gpio_cfg_sense_input(BONDMNGR_DELETE_BUTTON_PIN_NO,BUTTON_PULL, 
-                                         NRF_GPIO_PIN_SENSE_LOW);
-
             err_code = sd_power_system_off();    
         }
         break;
@@ -1171,22 +1143,6 @@ static void ble_stack_init(void)
 }
 
 
-/**@brief Function for handling button events.
-*
-* @param[in]   pin_no   The pin number of the button pressed.
-*/
-static void button_event_handler(uint8_t pin_no,uint8_t button_action)
-{
-    switch (pin_no)
-    {
-    case SEND_MEAS_BUTTON_PIN_NO:
-        //   temperature_measurement_send();
-        break;
-
-    default:
-        APP_ERROR_HANDLER(pin_no);
-    }
-}
 
 
 /**@brief Function for initializing the GPIOTE handler module.
@@ -1194,20 +1150,6 @@ static void button_event_handler(uint8_t pin_no,uint8_t button_action)
 static void gpiote_init(void)
 {
     APP_GPIOTE_INIT(APP_GPIOTE_MAX_USERS);
-}
-
-
-/**@brief Function for initializing button module.
-*/
-static void buttons_init(void)
-{
-    static app_button_cfg_t buttons[] =
-    {
-        {SEND_MEAS_BUTTON_PIN_NO,       false, NRF_GPIO_PIN_NOPULL, button_event_handler},
-        {BONDMNGR_DELETE_BUTTON_PIN_NO, false, NRF_GPIO_PIN_NOPULL, NULL}
-    };
-
-    APP_BUTTON_INIT(buttons, sizeof(buttons) / sizeof(buttons[0]), BUTTON_DETECTION_DELAY, false);
 }
 
 
@@ -1235,9 +1177,6 @@ static void device_manager_init(void)
     // Initialize persistent storage module.
       err_code = pstorage_init();
       APP_ERROR_CHECK(err_code);
-
-    // Clear all bonded centrals if the Bonds Delete button is pushed.
-    init_data.clear_persistent_data = (nrf_gpio_pin_read(BONDMNGR_DELETE_BUTTON_PIN_NO) == 0);
 
     err_code = dm_init(&init_data);
     APP_ERROR_CHECK(err_code);
@@ -1353,8 +1292,7 @@ void connectable_mode(void)
     adc_init();												  	/* Initialize ADC for interfacing soil moisture sensor*/
     timers_init();
     gpiote_init();
-    buttons_init();
-		device_manager_init();
+    device_manager_init();
     gap_params_init();
     advertising_init();
     services_init();

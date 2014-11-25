@@ -55,8 +55,6 @@ static bool                                  m_memory_access_in_progress = false
 
 #define IS_SRVC_CHANGED_CHARACT_PRESENT      0                                          /**< Include or not the service_changed characteristic. if not enabled, the server's database cannot be changed for the lifetime of the device*/
 
-#define SEND_MEAS_BUTTON_PIN_NO              16                                         /**< Button used for sending a measurement. */
-#define BONDMNGR_DELETE_BUTTON_PIN_NO        17                                         /**< Button used for deleting all bonded masters during startup. */
 
 #define DEVICE_NAME                          "Wimoto_Thermo"                            /**< Name of device. Will be included in the advertising data. */
 #define MANUFACTURER_NAME                    "Wimoto"                                   /**< Manufacturer. Will be passed to Device Information Service. */
@@ -188,8 +186,6 @@ static void advertising_nonconn_init(void);
 */
 void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
 {
-    nrf_gpio_pin_set(ASSERT_LED_PIN_NO);
-
     // This call can be used for debug purposes during development of an application.
     // @note CAUTION: Activating this code will write the stack to flash on an error.
     //                This function should NOT be used in a final product.
@@ -847,7 +843,6 @@ static void advertising_start(void)
     err_code = sd_ble_gap_adv_start(&m_adv_params);
     APP_ERROR_CHECK(err_code);
 
-    nrf_gpio_pin_set(ADVERTISING_LED_PIN_NO);
 }
 
 
@@ -939,10 +934,7 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
     switch (p_ble_evt->header.evt_id)
     {
     case BLE_GAP_EVT_CONNECTED:
-        nrf_gpio_pin_set(CONNECTED_LED_PIN_NO);
-        nrf_gpio_pin_clear(ADVERTISING_LED_PIN_NO);
-        // Start detecting button presses
-        err_code = app_button_enable();
+        
         m_conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
 		
 				ACTIVE_CONN_FLAG=true;
@@ -954,10 +946,6 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
     case BLE_GAP_EVT_DISCONNECTED:
         nrf_gpio_pin_clear(CONNECTED_LED_PIN_NO);
         m_conn_handle               = BLE_CONN_HANDLE_INVALID;
-
-        // Stop detecting button presses when not connected
-        err_code = app_button_disable();
-        APP_ERROR_CHECK(err_code);
 
         //stop non-connectable advertising
 				sd_ble_gap_adv_stop();
@@ -977,11 +965,8 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
     case BLE_GAP_EVT_TIMEOUT:
         if (p_ble_evt->evt.gap_evt.params.timeout.src == BLE_GAP_TIMEOUT_SRC_ADVERTISEMENT)
         {
-            nrf_gpio_pin_clear(ADVERTISING_LED_PIN_NO);
-
             // Go to system-off mode (this function will not return; wakeup will cause a reset).
-					nrf_gpio_cfg_sense_input(SEND_MEAS_BUTTON_PIN_NO,BUTTON_PULL,NRF_GPIO_PIN_SENSE_LOW);
-           err_code = sd_power_system_off();    
+					  err_code = sd_power_system_off();    
         }
         break;
 
@@ -1101,22 +1086,7 @@ static void ble_stack_init(void)
 }
 
 
-/**@brief Function for handling button events.
-*
-* @param[in]   pin_no   The pin number of the button pressed.
-*/
-static void button_event_handler(uint8_t pin_no,uint8_t button_action)
-{
-    switch (pin_no)
-    {
-    case SEND_MEAS_BUTTON_PIN_NO:
-        //   temperature_measurement_send();
-        break;
 
-    default:
-        APP_ERROR_HANDLER(pin_no);
-    }
-}
 
 
 /**@brief Function for initializing the GPIOTE handler module.
@@ -1127,18 +1097,6 @@ static void gpiote_init(void)
 }
 
 
-/**@brief Function for initializing button module.
-*/
-static void buttons_init(void)
-{
-    static app_button_cfg_t buttons[] =
-    {
-        {SEND_MEAS_BUTTON_PIN_NO,       false, NRF_GPIO_PIN_NOPULL, button_event_handler},
-        {BONDMNGR_DELETE_BUTTON_PIN_NO, false, NRF_GPIO_PIN_NOPULL, NULL}
-    };
-
-    APP_BUTTON_INIT(buttons, sizeof(buttons) / sizeof(buttons[0]), BUTTON_DETECTION_DELAY, false);
-}
 
 
 /**@brief Radio Notification event handler.
@@ -1276,7 +1234,6 @@ void connectable_mode(void)
     twi_master_init();                    /*configure twi*/
 		timers_init();
     gpiote_init();
-    buttons_init();
     device_manager_init();
     gap_params_init();
     advertising_init();

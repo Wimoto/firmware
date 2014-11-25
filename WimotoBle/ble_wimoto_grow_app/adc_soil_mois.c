@@ -31,7 +31,7 @@ void adc_init(void)
 		nrf_gpio_cfg_input(ADC_SOIL_MOISTURE_PIN, NRF_GPIO_PIN_NOPULL);
 	
 		// interrupt ADC
-		NRF_ADC->INTENSET = (ADC_INTENSET_END_Enabled << ADC_INTENSET_END_Pos);	
+		//NRF_ADC->INTENSET = (ADC_INTENSET_END_Enabled << ADC_INTENSET_END_Pos);	
 	
     NRF_ADC->CONFIG = ADC_CONFIG_RES_8bit << ADC_CONFIG_RES_Pos |                                 /*!< 8bit ADC resolution. */ 
                       ADC_CONFIG_INPSEL_AnalogInputOneThirdPrescaling << ADC_CONFIG_INPSEL_Pos |  /*!< Analog input specified by PSEL with no prescaling used as input for the conversion. */
@@ -55,7 +55,10 @@ uint8_t do_soil_moisture_measurement()
     nrf_delay_ms(1000); 
 
     NRF_ADC->TASKS_START = START_ADC;
-    while(NRF_ADC->EVENTS_END == 0);
+
+    while(NRF_ADC->EVENTS_END == 0)
+		{
+		};
     NRF_ADC->EVENTS_END = STOP_RUNNING_CONVERTION;
     adc_result = NRF_ADC->RESULT;                   /* ADC result after conversion*/
     NRF_ADC->TASKS_STOP     = STOP_ADC;             /* Stop ADC */
