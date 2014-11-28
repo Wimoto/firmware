@@ -14,9 +14,6 @@
 */
 void adc_init()
 {	
-		// interrupt ADC
-		NRF_ADC->INTENSET = (ADC_INTENSET_END_Enabled << ADC_INTENSET_END_Pos);																				/*!< Interrupt enabled. */
-		
 		// config ADC    
 		NRF_ADC->CONFIG = (ADC_CONFIG_RES_10bit << ADC_CONFIG_RES_Pos)                                							   /*!< 10bit ADC resolution. */ 
 											|	(ADC_CONFIG_INPSEL_AnalogInputOneThirdPrescaling << ADC_CONFIG_INPSEL_Pos)  							 /*!< Analog input specified by PSEL with no pre-scaling used as input for the conversion. */
@@ -54,11 +51,12 @@ uint16_t do_probe_temperature_measurement()
 		NRF_ADC->EVENTS_END	= 0;
 			
 		//Save your ADC result	
-    adc_result = NRF_ADC->RESULT;                                                /* ADC result after conversion*/
+    adc_result          = NRF_ADC->RESULT;              /* ADC result after conversion*/
 		
 		NRF_ADC->TASKS_STOP = 1;	
+		NRF_ADC->ENABLE     = ADC_ENABLE_ENABLE_Disabled;		/*Disable the ADC*/
 			
-    nrf_gpio_pin_clear(PROBE_SENSOR_ENERGIZE_PIN);	                             /* Clear the energize pin after the use of sensor*/
+    nrf_gpio_pin_clear(PROBE_SENSOR_ENERGIZE_PIN);	        /* Clear the energize pin after the use of sensor*/
 		
     return adc_result;
 		

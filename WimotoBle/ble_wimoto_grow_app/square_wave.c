@@ -95,7 +95,7 @@ static __INLINE void nrf_gpio_cfg_output_high_drive(uint32_t pin_number)
 void gpiote1_init(void)
 {
     // Configure PWM_OUTPUT_PIN_NUMBER as an output.
-    nrf_gpio_cfg_output_high_drive(PWM_OUTPUT_PIN_NUMBER);
+    nrf_gpio_cfg_output(PWM_OUTPUT_PIN_NUMBER);
 
     // Configure GPIOTE channel 0 to toggle the PWM pin state
     // @note Only one GPIOTE task can be connected to an output pin.
@@ -159,8 +159,12 @@ int one_mhz_stop(void)
 		NRF_GPIOTE->CONFIG[0] = GPIOTE_CONFIG_MODE_Task << GPIOTE_CONFIG_MODE_Pos |     /*pull down the pwm pin*/
     GPIOTE_CONFIG_POLARITY_HiToLo << GPIOTE_CONFIG_POLARITY_Pos |
     PWM_OUTPUT_PIN_NUMBER << GPIOTE_CONFIG_PSEL_Pos;
+	
+		NRF_GPIOTE->CONFIG[0] = GPIOTE_CONFIG_MODE_Disabled << GPIOTE_CONFIG_MODE_Pos;  /*Disable the GPIOTE*/
+
+		sd_ppi_channel_enable_clr(PPI_CHEN_CH0_Disabled << PPI_CHEN_CH0_Pos);           /*Disable the PPI channel*/
 		
-		NRF_TIMER2->TASKS_STOP  = 1; 	                  /* Stop TIMER 2 after conversion*/		
+	  NRF_TIMER2->TASKS_STOP  = 1; 	                                                  /* Stop TIMER 2 after conversion*/		
 		
 		return 0;
 }

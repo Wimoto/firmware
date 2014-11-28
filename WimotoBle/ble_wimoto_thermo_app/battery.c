@@ -42,6 +42,7 @@
 **/
 
 extern ble_bas_t                             bas;
+extern uint8_t                               battery_lvl;                             /*battery level for broadcasting*/ 
 
 /**@brief Macro to convert the result of ADC conversion in millivolts.
 *
@@ -77,6 +78,10 @@ void battery_start(void)
     while(NRF_ADC->EVENTS_END == 0);
     NRF_ADC->EVENTS_END = 0;
     adc_result = NRF_ADC->RESULT;                                                /* ADC result after conversion*/
+	
+		// *** Fix for PAN #1
+    NRF_ADC->TASKS_STOP = 1;
+    // *** End of fix for PAN #1
 
     NRF_ADC->ENABLE         = ADC_ENABLE_ENABLE_Disabled;		
 
@@ -84,7 +89,8 @@ void battery_start(void)
     batt_lvl_in_milli_volts = ADC_RESULT_IN_MILLI_VOLTS(adc_result) +
     DIODE_FWD_VOLT_DROP_MILLIVOLTS;
     percentage_batt_lvl     = battery_level_in_percent(batt_lvl_in_milli_volts);
-
+		battery_lvl             = percentage_batt_lvl;                         /*save battery level data  to a global variable for broadcasting*/  
+		
     err_code = ble_bas_battery_level_update(&bas, percentage_batt_lvl);
     if (
             (err_code != NRF_SUCCESS)

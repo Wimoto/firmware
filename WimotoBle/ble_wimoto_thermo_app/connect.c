@@ -134,6 +134,7 @@ bool 																				 TX_COMPLETE=false;				      						/**< flag to indicat
 bool                                         TIME_SET = false;                          /**< flag to indicate user set time*/
 bool                                         CHECK_ALARM_TIMEOUT = false;               /**< Flag to indicate whether to check for alarm conditions*/
 bool                                         DATA_LOG_CHECK=false;                      /**< Flag to indicate whether to check for data logging*/
+bool                                         MEAS_BATTERY_LEVEL = false;                /**< Flag for measuring the battery level */
 
 extern bool                                  THERMOPS_CONNECTED_STATE;                  /**< This flag indicates thermopile temperature service is in connected start or now*/
 extern bool                                  PROBES_CONNECTED_STATE;                    /**< This flag indicates probe temperature service is in connected start or now*/
@@ -145,15 +146,13 @@ bool                                         ACTIVE_CONN_FLAG = false;          
 static dm_application_instance_t             m_app_handle; 
 volatile bool                                m_radio_event = false;                     /**< This flag indicates radio event*/
 uint8_t  																		 var_receive_uuid;													/**< variable to receive the uuid */
-#define ADVERTISING_LED_PIN_NO							 LED_0
-#define CONNECTED_LED_PIN_NO								 LED_1
-#define ASSERT_LED_PIN_NO										 LED_1
 extern uint8_t  current_thermopile_temp_store[THERMOP_CHAR_SIZE];                       /**< defined in ble_thermop_alarm_service.c*/
 
 uint32_t buf[4];  													 					/*buffer for flash write operation*/
 uint8_t	 thermopile[5];    														/*variable to store current Thermopile temperature to broadcast*/
 uint8_t	 curr_probe_temp_level[2];										/*variable to store current probe temperature to broadcast*/
-		
+uint8_t  battery_lvl;                                 /*battery level for broadcasting*/		
+
 static void device_init(void);
 static void thermops_init(void);
 static void probes_init(void);
@@ -166,7 +165,7 @@ static void advertising_nonconn_init(void);
 
 #define ADC_REF_VOLTAGE_IN_MILLIVOLTS        1200                                      /**< Reference voltage (in milli volts) used by ADC while doing conversion. */
 #define ADC_PRE_SCALING_COMPENSATION         3                                         /**< The ADC is configured to use VDD with 1/3 prescaling as input. And hence the result of conversion is to be multiplied by 3 to get the actual value of the battery voltage.*/
-#define DIODE_FWD_VOLT_DROP_MILLIVOLTS       270                                       /**< Typical forward voltage drop of the diode (Part no: SD103ATW-7-F) that is connected in series with the voltage supply. This is the voltage drop when the forward current is 1mA. Source: Data sheet of 'SURFACE MOUNT SCHOTTKY BARRIER DIODE ARRAY' available at www.diodes.com. */
+#define DIODE_FWD_VOLT_DROP_MILLIVOLTS       0                                       /**< Typical forward voltage drop of the diode (Part no: SD103ATW-7-F) that is connected in series with the voltage supply. This is the voltage drop when the forward current is 1mA. Source: Data sheet of 'SURFACE MOUNT SCHOTTKY BARRIER DIODE ARRAY' available at www.diodes.com. */
 
 /**@brief Macro to convert the result of ADC conversion in millivolts.
 *
@@ -188,8 +187,7 @@ static void advertising_nonconn_init(void);
 */
 void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
 {
-    nrf_gpio_pin_set(ASSERT_LED_PIN_NO);
-
+    
     // This call can be used for debug purposes during development of an application.
     // @note CAUTION: Activating this code will write the stack to flash on an error.
     //                This function should NOT be used in a final product.
@@ -291,7 +289,8 @@ static void thermo_param_meas_timeout_handler(void * p_context)
 static void real_time_timeout_handler(void * p_context)
 {
     uint32_t err_code;
-
+    static uint8_t battery_meas_timeout  = 0x00;		
+	
     // Store days in months to an aaray
     uint8_t days_in_month[]={0,31,28,31,30,31,30,31,31,30,31,30,31};
 
@@ -331,6 +330,12 @@ static void real_time_timeout_handler(void * p_context)
                 }
             }
         }
+				battery_meas_timeout++;
+				if(battery_meas_timeout >= BATTERY_MEAS_INTERVAL) /*Check whether the battery measurement interval is reached*/
+				{
+					battery_meas_timeout = 0;
+				  MEAS_BATTERY_LEVEL = true;                      /*Set the flag to do battery measurement in main loop*/
+				}
     }
     // Update time to the user
     err_code= ble_time_update(&m_device, &m_time_stamp);
@@ -345,15 +350,13 @@ static void real_time_timeout_handler(void * p_context)
     }
 }
 
-
-/* This function measures the battery voltage using the bandgap as a reference.
+/* This function measures the battery voltage using the band gap as a reference.
 * 3.6 V will return 100 %, so depending on battery voltage, it might need scaling. */
-static uint8_t do_battery_measurement(void)
+void init_battery_level(void)
 {
     uint8_t     adc_result;
     uint16_t    batt_lvl_in_milli_volts;
-    uint8_t     percentage_batt_lvl;
-
+    
     NRF_ADC->CONFIG = ADC_CONFIG_RES_8bit << ADC_CONFIG_RES_Pos |
     ADC_CONFIG_INPSEL_SupplyOneThirdPrescaling << ADC_CONFIG_INPSEL_Pos |
     ADC_CONFIG_REFSEL_VBG << ADC_CONFIG_REFSEL_Pos;
@@ -362,14 +365,18 @@ static uint8_t do_battery_measurement(void)
     NRF_ADC->TASKS_START = 1;
     while(!NRF_ADC->EVENTS_END);
     adc_result = NRF_ADC->RESULT;
+		
+	  // *** Fix for PAN #1
+    NRF_ADC->TASKS_STOP = 1;
+    // *** End of fix for PAN #2 
+	
     NRF_ADC->ENABLE = 0;
-
     batt_lvl_in_milli_volts = ADC_RESULT_IN_MILLI_VOLTS(adc_result) + DIODE_FWD_VOLT_DROP_MILLIVOLTS;
 
-    percentage_batt_lvl     = battery_level_in_percent(batt_lvl_in_milli_volts);
+    battery_lvl     = battery_level_in_percent(batt_lvl_in_milli_volts);
 
-    return percentage_batt_lvl;
 }
+
 
 
 /**@brief Function for initializing the non-connectable Advertising[broadcasting] functionality.
@@ -385,10 +392,9 @@ static void advertising_nonconn_init(void)
     ble_advdata_manuf_data_t   manuf_specific_data;
     uint8_t                    manuf_data_array[7];
 
-    uint8_t battery              = do_battery_measurement();
     service_data[0].service_uuid = BLE_UUID_BATTERY_SERVICE;
-    service_data[0].data.p_data  = &battery;
-    service_data[0].data.size    = sizeof(battery);
+    service_data[0].data.p_data  = &battery_lvl;
+    service_data[0].data.size    = sizeof(battery_lvl);
 
     manuf_data_array[0] = thermopile[0];
     manuf_data_array[1] = thermopile[1];
@@ -471,10 +477,7 @@ static void gap_params_init(void)
     uint32_t                err_code;
     ble_gap_conn_params_t   gap_conn_params;
     ble_gap_conn_sec_mode_t sec_mode;
-		ble_enable_params_t    p_ble_enable_params;
-	
-		err_code=sd_ble_enable(&p_ble_enable_params);
-		APP_ERROR_CHECK(err_code);
+		
     BLE_GAP_CONN_SEC_MODE_SET_OPEN(&sec_mode);
 
     err_code = sd_ble_gap_device_name_set(&sec_mode, (const uint8_t *)DEVICE_NAME, strlen(DEVICE_NAME));
@@ -535,10 +538,9 @@ static void advertising_init(void)
     ble_advdata_manuf_data_t   manuf_specific_data;
     uint8_t                    manuf_data_array[7];
 
-    uint8_t battery              = do_battery_measurement();
     service_data[0].service_uuid = BLE_UUID_BATTERY_SERVICE;
-    service_data[0].data.p_data  = &battery;
-    service_data[0].data.size    = sizeof(battery);
+    service_data[0].data.p_data  = &battery_lvl;
+    service_data[0].data.size    = sizeof(battery_lvl);
 
     manuf_data_array[0] = thermopile[0];
     manuf_data_array[1] = thermopile[1];
@@ -559,7 +561,7 @@ static void advertising_init(void)
     advdata1.flags.size              = sizeof(flags);
     advdata1.flags.p_data            = &flags;
     advdata1.p_service_data_array    = service_data;
-  //  advdata1.service_data_count      = 1;
+    //advdata1.service_data_count      = 1;
     advdata1.p_manuf_specific_data   = &manuf_specific_data;
 		// build and set the scan response data
 		memset(&advdata3, 0, sizeof(advdata3));
@@ -846,8 +848,6 @@ static void advertising_start(void)
     uint32_t err_code;
     err_code = sd_ble_gap_adv_start(&m_adv_params);
     APP_ERROR_CHECK(err_code);
-
-    nrf_gpio_pin_set(ADVERTISING_LED_PIN_NO);
 }
 
 
@@ -939,10 +939,6 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
     switch (p_ble_evt->header.evt_id)
     {
     case BLE_GAP_EVT_CONNECTED:
-        nrf_gpio_pin_set(CONNECTED_LED_PIN_NO);
-        nrf_gpio_pin_clear(ADVERTISING_LED_PIN_NO);
-        // Start detecting button presses
-        err_code = app_button_enable();
         m_conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
 		
 				ACTIVE_CONN_FLAG=true;
@@ -952,12 +948,7 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
         break;
 
     case BLE_GAP_EVT_DISCONNECTED:
-        nrf_gpio_pin_clear(CONNECTED_LED_PIN_NO);
-        m_conn_handle               = BLE_CONN_HANDLE_INVALID;
-
-        // Stop detecting button presses when not connected
-        err_code = app_button_disable();
-        APP_ERROR_CHECK(err_code);
+         m_conn_handle               = BLE_CONN_HANDLE_INVALID;
 
         //stop non-connectable advertising
 				sd_ble_gap_adv_stop();
@@ -977,11 +968,9 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
     case BLE_GAP_EVT_TIMEOUT:
         if (p_ble_evt->evt.gap_evt.params.timeout.src == BLE_GAP_TIMEOUT_SRC_ADVERTISEMENT)
         {
-            nrf_gpio_pin_clear(ADVERTISING_LED_PIN_NO);
-
+           
             // Go to system-off mode (this function will not return; wakeup will cause a reset).
-					nrf_gpio_cfg_sense_input(SEND_MEAS_BUTTON_PIN_NO,BUTTON_PULL,NRF_GPIO_PIN_SENSE_LOW);
-           err_code = sd_power_system_off();    
+					  err_code = sd_power_system_off();    
         }
         break;
 
@@ -1087,10 +1076,15 @@ static void ble_evt_dispatch(ble_evt_t * p_ble_evt)
 static void ble_stack_init(void)
 {
     uint32_t err_code;
-    
+    ble_enable_params_t p_ble_enable_params;
+	
     // Initialize the SoftDevice handler module.
     SOFTDEVICE_HANDLER_INIT(NRF_CLOCK_LFCLKSRC_RC_250_PPM_4000MS_CALIBRATION, false);   /*clock changed for HRM board*/
-		
+		 
+    err_code=sd_ble_enable(&p_ble_enable_params);
+    APP_ERROR_CHECK(err_code);	
+	
+	
     // Register with the SoftDevice handler module for BLE events.
     err_code = softdevice_ble_evt_handler_set(ble_evt_dispatch);
     APP_ERROR_CHECK(err_code);
@@ -1101,23 +1095,6 @@ static void ble_stack_init(void)
 }
 
 
-/**@brief Function for handling button events.
-*
-* @param[in]   pin_no   The pin number of the button pressed.
-*/
-static void button_event_handler(uint8_t pin_no,uint8_t button_action)
-{
-    switch (pin_no)
-    {
-    case SEND_MEAS_BUTTON_PIN_NO:
-        //   temperature_measurement_send();
-        break;
-
-    default:
-        APP_ERROR_HANDLER(pin_no);
-    }
-}
-
 
 /**@brief Function for initializing the GPIOTE handler module.
 */
@@ -1127,18 +1104,6 @@ static void gpiote_init(void)
 }
 
 
-/**@brief Function for initializing button module.
-*/
-static void buttons_init(void)
-{
-    static app_button_cfg_t buttons[] =
-    {
-        {SEND_MEAS_BUTTON_PIN_NO,       false, NRF_GPIO_PIN_NOPULL, button_event_handler},
-        {BONDMNGR_DELETE_BUTTON_PIN_NO, false, NRF_GPIO_PIN_NOPULL, NULL}
-    };
-
-    APP_BUTTON_INIT(buttons, sizeof(buttons) / sizeof(buttons[0]), BUTTON_DETECTION_DELAY, false);
-}
 
 
 /**@brief Radio Notification event handler.
@@ -1276,9 +1241,9 @@ void connectable_mode(void)
     twi_master_init();                    /*configure twi*/
 		timers_init();
     gpiote_init();
-    buttons_init();
     device_manager_init();
     gap_params_init();
+		init_battery_level();                 /*measure the battery level before advertisement*/
     advertising_init();
     services_init();
     conn_params_init();
@@ -1327,10 +1292,14 @@ void connectable_mode(void)
         if (CHECK_ALARM_TIMEOUT)                              /*Check for sensor measurement time-out*/
         {
             alarm_check();                                    /* Checks for alarm in all services*/
-            battery_start();		                              /* Measure battery level*/    
             CHECK_ALARM_TIMEOUT=false;                        /* Reset the flag*/
         }
-
+				
+				if(MEAS_BATTERY_LEVEL)
+				{
+					  battery_start();		                              /* Measure battery level*/
+						MEAS_BATTERY_LEVEL = false;
+				}
         power_manage(); 
     }
 }

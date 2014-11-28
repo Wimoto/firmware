@@ -30,10 +30,7 @@ void adc_init(void)
 		//nrf_gpio_cfg_input_high_drive(ADC_SOIL_MOISTURE_PIN,NRF_GPIO_PIN_NOPULL);
 		nrf_gpio_cfg_input(ADC_SOIL_MOISTURE_PIN, NRF_GPIO_PIN_NOPULL);
 	
-		// interrupt ADC
-		//NRF_ADC->INTENSET = (ADC_INTENSET_END_Enabled << ADC_INTENSET_END_Pos);	
-	
-    NRF_ADC->CONFIG = ADC_CONFIG_RES_8bit << ADC_CONFIG_RES_Pos |                                 /*!< 8bit ADC resolution. */ 
+		NRF_ADC->CONFIG = ADC_CONFIG_RES_8bit << ADC_CONFIG_RES_Pos |                                 /*!< 8bit ADC resolution. */ 
                       ADC_CONFIG_INPSEL_AnalogInputOneThirdPrescaling << ADC_CONFIG_INPSEL_Pos |  /*!< Analog input specified by PSEL with no prescaling used as input for the conversion. */
                       ADC_CONFIG_REFSEL_SupplyOneThirdPrescaling << ADC_CONFIG_REFSEL_Pos |       /*!< Use internal 1.2V bandgap voltage as reference for conversion. */
                       (ADC_CONFIG_PSEL_AnalogInput5) << ADC_CONFIG_PSEL_Pos;                        /*!< Use P0.01 as analog input 2. ) */
@@ -61,7 +58,11 @@ uint8_t do_soil_moisture_measurement()
 		};
     NRF_ADC->EVENTS_END = STOP_RUNNING_CONVERTION;
     adc_result = NRF_ADC->RESULT;                   /* ADC result after conversion*/
-    NRF_ADC->TASKS_STOP     = STOP_ADC;             /* Stop ADC */
+		
+    // *** Fix for PAN #1
+    NRF_ADC->TASKS_STOP = 1;
+    // *** End of fix for PAN #2 
+		
     NRF_ADC->ENABLE         = ADC_ENABLE_ENABLE_Disabled;
 
 		one_mhz_stop();                                 /* End the square wave and pull down the pin to low value*/
