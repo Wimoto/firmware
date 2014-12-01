@@ -282,11 +282,13 @@
 #define DATA_LOGGER_BUFFER_START_PAGE             0xC0        /**< first flash page of the datalogger cyclic buffer*/
 #define DATA_LOGGER_BUFFER_END_PAGE               0xC3        /**< last flash page of the datalogger cyclic buffer*/
 #define COMPANY_IDENTIFER                         0x1701      /**< comapany identifier*/                                                                 
-  
+#define BATTERY_MEAS_INTERVAL                     0x0F        /**< interval for measuring the battery level*/ 
+ 
 void connectable_mode(void);                                  /**< Function to advertise peripheral services */
 void twi_turn_OFF(void);                                      /**< Function to turn OFF twi for power saving */
 void twi_turn_ON(void);                                       /**< Function to turn ON twi								   */
- 
+void delay_ms(uint32_t);                                      /**< Function for implementing non blocking delay */
+
 #endif // WIMOTO_H__
 
 /** @} */

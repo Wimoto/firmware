@@ -528,9 +528,9 @@ uint32_t ble_waterps_alarm_check(ble_waterps_t * p_waterps,ble_device_t *p_devic
 	
 		 
     nrf_gpio_pin_set(WATER_SENSOR_ENERGIZE_PIN);                    /* Set the value of P0.02 to high for water presence sensor*/
-		nrf_delay_ms(10);																								/*delay for sensor response*/
+		delay_ms(10);																								/*delay for sensor response*/
     waterp_pin_reading = nrf_gpio_pin_read(WATERP_GPIOTE_PIN);			/*read the current water presence from p0.01. Active Low voltage indicates water presence*/
-		nrf_delay_ms(10);																								/*delay for sensor response*/
+		delay_ms(10);																								/*delay for sensor response*/
 		nrf_gpio_pin_clear(WATER_SENSOR_ENERGIZE_PIN);	                /* Clear the pin P0.02 after reading*/
 		
 		current_waterpresence = !(waterp_pin_reading);									/* Active Low voltage in pin indicates water presence.So invert the waterp_pin_reading */

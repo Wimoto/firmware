@@ -1322,9 +1322,9 @@ void connectable_mode(void)
     gpiote_init();
     device_manager_init();
     gap_params_init();
-    advertising_init();
-	  init_battery_level();                 /*measure the battery level before advertisement*/
-    services_init();
+    init_battery_level();                 /*measure the battery level before advertisement*/
+		advertising_init();
+	  services_init();
     conn_params_init();
     sec_params_init();
     radio_notification_init();

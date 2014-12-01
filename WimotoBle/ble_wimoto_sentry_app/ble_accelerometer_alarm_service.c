@@ -685,12 +685,6 @@ uint32_t ble_movement_alarm_check(ble_movement_t * p_movement,ble_device_t *p_de
     uint16_t len = sizeof(movement_alarm);		//length of the time stamp with alarm
     uint16_t len1 = sizeof(current_xyz_array);
 
-		char output[20];
-	  char dimension[] = {'x','y','z'};
-		uint8_t i = 0;
-
-
-
     twi_turn_ON();
 
 
