@@ -70,25 +70,6 @@ void timer2_init(void)
 
 }
 
-/**
- * @brief Function for configuring the given GPIO pin number as output with given initial value set, hiding inner details.
- *        This function can be used to configure pin range as simple input with gate driving GPIO_PIN_CNF_DRIVE_S0H1 (high drive cases).
- *
- * @param pin_number specifies the pin number of gpio pin numbers to be configured (allowed values 0-30)
- *
- * @note  Sense capability on the pin is disabled, and input is disconnected from the buffer as the pins are configured as output.
- */
-static __INLINE void nrf_gpio_cfg_output_high_drive(uint32_t pin_number)
-{
-    /*lint -e{845} // A zero has been given as right argument to operator '|'" */
-    NRF_GPIO->PIN_CNF[pin_number] = (GPIO_PIN_CNF_SENSE_Disabled << GPIO_PIN_CNF_SENSE_Pos)
-                                            | (GPIO_PIN_CNF_DRIVE_S0H1 << GPIO_PIN_CNF_DRIVE_Pos)
-                                            | (GPIO_PIN_CNF_PULL_Disabled << GPIO_PIN_CNF_PULL_Pos)
-                                            | (GPIO_PIN_CNF_INPUT_Disconnect << GPIO_PIN_CNF_INPUT_Pos)
-                                            | (GPIO_PIN_CNF_DIR_Output << GPIO_PIN_CNF_DIR_Pos);
-}
-
-
 
 /** @brief Function for initializing the GPIO Tasks/Events peripheral.
 */
@@ -165,7 +146,11 @@ int one_mhz_stop(void)
 		sd_ppi_channel_enable_clr(PPI_CHEN_CH0_Disabled << PPI_CHEN_CH0_Pos);           /*Disable the PPI channel*/
 		
 	  NRF_TIMER2->TASKS_STOP  = 1; 	                                                  /* Stop TIMER 2 after conversion*/		
+	
+	  
+    NRF_TIMER2->SHORTS = TIMER_SHORTS_COMPARE0_CLEAR_Disabled << TIMER_SHORTS_COMPARE0_CLEAR_Pos; /*Disable Shortcut between CC[0] event and the CLEAR task. */
 		
+	  sd_clock_hfclk_release();																										/* Releases the high frequency crystal oscillator */
 		return 0;
 }
 

@@ -7,6 +7,7 @@
 
 
 #include "wimoto_sensors.h"
+#include "wimoto.h"
 
 
 
@@ -165,7 +166,7 @@ uint16_t get_tmp102_oneshot_temp (void)
     /* Start one-shot conversion by writing OS =1                                           */
     if (twi_master_transfer(TMP102_ADDRESS ,(uint8_t*)data_buffer,3,TWI_ISSUE_STOP))
     {
-        nrf_delay_ms (30);    /*26 ms delay required for  one shot temperature conversion*/ 
+        delay_ms(30);    /*26 ms delay required for  one shot temperature conversion*/ 
         tmp102_configuration_reg_val = read_register_content (TMP102_CONFIG_REG);
         tmp102_configuration_reg_val = (tmp102_configuration_reg_val & 0x8000);
 

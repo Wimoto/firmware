@@ -6,6 +6,7 @@
 */
 
 #include "wimoto_sensors.h"
+#include "wimoto.h"
 
 /********************************************************************************************/
 /* PRIVATE FUNCTIONS																		*/
@@ -115,7 +116,7 @@ uint32_t TMP006_get_onetime_data()
 
     if (false == TMP006_enable_continuous_conversion()) return 0;
 
-    nrf_delay_ms(1100);
+    delay_ms(1100);
     ambient_reg_val =   TMP006_read_register (TMP006_T_AMBIENT_REG);
     /* bits 0 and 1 of T-ambient register is '0' by default so they have to be ignored */
     ambient_reg_val =  ((ambient_reg_val >> 2) & 0x3FFF);
@@ -198,7 +199,7 @@ float TMP006_ObjTempC_conversion()
     {	
         return previous_val;
     }
-    nrf_delay_ms(1100);
+    delay_ms(1100);
 
     volatile float Tdie = readRawDieTemperature();
     volatile float Vobj = readRawVoltage();

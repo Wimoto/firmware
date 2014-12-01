@@ -122,6 +122,7 @@ static ble_device_t                          m_device;                          
 
 static app_timer_id_t                        thermop_measurement_timer;                 /**< thermo measurement timer. */
 static app_timer_id_t                        real_time_timer;                           /**< Time keeping timer. */
+static app_timer_id_t                        delay_timer;                               /**< Timer for implementing delay. */
 
 uint8_t 							                       battery_level=0; 
 ble_date_time_t                              m_time_stamp;                              /**< Time stamp. */
@@ -135,6 +136,7 @@ bool                                         TIME_SET = false;                  
 bool                                         CHECK_ALARM_TIMEOUT = false;               /**< Flag to indicate whether to check for alarm conditions*/
 bool                                         DATA_LOG_CHECK=false;                      /**< Flag to indicate whether to check for data logging*/
 bool                                         MEAS_BATTERY_LEVEL = false;                /**< Flag for measuring the battery level */
+bool                                         delay_complete = false;                    /**< Flag to indicate the completion of delay*/
 
 extern bool                                  THERMOPS_CONNECTED_STATE;                  /**< This flag indicates thermopile temperature service is in connected start or now*/
 extern bool                                  PROBES_CONNECTED_STATE;                    /**< This flag indicates probe temperature service is in connected start or now*/
@@ -234,7 +236,7 @@ static void alarm_check(void)
     {
         APP_ERROR_HANDLER(err_code);
     }
-		nrf_delay_ms(100);																							 
+		delay_ms(100);																							 
     err_code = ble_probes_level_alarm_check(&m_probes,&m_device);   /*check whether the probe temperature is out of range*/
     if ((err_code != NRF_SUCCESS) &&																/*passed device management service structure for getting time stamp in probe level service*/
             (err_code != NRF_ERROR_INVALID_STATE) &&
@@ -244,7 +246,7 @@ static void alarm_check(void)
     {
         APP_ERROR_HANDLER(err_code);
     } 
-		nrf_delay_ms(100);																							 
+		delay_ms(100);																							 
 		//updating the advertise/broadcast data
 		if(ACTIVE_CONN_FLAG==false)               /* no active connection*/
 			advertising_init();                     
@@ -423,6 +425,33 @@ static void advertising_nonconn_init(void)
 	
 }
 
+/**@brief Time out handler for the delay timer.
+*/
+static void delay_timer_timeout_handler(void * p_context)
+{
+  delay_complete = true;                    /*Set the flag to indicate that the delay is complete*/
+}
+
+/**@brief Function for implementing non blocking delay.
+*/
+
+void delay_ms(uint32_t time_ms)
+{
+	  uint32_t err_code;
+
+    delay_complete = false;
+
+    // Start timer
+    err_code = app_timer_start(delay_timer, APP_TIMER_TICKS(time_ms, APP_TIMER_PRESCALER), NULL);
+    APP_ERROR_CHECK(err_code);
+	
+    //wait till the delay timer timeouts
+	  while(delay_complete == false)
+		{
+       uint32_t err_code = sd_app_evt_wait();
+       APP_ERROR_CHECK(err_code);
+		}
+}
 
 /**@brief Function for the Timer initialization.
 *
@@ -445,6 +474,11 @@ static void timers_init(void)
     err_code = app_timer_create(&real_time_timer,    /*Timer for climate parameters measurement timeout*/
     APP_TIMER_MODE_REPEATED,
     real_time_timeout_handler);
+    APP_ERROR_CHECK(err_code);
+	
+	  err_code = app_timer_create(&delay_timer,         /* Timer for implemeting delay(ms)*/
+    APP_TIMER_MODE_SINGLE_SHOT,
+    delay_timer_timeout_handler);
     APP_ERROR_CHECK(err_code);
 
 } 

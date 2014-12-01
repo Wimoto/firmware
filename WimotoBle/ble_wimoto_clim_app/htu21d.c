@@ -7,6 +7,7 @@
 
 
 #include "wimoto_sensors.h"
+#include "wimoto.h"
 
 
 
@@ -134,9 +135,9 @@ uint32_t HTU21D_ReadMeasurementValue(uint8_t Command_for_activity)
     if (twi_master_transfer(HTU21D_ADDRESS ,(uint8_t*)&Command_for_activity,1,TWI_DONT_ISSUE_STOP))
     {
         if(Command_for_activity == TRIG_RH_MEASUREMENT_HM)
-        nrf_delay_ms(20);
+          delay_ms(20); 
         else
-        nrf_delay_ms(50);
+          delay_ms(50);  
         if (twi_master_transfer(HTU21D_ADDRESS | TWI_READ_BIT ,data_buffer ,3 ,TWI_ISSUE_STOP))
         {
             temporary_variable1 = ((data_buffer[0] << 16) | (data_buffer[1]<<8) | data_buffer[2]);
@@ -313,7 +314,7 @@ bool eDRV_HTU21_Reset(void)
 
     if (twi_master_transfer(HTU21D_ADDRESS ,(uint8_t*)data_buffer,1,TWI_ISSUE_STOP))
     {
-        nrf_delay_ms(15);    /* Delay for soft reset*/
+        delay_ms(15);    /* Delay for soft reset*/
         return (true);
     }
 

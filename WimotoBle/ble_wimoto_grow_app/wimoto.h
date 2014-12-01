@@ -283,6 +283,7 @@
 void connectable_mode(void);                                  /**< Function to advertise peripheral services */
 void twi_turn_OFF(void);                                      /**< Function to turn OFF twi for power saving */
 void twi_turn_ON(void);                                       /**< Function to turn ON twi								   */
+void delay_ms(uint32_t);                                          /**< Function for non blocking delay */
  
 #endif // WIMOTO_H__
 

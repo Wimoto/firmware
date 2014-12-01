@@ -116,6 +116,7 @@ static ble_dlogs_t													 m_dlogs;																		/**< Structure used to
 uint8_t														        	 var_receive_uuid;													/**< varible for receiving the uuid type>**/
 static app_timer_id_t                        sensor_meas_timer;                    			/**< sensor measurement timer. */
 static app_timer_id_t                        real_time_timer;                           /**< Time keeping timer. */
+static app_timer_id_t                        delay_timer;                               /**< Timer for implementing delay. */
 
 ble_date_time_t                              m_time_stamp;                              /**< Time stamp. */
 
@@ -131,6 +132,8 @@ bool                                         CHECK_ALARM_TIMEOUT=false;         
 bool                                         DATA_LOG_CHECK=false;
 bool                                         TIME_SET = false;                          /**< Flag to indicate user set time*/
 bool                                         MEAS_BATTERY_LEVEL = false;                /**< Flag for measuring the battery level */
+bool                                         delay_complete = false;                    /**< Flag to indicate the completion of delay*/
+
 
 static bool                                  m_memory_access_in_progress = false;       /**< Flag to keep track of ongoing operations on persistent memory. */
 static dm_application_instance_t             m_app_handle;
@@ -229,7 +232,7 @@ static void alarm_check(void)
     {
         APP_ERROR_HANDLER(err_code);
     }
-		nrf_delay_ms(100);																							
+		delay_ms(100);																							
     err_code = ble_lights_level_alarm_check(&m_lights,&m_device);  /* Check whether the light level is out of range*/
     if ((err_code != NRF_SUCCESS) &&																/*passed device management service structure for getting time stamp in light service*/
             (err_code != NRF_ERROR_INVALID_STATE) &&
@@ -239,7 +242,7 @@ static void alarm_check(void)
     {
         APP_ERROR_HANDLER(err_code);
     } 
-		nrf_delay_ms(100);																							
+		delay_ms(100);																							
     err_code = ble_soils_level_alarm_check(&m_soils,&m_device);    /* Check whether the soil moisture level is out of range*/  
     if ((err_code != NRF_SUCCESS) &&																/*passed device management service structure for getting time stamp in soil moisture service*/
             (err_code != NRF_ERROR_INVALID_STATE) &&
@@ -441,6 +444,34 @@ static void advertising_nonconn_init(void)
 }
 
 
+/**@brief Time out handler for the delay timer.
+*/
+static void delay_timer_timeout_handler(void * p_context)
+{
+  delay_complete = true;                    /*Set the flag to indicate that the delay is complete*/
+}
+
+/**@brief Function for implementing non blocking delay.
+*/
+
+void delay_ms(uint32_t time_ms)
+{
+	  uint32_t err_code;
+
+    delay_complete = false;
+
+    // Start timer
+    err_code = app_timer_start(delay_timer, APP_TIMER_TICKS(time_ms, APP_TIMER_PRESCALER), NULL);
+    APP_ERROR_CHECK(err_code);
+	
+    //wait till the delay timer timeouts
+	  while(delay_complete == false)
+		{
+       uint32_t err_code = sd_app_evt_wait();
+       APP_ERROR_CHECK(err_code);
+		}
+}
+
 /**@brief Function for the Timer initialization.
 *
 * @details Initializes the timer module. This creates and starts application timers.
@@ -462,7 +493,11 @@ static void timers_init(void)
     APP_TIMER_MODE_REPEATED,
     real_time_timeout_handler);
     APP_ERROR_CHECK(err_code);
-
+    
+	  err_code = app_timer_create(&delay_timer,         /* Timer for implemeting delay(ms)*/
+    APP_TIMER_MODE_SINGLE_SHOT,
+    delay_timer_timeout_handler);
+    APP_ERROR_CHECK(err_code);
 } 
 
 
@@ -593,6 +628,7 @@ static void advertising_init(void)
     advdata3.p_manuf_specific_data   = &manuf_data;					/*sets the company identifier*/
     advdata3.uuids_complete.uuid_cnt = sizeof(adv_uuids) / sizeof(adv_uuids[0]);
     advdata3.uuids_complete.p_uuids  = adv_uuids;
+	 
 		
 		err_code = ble_advdata_set(&advdata1,&advdata3);
     APP_ERROR_CHECK(err_code);
@@ -1359,8 +1395,7 @@ void connectable_mode(void)
         if (CHECK_ALARM_TIMEOUT)                             /*Check for sensor measurement time-out*/
         {
             alarm_check();                                   /* Checks for alarm in all services*/
-             
-            CHECK_ALARM_TIMEOUT=false;                       /* Reset the flag*/
+            CHECK_ALARM_TIMEOUT = false;                       /* Reset the flag*/
         }
 				
 				if(MEAS_BATTERY_LEVEL)

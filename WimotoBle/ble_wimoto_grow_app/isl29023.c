@@ -7,6 +7,7 @@
 
 
 #include "wimoto_sensors.h"
+#include "wimoto.h"
 
 /********************************************************************************************/
 /* PRIVATE FUNCTIONS																		*/
@@ -113,7 +114,7 @@ uint16_t ISL29023_get_one_time_ALS()
 
     if (reg_content & ISL29023_ENABLE_ALS_ONCE) 
     {  
-        nrf_delay_ms(90);                                     /* Integration time required for 16bit conversion */		
+        delay_ms(90);                                     /* Integration time required for 16bit conversion */		
         data_reg_LSB =   ISL29023_read_register (ISL29023_DATA_REG_LSB); /* Least Significant Byte of Data Register        */
         data_reg_MSB =   ISL29023_read_register (ISL29023_DATA_REG_MSB); /* Most Significant Byte of Data Register         */ 
         combined_val = ((data_reg_MSB << 8) | data_reg_LSB);

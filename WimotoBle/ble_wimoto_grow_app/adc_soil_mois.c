@@ -9,19 +9,6 @@
 #include "wimoto.h"
 
 
-
-
-static __INLINE void nrf_gpio_cfg_input_high_drive(uint32_t pin_number, nrf_gpio_pin_pull_t pull_config)
-{
-    /*lint -e{845} // A zero has been given as right argument to operator '|'" */
-    NRF_GPIO->PIN_CNF[pin_number] = (GPIO_PIN_CNF_SENSE_Disabled << GPIO_PIN_CNF_SENSE_Pos)
-                                        | (GPIO_PIN_CNF_DRIVE_S0H1 << GPIO_PIN_CNF_DRIVE_Pos)
-                                        | (pull_config << GPIO_PIN_CNF_PULL_Pos)
-                                        | (GPIO_PIN_CNF_INPUT_Connect << GPIO_PIN_CNF_INPUT_Pos)
-                                        | (GPIO_PIN_CNF_DIR_Input << GPIO_PIN_CNF_DIR_Pos);
-}
-
-
 /**
 *@brief Function for ADC initialization
 */
@@ -49,7 +36,7 @@ uint8_t do_soil_moisture_measurement()
 		adc_init();
 		//NRF_ADC->ENABLE = ADC_ENABLE_ENABLE_Enabled;
     one_mhz_start();               /* Start 1Mhz timer*/
-    nrf_delay_ms(1000); 
+    delay_ms(1000); 
 
     NRF_ADC->TASKS_START = START_ADC;
 
