@@ -1297,7 +1297,7 @@ void connectable_mode(void)
             {
                 APP_ERROR_HANDLER(err_code);
             }  
-						nrf_delay_ms(100);
+						delay_ms(100);
 						//updating the advertise/broadcast data
 						if(ACTIVE_CONN_FLAG==false)               /* no active connection*/
 							advertising_init();                     
@@ -1351,7 +1351,7 @@ void connectable_mode(void)
                 APP_ERROR_HANDLER(err_code);
 
             }
-						nrf_delay_ms(100);
+						delay_ms(100);
             CLEAR_MOVE_ALARM= false;
         }
 				
@@ -1368,7 +1368,7 @@ void connectable_mode(void)
             {
                 APP_ERROR_HANDLER(err_code);
             }
-						nrf_delay_ms(100);
+						delay_ms(100);
 					CENTRAL_DEVICE_CONNECTED = false;
 					
 				}

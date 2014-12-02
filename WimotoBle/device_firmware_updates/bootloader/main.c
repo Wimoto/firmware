@@ -55,8 +55,6 @@
 
 #define IS_SRVC_CHANGED_CHARACT_PRESENT 0                                                       /**< Include or not the service_changed characteristic. if not enabled, the server's database cannot be changed for the lifetime of the device*/
 
-#define BOOTLOADER_BUTTON_PIN           BUTTON_7                                                /**< Button used to enter SW update mode. */
-
 #define APP_GPIOTE_MAX_USERS            1                                                       /**< Number of GPIOTE users in total. Used by button module and dfu_transport_serial module (flow control). */
 
 #define APP_TIMER_PRESCALER             0                                                       /**< Value of the RTC1 PRESCALER register. */
@@ -81,7 +79,6 @@
  */
 void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
 {    
-    nrf_gpio_pin_set(LED_7);
     // This call can be used for debug purposes during application development.
     // @note CAUTION: Activating this code will write the stack to flash on an error.
     //                This function should NOT be used in a final product.
@@ -130,16 +127,6 @@ static void timers_init(void)
 }
 
 
-/**@brief Function for initializing the button module.
- */
-static void buttons_init(void)
-{   
-    nrf_gpio_cfg_sense_input(BOOTLOADER_BUTTON_PIN,
-                             BUTTON_PULL, 
-                             NRF_GPIO_PIN_SENSE_LOW);
-
-}
-
 
 /**@brief Function for dispatching a BLE stack event to all modules with a BLE stack event handler.
  *
@@ -176,7 +163,7 @@ static void ble_stack_init(bool init_softdevice)
     err_code = sd_softdevice_vector_table_base_set(BOOTLOADER_REGION_START);
     APP_ERROR_CHECK(err_code);
    
-    SOFTDEVICE_HANDLER_INIT(NRF_CLOCK_LFCLKSRC_SYNTH_250_PPM, true);
+    SOFTDEVICE_HANDLER_INIT(NRF_CLOCK_LFCLKSRC_RC_250_PPM_4000MS_CALIBRATION, true);
 
     // Enable BLE stack 
     ble_enable_params_t ble_enable_params;
@@ -215,7 +202,6 @@ int main(void)
     // Initialize.
     timers_init();
     gpiote_init();
-    buttons_init();
     (void)bootloader_init();
 
     if (bootloader_dfu_sd_in_progress())
@@ -254,14 +240,11 @@ int main(void)
         err_code = sd_power_gpregret_clr(POWER_GPREGRET_GPREGRET_Msk);
         APP_ERROR_CHECK(err_code);
 
-        nrf_gpio_pin_set(LED_2);
-
         // Initiate an update of the firmware.
         err_code = bootloader_dfu_start();
         APP_ERROR_CHECK(err_code);
 
-        nrf_gpio_pin_clear(LED_2);
-    }
+     }
 
     if (bootloader_app_is_valid(DFU_BANK_0_REGION_START))
     {

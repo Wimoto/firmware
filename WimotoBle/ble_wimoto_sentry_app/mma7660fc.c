@@ -30,7 +30,7 @@ bool MMA7660_enable_active_mode()
 
     mode_reg_val = MMA7660_read_register (MMA7660_MODE_REG);
     MMA7660_write_to_reg (MMA7660_MODE_REG , (mode_reg_val | MMA7660_ENABLE_ACTIVE_MODE));          /* Setting Mode Register for active mode */
-    nrf_delay_ms(30);                                                                                  /*switching time from standby to active mode */
+    delay_ms(30);                                                                                  /*switching time from standby to active mode */
     temporary_variable = MMA7660_read_register (MMA7660_MODE_REG);
 
     if (temporary_variable & (mode_reg_val | MMA7660_ENABLE_ACTIVE_MODE)) 
