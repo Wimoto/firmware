@@ -637,8 +637,8 @@ uint32_t update_pir_alarmtimestamp_on_connect(ble_pir_t * p_pir,ble_device_t *p_
 				{
         // Send value if connected and notifying
 
-        if ((p_pir->conn_handle != BLE_CONN_HANDLE_INVALID) && p_pir->is_notification_supported)
-        {
+          if ((p_pir->conn_handle != BLE_CONN_HANDLE_INVALID) && p_pir->is_notification_supported)
+          {
             ble_gatts_hvx_params_t hvx_params;
 
             memset(&hvx_params, 0, sizeof(hvx_params));
@@ -655,11 +655,11 @@ uint32_t update_pir_alarmtimestamp_on_connect(ble_pir_t * p_pir,ble_device_t *p_
 						{
 							m_pir_alarm_ind_conf_pending = true;
 						}						
-        }
-        else
-        {
+         }
+         else
+         {
             err_code = NRF_ERROR_INVALID_STATE;
-        }
+         }
 				}
     }
 
