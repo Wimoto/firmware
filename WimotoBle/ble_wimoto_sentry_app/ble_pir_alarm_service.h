@@ -124,7 +124,15 @@ void ble_pir_on_ble_evt(ble_pir_t * p_pir, ble_evt_t * p_ble_evt);
 */
 uint32_t ble_pir_alarm_check(ble_pir_t *p_pir,ble_device_t *p_device);
 
-
+/**@brief Function checks for alarm condition on connect event occures.
+*
+* @param[in]   p_pir        PIR  Service structure.
+*
+* @param[in]   p_device     Device management  Service structure.
+*
+* @return      NRF_SUCCESS on success, otherwise an error code.
+*/
+uint32_t update_pir_alarmtimestamp_on_connect(ble_pir_t * p_pir,ble_device_t *p_device);
 #endif 
 
 /** @} */

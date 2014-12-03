@@ -191,8 +191,7 @@ static void on_write(ble_pir_t * p_pir, ble_evt_t * p_ble_evt)
         p_pir->pir_alarm_set =   p_evt_write->data[0];
 
 				pir_alarm_set_changed = true;
-        // call application event handler
-        p_pir->write_evt_handler();
+        
     }
 
 }
@@ -543,7 +542,7 @@ uint32_t ble_pir_alarm_check(ble_pir_t * p_pir,ble_device_t *p_device)
 
         err_code = sd_ble_gatts_hvx(p_pir->conn_handle, &hvx_params);
     }
-    else
+    else 
     {
         err_code = NRF_ERROR_INVALID_STATE;
     }
@@ -576,7 +575,7 @@ uint32_t ble_pir_alarm_check(ble_pir_t * p_pir,ble_device_t *p_device)
 				pir_alarm[5]=0x00;
 				pir_alarm[6]=0x00;
 				pir_alarm[7]=0x00;
-				sd_ble_gatts_value_set(p_pir->pir_alarm_handles.value_handle, 0, &len, pir_alarm);  /*clear the value of alarm characteristics*/
+				sd_ble_gatts_value_set(p_pir->pir_alarm_handles.value_handle, 0, &len2, pir_alarm);  /*clear the value of alarm characteristics*/
 				p_pir->pir_alarm_with_time_stamp[0] = pir_alarm[0];
 				pir_alarm_set_changed = false;
     }		
@@ -616,4 +615,53 @@ uint32_t ble_pir_alarm_check(ble_pir_t * p_pir,ble_device_t *p_device)
 
     return err_code;
 
+}
+
+
+/**@brief Function checks for alarm condition on connect event occures.
+*
+* @param[in]   p_pir        PIR  Service structure.
+*
+* @param[in]   p_device     Device management  Service structure.
+*
+* @return      NRF_SUCCESS on success, otherwise an error code.
+*/
+uint32_t update_pir_alarmtimestamp_on_connect(ble_pir_t * p_pir,ble_device_t *p_device)
+{
+    uint32_t err_code=NRF_SUCCESS;
+		uint16_t len2 = sizeof(pir_alarm);			//length of alarm with time stamp	
+		
+    if((pir_alarm[0]!= 0x00)&&(p_pir->pir_alarm_set == 0x01))  	/*check whether the alarm is on or alarmset is set as zero*/
+    {	
+				if((!m_pir_alarm_ind_conf_pending)&&(!m_movement_alarm_ind_conf_pending))   /*check whether the confirmation for indication is pending*/
+				{
+        // Send value if connected and notifying
+
+        if ((p_pir->conn_handle != BLE_CONN_HANDLE_INVALID) && p_pir->is_notification_supported)
+        {
+            ble_gatts_hvx_params_t hvx_params;
+
+            memset(&hvx_params, 0, sizeof(hvx_params));
+
+            hvx_params.handle   = p_pir->pir_alarm_handles.value_handle;
+            hvx_params.type     = BLE_GATT_HVX_INDICATION;
+            hvx_params.offset   = 0;
+            hvx_params.p_len    = &len2;
+            hvx_params.p_data   = pir_alarm;
+
+            err_code = sd_ble_gatts_hvx(p_pir->conn_handle, &hvx_params);
+						p_pir->pir_alarm_with_time_stamp[0] = pir_alarm[0];
+						if(err_code == NRF_SUCCESS)
+						{
+							m_pir_alarm_ind_conf_pending = true;
+						}						
+        }
+        else
+        {
+            err_code = NRF_ERROR_INVALID_STATE;
+        }
+				}
+    }
+
+    return err_code;
 }

@@ -1359,7 +1359,7 @@ void connectable_mode(void)
 				{
 					update_movement_alarmtimestamp_on_connect(&m_movement,&m_device);   	/*Function to update the last occurance of movement alarm when a central device is connected*/         
           
-					err_code = ble_pir_alarm_check(&m_pir,&m_device);     /*Function to update the last occurance of pir alarm when a central device is connected*/                 
+					err_code = update_pir_alarmtimestamp_on_connect(&m_pir,&m_device);     /*Function to update the last occurance of pir alarm when a central device is connected*/                 
             if ((err_code != NRF_SUCCESS) &&									 
                     (err_code != NRF_ERROR_INVALID_STATE) &&
                     (err_code != BLE_ERROR_NO_TX_BUFFERS) &&
