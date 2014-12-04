@@ -89,7 +89,7 @@ typedef struct ble_soils_s
     uint8_t                       soil_mois_low_level;   				    /**< soil moisture low level value. */
     uint8_t                       soil_mois_high_level;   					/**< soil moisture high level value. */
     uint8_t												soil_mois_alarm_set;   						/**< Alarm set for soil moisture **/
-    uint8_t											 soil_alarm_with_time_stamp[8];		 /**< Alarm for Soil moisture with time of alarm **/
+    uint8_t											 	soil_alarm_with_time_stamp[8];		 /**< Alarm for Soil moisture with time of alarm **/
     uint16_t                      conn_handle;                    	/**< Handle of the current connection (as provided by the BLE stack, is BLE_CONN_HANDLE_INVALID if not in a connection). */
     bool                          is_notification_supported;     	  /**< TRUE if notification of soil moisture Level is supported. */
 } ble_soils_t;

@@ -1099,6 +1099,7 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
             BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
         }
         break;
+	
     case BLE_EVT_TX_COMPLETE:
         TX_COMPLETE=true;
         break;
@@ -1180,12 +1181,14 @@ static void ble_stack_init(void)
     uint32_t err_code;
     ble_enable_params_t p_ble_enable_params;
 	
+		
 		// Initialize the SoftDevice handler module.
     SOFTDEVICE_HANDLER_INIT(NRF_CLOCK_LFCLKSRC_RC_250_PPM_4000MS_CALIBRATION, false);    /*clock changed for HRM board*/
 
     memset(&p_ble_enable_params, 0, sizeof(p_ble_enable_params));
-	  
-    err_code=sd_ble_enable(&p_ble_enable_params);
+	  p_ble_enable_params.gatts_enable_params.service_changed =1;
+    
+		err_code=sd_ble_enable(&p_ble_enable_params);
     APP_ERROR_CHECK(err_code);
 	
 	
@@ -1366,7 +1369,11 @@ void connectable_mode(void)
         if((DFU_ENABLE)&& (!DEVICE_CONNECTED_STATE) && (!TEMPS_CONNECTED_STATE) && (!LIGHTS_CONNECTED_STATE) && (!SOILS_CONNECTED_STATE)) /*If the dfu enable flag is true and services are not connected go to the bootloader*/ 
         {
             sd_power_gpregret_set(1);                         /* If DFU mode is enabled , set the value of general purpose retention register to 1*/
-            sd_nvic_SystemReset();                            /* Apply a system reset for jumping into bootloader*/
+					
+						err_code=sd_ble_gatts_service_changed(m_conn_handle,0x01,0x4D);
+						APP_ERROR_CHECK(err_code);
+						
+						sd_nvic_SystemReset();                            /* Apply a system reset for jumping into bootloader*/
         }
 
         if (DATA_LOG_CHECK)
