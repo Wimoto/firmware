@@ -1064,9 +1064,9 @@ static void gpiote_init(void)
 
     APP_GPIOTE_INIT(APP_GPIOTE_MAX_USERS);
 
-    // Configure GPIO pin P0.02 as input which is connected PIR sensor output
-    nrf_gpio_cfg_input(PIR_GPIOTE_PIN, NRF_GPIO_PIN_PULLUP); 
-    // Configure GPIO pin P0.04 as input which is connected INT1 pin of MMA7660 accelerometer
+    // Configure GPIO pin as input which is connected PIR sensor output
+    nrf_gpio_cfg_input(PIR_GPIOTE_PIN, GPIO_PIN_CNF_PULL_Disabled); 
+    // Configure GPIO pin as input which is connected INT1 pin of MMA7660 accelerometer
     nrf_gpio_cfg_input(MOVEMENT_GPIOTE_PIN, NRF_GPIO_PIN_PULLUP);
 
     // Calls an event handler whenever a HIGH->LOW or LOW->HIGH transition is incurred on P0.02 GPIO pin
