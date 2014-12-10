@@ -53,11 +53,15 @@
 #include "pstorage.h"
 #include "wimoto.h"
 
+//#define WDT 
+
 #define DEVICE_NAME                          "Wimoto_Climate"                           /**< Name of device. Will be included in the advertising data. */
 #define MANUFACTURER_NAME                    "Wimoto"                                  /**< Manufacturer. Will be passed to Device Information Service. */
 #define MODEL_NUM                            "Wimoto_Climate"                          /**< Model number. Will be passed to Device Information Service. */
 #define MANUFACTURER_ID                      0x1122334455                              /**< Manufacturer ID, part of System ID. Will be passed to Device Information Service. */
 #define ORG_UNIQUE_ID                        0x667788                                  /**< Organizational Unique ID, part of System ID. Will be passed to Device Information Service. */
+#define HARDWARE_ID													 "1"
+#define FIRMWARE_ID 												 "1.10"
 
 #define APP_ADV_INTERVAL                     0x81A                                     /**< The advertising interval (in units of 0.625 ms. This value corresponds to 25 ms). */
 #define APP_ADV_TIMEOUT_IN_SECONDS           0x0000                                    /**< The advertising timeout in units of seconds. */
@@ -191,7 +195,7 @@ void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p
     //                The flash write will happen EVEN if the radio is active, thus interrupting
     //                any communication.
     //                Use with care. Un-comment the line below to use.
-    //ble_debug_assert_handler(error_code, line_num, p_file_name);
+    ble_debug_assert_handler(error_code, line_num, p_file_name);
 
     // On assert, the system can only recover on reset
     NVIC_SystemReset();
@@ -381,6 +385,7 @@ static void real_time_timeout_handler(void * p_context)
 		else
 		{
 			meas_interval_seconds = 0x00;
+			NRF_WDT->RR[0] = 0x6E524635;					//kick the dog
 			CHECK_ALARM_TIMEOUT=true;
 		}
 		
@@ -507,6 +512,7 @@ static void application_timers_start(void)
 }
 
 
+
 /**@brief Function for the GAP initialization.
 *
 * @details This function shall be used to setup all the necessary GAP (Generic Access Profile)
@@ -517,6 +523,18 @@ static void gap_params_init(void)
     uint32_t                err_code;
     ble_gap_conn_params_t   gap_conn_params;
     ble_gap_conn_sec_mode_t sec_mode;
+	
+		//MAC ADDRESS CODE
+		char deviceName[20];
+		uint8_t mac_add[3];
+	
+		mac_add[0] = (NRF_FICR->DEVICEADDR0 & 0x00FF0000) >> 16;
+		mac_add[1] = (NRF_FICR->DEVICEADDR0 & 0x0000FF00) >> 8;
+		mac_add[2] = (NRF_FICR->DEVICEADDR0 & 0x000000FF);
+	
+		sprintf(&deviceName[0], "%s%02x%02x%02x", &DEVICE_NAME[0], mac_add[0], mac_add[1], mac_add[2]);
+	
+		//END MAC ADDRESS CODE
 			
     BLE_GAP_CONN_SEC_MODE_SET_OPEN(&sec_mode);
 
@@ -897,10 +915,15 @@ static void dis_init(void )
 
     ble_srv_ascii_to_utf8(&dis_init.manufact_name_str, MANUFACTURER_NAME);
     ble_srv_ascii_to_utf8(&dis_init.model_num_str,     MODEL_NUM);
-
-    sys_id.manufacturer_id            = MANUFACTURER_ID;
-    sys_id.organizationally_unique_id = ORG_UNIQUE_ID;
-    dis_init.p_sys_id                 = &sys_id;
+	
+		//adding HW revision and FW revision
+		ble_srv_ascii_to_utf8(&dis_init.hw_rev_str, HARDWARE_ID);
+		ble_srv_ascii_to_utf8(&dis_init.fw_rev_str, FIRMWARE_ID);
+		
+		//removing SYSTEM ID information
+    //sys_id.manufacturer_id            = MANUFACTURER_ID;
+    //sys_id.organizationally_unique_id = ORG_UNIQUE_ID;
+    //dis_init.p_sys_id                 = &sys_id;
 
     BLE_GAP_CONN_SEC_MODE_SET_OPEN(&dis_init.dis_attr_md.read_perm);
     BLE_GAP_CONN_SEC_MODE_SET_NO_ACCESS(&dis_init.dis_attr_md.write_perm);
@@ -1309,6 +1332,44 @@ void twi_turn_ON(void)
 }
 
 
+/* WDT initialization */
+#ifdef WDT
+void WDT_init(void)
+{		
+	
+		//CODE for use on DK//
+		/*nrf_gpio_port_clear(NRF_GPIO_PORT_SELECT_PORT0, 0xFF);
+		nrf_gpio_port_dir_set(NRF_GPIO_PORT_SELECT_PORT0, NRF_GPIO_PORT_DIR_OUTPUT);
+		nrf_gpio_pin_write(0, NRF_POWER->RESETREAS & 0x00000001);                //Bit A in RESETREAS
+		nrf_gpio_pin_write(1, NRF_POWER->RESETREAS & 0x00000002);                //Bit B in RESETREAS
+		nrf_gpio_pin_write(2, NRF_POWER->RESETREAS & 0x00000004);           //Bit C in RESETREAS
+		nrf_gpio_pin_write(3, NRF_POWER->RESETREAS & 0x00000008);             //Bit D in RESETREAS
+		nrf_gpio_pin_write(4, NRF_POWER->RESETREAS & 0x00010000);    //Bit E in RESETREAS
+		nrf_gpio_pin_write(5, NRF_POWER->RESETREAS & 0x00020000);  //Bit F in RESETREAS
+		nrf_gpio_pin_write(6, NRF_POWER->RESETREAS & 0x00040000);   //Bit G in RESETREAS*/
+	
+	
+		//CODE FOR USE ON CLIMATE DEVICE
+		nrf_gpio_cfg_output(18);					//set LED pins to output
+		nrf_gpio_cfg_output(19);
+		nrf_gpio_cfg_output(20);
+	
+		nrf_gpio_pin_write(18, NRF_POWER->RESETREAS & 0x00000002);
+		nrf_gpio_pin_write(19, NRF_POWER->RESETREAS & 0x00000008);
+		
+		
+		sd_power_reset_reason_clr(0xFFFFFFFF);	//clear reset reason register
+	
+		NRF_WDT->CONFIG = WDT_CONFIG_HALT_Pause << WDT_CONFIG_HALT_Pos |
+											WDT_CONFIG_SLEEP_Run << WDT_CONFIG_SLEEP_Pos;
+		
+		NRF_WDT->CRV = 10*32768;		//set watchdog to have 7 second timeout
+		NRF_WDT->RREN |= WDT_RREN_RR0_Msk;		//enable reload register0
+		NRF_WDT->TASKS_START = 1;							//start watchdog timer
+	
+}
+#endif
+
 /**@brief Function for application main entry.
 */
 void connectable_mode(void)
@@ -1330,6 +1391,13 @@ void connectable_mode(void)
     radio_notification_init();
     twi_turn_OFF();
     application_timers_start();           /* Start execution.*/
+		#ifdef WDT
+			WDT_init();
+			
+			
+			
+
+		#endif
     advertising_start();
 
     // Enter main loop.
