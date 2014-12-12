@@ -253,7 +253,7 @@ static uint32_t pir_state_char_add(ble_pir_t * p_pir, const ble_pir_init_t * p_p
     ble_gatts_attr_t    attr_char_value;
     ble_uuid_t          ble_uuid;
     ble_gatts_attr_md_t attr_md;
-    static uint8_t      current_pir_state = DEFAULT_PIR_STATE_ON_PULLUP;
+    static uint8_t      current_pir_state = 0x00;
 
     if (p_pir->is_notification_supported)
     {
@@ -517,10 +517,10 @@ uint32_t ble_pir_init(ble_pir_t * p_pir, const ble_pir_init_t * p_pir_init)
 uint32_t ble_pir_alarm_check(ble_pir_t * p_pir,ble_device_t *p_device)
 {
     uint32_t err_code;
-    uint8_t  current_pir_state;      		/* Current PIR value*/
+    uint8_t  current_pir_state = 0x00;      		/* Current PIR value*/
     
     uint16_t len = sizeof(uint8_t);
-		uint16_t len2=8;			//length of alarm with time stamp
+		uint16_t len2=8;			                     //length of alarm with time stamp
 		current_pir_state = nrf_gpio_pin_read(PIR_GPIOTE_PIN);
 
 		//copy the current pir state for broadcast

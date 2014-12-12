@@ -1149,6 +1149,9 @@ static void ble_stack_init(void)
 		
 	  memset(&p_ble_enable_params, 0, sizeof(p_ble_enable_params));
 	  
+		//enable service change characteristic 
+		p_ble_enable_params.gatts_enable_params.service_changed =1;
+	
     err_code=sd_ble_enable(&p_ble_enable_params);
     APP_ERROR_CHECK(err_code);
 	  
@@ -1188,11 +1191,14 @@ void connectable_mode(void)
     for (;;)
     {
 
-			// If the dfu enable flag is true and services are not connected go to the bootloader
-        if(DFU_ENABLE && (!DEVICE_CONNECTED_STATE) && (!WATERPS_CONNECTED_STATE))  
+			// If the dfu enable flag is true go to the bootloader
+        if(DFU_ENABLE)  
         {   
-            sd_power_gpregret_set(1);     /* If DFU mode is enabled, set the general purpose retention register to 1*/
-            sd_nvic_SystemReset();        /* Apply a system reset for jumping into bootloader*/
+            sd_power_gpregret_set(1);                                /* If DFU mode is enabled, set the general purpose retention register to 1*/
+           
+						err_code=sd_ble_gatts_service_changed(m_conn_handle,0x01,0x4D); /*function for service change indication*/
+
+						sd_nvic_SystemReset();                                    /* Apply a system reset for jumping into bootloader*/
         }
 
         if (DATA_LOG_CHECK)
