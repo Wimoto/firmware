@@ -53,9 +53,9 @@
 #include "pstorage.h"
 #include "wimoto.h"
 
-#define DEVICE_NAME                          "Wimoto_Climate"                           /**< Name of device. Will be included in the advertising data. */
+#define DEVICE_NAME                          "Wimoto_Clim"                           /**< Name of device. Will be included in the advertising data. */
 #define MANUFACTURER_NAME                    "Wimoto"                                  /**< Manufacturer. Will be passed to Device Information Service. */
-#define MODEL_NUM                            "Wimoto_Climate"                          /**< Model number. Will be passed to Device Information Service. */
+#define MODEL_NUM                            "Wimoto_Clim"                          /**< Model number. Will be passed to Device Information Service. */
 #define MANUFACTURER_ID                      0x1122334455                              /**< Manufacturer ID, part of System ID. Will be passed to Device Information Service. */
 #define ORG_UNIQUE_ID                        0x667788                                  /**< Organizational Unique ID, part of System ID. Will be passed to Device Information Service. */
 
@@ -251,7 +251,7 @@ static void advertising_nonconn_init(void)
 {
 		uint32_t                   err_code;
     ble_advdata_t              advdata;
-    ble_advdata_service_data_t service_data[3];
+    ble_advdata_service_data_t service_data[1];
     uint8_t                    flags = BLE_GAP_ADV_FLAG_BR_EDR_NOT_SUPPORTED;
     ble_advdata_manuf_data_t   manuf_specific_data;
     uint8_t                    manuf_data_array[6];	
@@ -278,7 +278,7 @@ static void advertising_nonconn_init(void)
     advdata.flags.size              = sizeof(flags);
     advdata.flags.p_data            = &flags;
     advdata.p_service_data_array    = service_data;
-    advdata.service_data_count      = 0;
+    advdata.service_data_count      = 1;
     advdata.p_manuf_specific_data   = &manuf_specific_data;
 
     err_code = ble_advdata_set(&advdata, NULL);
@@ -546,8 +546,6 @@ static void gap_params_init(void)
 static void advertising_init(void)
 {
     uint32_t      err_code;
-    //ble_advdata_t advdata;
-   // ble_advdata_t advdata2;
     uint8_t       flags = BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE;
     static uint8_t Vendor_Spec_Uuid[16] = {0xE0, 0x03, 0x56, 0x07, 0xEC, 0x48, 0x4E, 0xD0, 0x9F, 0x3B, 0x54, 0x19, 0xC0, 0x0A, 0x94, 0xFD};
     ble_advdata_manuf_data_t   manuf_data;
@@ -576,7 +574,7 @@ static void advertising_init(void)
 		// Build and set broadcast data
 		
 		ble_advdata_t              advdata1;													/*variable for setting advertising data*/
-		ble_advdata_t 						 advdata3;													/*variable for setting scan response data*/
+		ble_advdata_t 						 advdata2;													/*variable for setting scan response data*/
 		
     ble_advdata_service_data_t service_data[1];
     ble_advdata_manuf_data_t   manuf_specific_data;
@@ -605,20 +603,20 @@ static void advertising_init(void)
     advdata1.flags.size              = sizeof(flags);
     advdata1.flags.p_data            = &flags;
     advdata1.p_service_data_array    = service_data;
-    advdata1.service_data_count      = 0;
+    advdata1.service_data_count      = 1;
     advdata1.p_manuf_specific_data   = &manuf_specific_data;
 		
 		//build and set scan response data
-		memset(&advdata3, 0, sizeof(advdata3));
+		memset(&advdata2, 0, sizeof(advdata2));
 
-    advdata3.name_type               = BLE_ADVDATA_NO_NAME;
-    advdata3.include_appearance      = false;
-    advdata3.flags.size              = 0;
-    advdata3.p_manuf_specific_data   = &manuf_data;							/*sets the company identifier*/
-    advdata3.uuids_complete.uuid_cnt = sizeof(adv_uuids) / sizeof(adv_uuids[0]);
-    advdata3.uuids_complete.p_uuids  = adv_uuids;
+    advdata2.name_type               = BLE_ADVDATA_NO_NAME;
+    advdata2.include_appearance      = false;
+    advdata2.flags.size              = 0;
+    advdata2.p_manuf_specific_data   = &manuf_data;							/*sets the company identifier*/
+    advdata2.uuids_complete.uuid_cnt = sizeof(adv_uuids) / sizeof(adv_uuids[0]);
+    advdata2.uuids_complete.p_uuids  = adv_uuids;
 		
-    err_code = ble_advdata_set(&advdata1,&advdata3);
+    err_code = ble_advdata_set(&advdata1,&advdata2);
     APP_ERROR_CHECK(err_code);
 }
 
@@ -1319,6 +1317,7 @@ void connectable_mode(void)
 		// Initialize.
     ble_stack_init();
     twi_master_init();                     /* Configure twi*/
+		HTU21D_configure();										 /* Configure HTU21D */
     ISL29023_config_FSR_and_powerdown();   /* Configure isl29023 */
     timers_init();
     gpiote_init();

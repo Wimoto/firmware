@@ -14,7 +14,14 @@
 /********************************************************************************************/
 /* PRIVATE FUNCTIONS																		*/
 /********************************************************************************************/
-
+/**
+*@brief		Function to configure the HTU21D
+*@details	function to write the user register for setting the resolution
+*/
+void HTU21D_configure(void)
+{		
+		HTU21D_WriteToUserRegister(HTU21_RES_11_11BIT);	/*function to write the user register for setting the resolution */
+}
 /**
 *@brief   Checks for CRC errors
 *@details Function takes the 16 bit data and calculates CRC value from it , checks with the
@@ -135,9 +142,9 @@ uint32_t HTU21D_ReadMeasurementValue(uint8_t Command_for_activity)
     if (twi_master_transfer(HTU21D_ADDRESS ,(uint8_t*)&Command_for_activity,1,TWI_DONT_ISSUE_STOP))
     {
         if(Command_for_activity == TRIG_RH_MEASUREMENT_HM)
-          delay_ms(20); 
+          delay_ms(5); 
         else
-          delay_ms(50);  
+          delay_ms(7);  
         if (twi_master_transfer(HTU21D_ADDRESS | TWI_READ_BIT ,data_buffer ,3 ,TWI_ISSUE_STOP))
         {
             temporary_variable1 = ((data_buffer[0] << 16) | (data_buffer[1]<<8) | data_buffer[2]);

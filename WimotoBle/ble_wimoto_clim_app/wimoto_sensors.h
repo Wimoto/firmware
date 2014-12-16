@@ -278,7 +278,7 @@ uint16_t eDRV_HTU21_MeasureTemperature(void);                                 /*
 uint16_t eDRV_HTU21_MeasureHumidity(void);                                    /**< Function to measure Humidity (16 bit value, status bit cleared) using  either Hold master / Polling mode, default : Hold master mode*/                                                                                
 bool HTU21D_WriteToUserRegister(uint8_t data);                                /**< Function to write data to the User register */
 uint8_t  HTU21D_ReadUserRegister(void);                                       /**< Function to read data from the User register */
-
+void 		 HTU21D_configure(void);																							/**< Function to configure HTU21D register*/
 /*Private Functions */
 bool HTU21D_CheckCrc(uint8_t data[], uint8_t nbrOfBytes, uint8_t checksum);   /**< CRC error checking*/
 uint16_t HTU21D_MeasureHM(etHTU21MeasureType eHTU21MeasureType);              /**< Function to read the temperature/humidity   using HOLD MASTER mode */                                                                                  

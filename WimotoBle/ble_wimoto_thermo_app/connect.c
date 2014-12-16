@@ -58,9 +58,9 @@ static bool                                  m_memory_access_in_progress = false
 #define SEND_MEAS_BUTTON_PIN_NO              16                                         /**< Button used for sending a measurement. */
 #define BONDMNGR_DELETE_BUTTON_PIN_NO        17                                         /**< Button used for deleting all bonded masters during startup. */
 
-#define DEVICE_NAME                          "Wimoto_Thermo"                            /**< Name of device. Will be included in the advertising data. */
+#define DEVICE_NAME                          "Wimoto_Th"                            /**< Name of device. Will be included in the advertising data. */
 #define MANUFACTURER_NAME                    "Wimoto"                                   /**< Manufacturer. Will be passed to Device Information Service. */
-#define MODEL_NUM                            "Wimoto_Thermo"                                   /**< Model number. Will be passed to Device Information Service. */
+#define MODEL_NUM                            "Wimoto_Th"                                   /**< Model number. Will be passed to Device Information Service. */
 #define MANUFACTURER_ID                      0x1122334455                               /**< Manufacturer ID, part of System ID. Will be passed to Device Information Service. */
 #define ORG_UNIQUE_ID                        0x667788                                   /**< Organizational Unique ID, part of System ID. Will be passed to Device Information Service. */
 
@@ -197,7 +197,7 @@ void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p
     //                The flash write will happen EVEN if the radio is active, thus interrupting
     //                any communication.
     //                Use with care. Un-comment the line below to use.
-		//	ble_debug_assert_handler(error_code, line_num, p_file_name);
+			//ble_debug_assert_handler(error_code, line_num, p_file_name);
 
     // On assert, the system can only recover on reset
     NVIC_SystemReset();
@@ -417,7 +417,7 @@ static void advertising_nonconn_init(void)
     advdata.flags.size              = sizeof(flags);
     advdata.flags.p_data            = &flags;
     advdata.p_service_data_array    = service_data;
-    //advdata.service_data_count      = 1;
+    advdata.service_data_count      = 1;
     advdata.p_manuf_specific_data   = &manuf_specific_data;
 
     err_code = ble_advdata_set(&advdata, NULL);
@@ -540,7 +540,6 @@ static void gap_params_init(void)
 static void advertising_init(void)
 {
     uint32_t      err_code;
-//    ble_advdata_t advdata,advdata2;
     uint8_t       flags = BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE;
     static uint8_t Vendor_Spec_Uuid[16] = {0x49, 0x7B, 0x8E, 0x4D, 0xB6, 0x1E, 0x4F, 0x82, 0x8F, 0xE9, 0xB1, 0x2C, 0xF2, 0x49, 0x73, 0x38};
     ble_advdata_manuf_data_t   manuf_data;
@@ -567,7 +566,7 @@ static void advertising_init(void)
 		
 		// Build and set broadcast data
 		ble_advdata_t              advdata1;
-		ble_advdata_t              advdata3;	/*variable to set the scan response data*/
+		ble_advdata_t              advdata2;	/*variable to set the scan response data*/
     ble_advdata_service_data_t service_data[1];
     ble_advdata_manuf_data_t   manuf_specific_data;
     uint8_t                    manuf_data_array[7];
@@ -595,19 +594,20 @@ static void advertising_init(void)
     advdata1.flags.size              = sizeof(flags);
     advdata1.flags.p_data            = &flags;
     advdata1.p_service_data_array    = service_data;
-    //advdata1.service_data_count      = 1;
+    advdata1.service_data_count      = 1;
     advdata1.p_manuf_specific_data   = &manuf_specific_data;
-		// build and set the scan response data
-		memset(&advdata3, 0, sizeof(advdata3));
-
-    advdata3.name_type               = BLE_ADVDATA_NO_NAME;
-    advdata3.include_appearance      = false;
-    advdata3.flags.size              = 0;
-    advdata3.p_manuf_specific_data   = &manuf_data;//set the company identifier
-    advdata3.uuids_complete.uuid_cnt = sizeof(adv_uuids) / sizeof(adv_uuids[0]);
-    advdata3.uuids_complete.p_uuids  = adv_uuids;
 		
-		err_code = ble_advdata_set(&advdata1,&advdata3);
+		// build and set the scan response data
+		memset(&advdata2, 0, sizeof(advdata2));
+
+    advdata2.name_type               = BLE_ADVDATA_NO_NAME;
+    advdata2.include_appearance      = false;
+    advdata2.flags.size              = 0;
+    advdata2.p_manuf_specific_data   = &manuf_data;//set the company identifier
+    advdata2.uuids_complete.uuid_cnt = sizeof(adv_uuids) / sizeof(adv_uuids[0]);
+    advdata2.uuids_complete.p_uuids  = adv_uuids;
+		
+		err_code = ble_advdata_set(&advdata1,&advdata2);
     APP_ERROR_CHECK(err_code);
 }
 
