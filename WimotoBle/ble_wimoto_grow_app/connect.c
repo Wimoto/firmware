@@ -279,15 +279,6 @@ static void grow_param_meas_timeout_handler(void * p_context)
         DATA_LOG_CHECK=true;
     }
 
-//    if (sensor_minutes < 0x02)
-//    {
-//        sensor_minutes++;
-//    }
-//    else 
-//    {
-//        sensor_minutes =0x01;
-//        CHECK_ALARM_TIMEOUT=true;                           /* Set the flag to indicate alarm conditions check*/
-//    }
 
 }
 
@@ -407,10 +398,9 @@ static void advertising_nonconn_init(void)
 {
     uint32_t                   err_code;
     ble_advdata_t              advdata;
-    ble_advdata_service_data_t service_data[1];
     uint8_t                    flags = BLE_GAP_ADV_FLAG_BR_EDR_NOT_SUPPORTED;
     ble_advdata_manuf_data_t   manuf_specific_data;
-    uint8_t                    manuf_data_array[5];
+    uint8_t                    manuf_data_array[6];
 
     //  Advertising the temperature , light level and soil moisture as manufacturing data.
     manuf_data_array[0] = temperature[0];
@@ -418,15 +408,12 @@ static void advertising_nonconn_init(void)
     manuf_data_array[2] = light_level[0];
     manuf_data_array[3] = light_level[1];
     manuf_data_array[4] = curr_soil_mois_level;
-
+		manuf_data_array[5] = battery_lvl;
+	
     manuf_specific_data.company_identifier = COMPANY_IDENTIFER;  /* COMPANY IDENTIFIER */
     manuf_specific_data.data.p_data = manuf_data_array;
     manuf_specific_data.data.size = sizeof(manuf_data_array);
 
-        
-    service_data[0].service_uuid = BLE_UUID_BATTERY_SERVICE;
-    service_data[0].data.p_data  = &battery_lvl;  
-    service_data[0].data.size    = sizeof(battery_lvl);
 
     // Build and set advertising data
     memset(&advdata, 0, sizeof(advdata));
@@ -434,8 +421,6 @@ static void advertising_nonconn_init(void)
     advdata.name_type               = BLE_ADVDATA_FULL_NAME;
     advdata.flags.size              = sizeof(flags);
     advdata.flags.p_data            = &flags;
-    advdata.p_service_data_array    = service_data;
-    advdata.service_data_count      = 1;
     advdata.p_manuf_specific_data   = &manuf_specific_data;
 
     err_code = ble_advdata_set(&advdata, NULL);
@@ -556,8 +541,6 @@ static void gap_params_init(void)
 static void advertising_init(void)
 {
     uint32_t      err_code;
-    //ble_advdata_t advdata;
-    //ble_advdata_t advdata2;
     uint8_t       flags = BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE;
 
     // Base UUID of Grow Profile
@@ -589,9 +572,8 @@ static void advertising_init(void)
 		// Build and set broadcast data
     ble_advdata_t              advdata1;
 		ble_advdata_t              advdata3; /*variable to sets the scan response data*/
-    ble_advdata_service_data_t service_data[1];
     ble_advdata_manuf_data_t   manuf_specific_data;
-    uint8_t                    manuf_data_array[5];
+    uint8_t                    manuf_data_array[6];
 
     //  Advertising the temperature , light level and soil moisture as manufacturing data.
     manuf_data_array[0] = temperature[0];
@@ -599,15 +581,11 @@ static void advertising_init(void)
     manuf_data_array[2] = light_level[0];
     manuf_data_array[3] = light_level[1];
     manuf_data_array[4] = curr_soil_mois_level;
+		manuf_data_array[5] = battery_lvl;
 
     manuf_specific_data.company_identifier = COMPANY_IDENTIFER;  /* COMPANY IDENTIFIER */
     manuf_specific_data.data.p_data = manuf_data_array;
     manuf_specific_data.data.size = sizeof(manuf_data_array);
-
-        
-    service_data[0].service_uuid = BLE_UUID_BATTERY_SERVICE;
-    service_data[0].data.p_data  = &battery_lvl;  
-    service_data[0].data.size    = sizeof(battery_lvl);
 
     // Build and set advertising data
     memset(&advdata1, 0, sizeof(advdata1));
@@ -615,8 +593,6 @@ static void advertising_init(void)
     advdata1.name_type               = BLE_ADVDATA_FULL_NAME;
     advdata1.flags.size              = sizeof(flags);
     advdata1.flags.p_data            = &flags;
-    advdata1.p_service_data_array    = service_data;
-    advdata1.service_data_count      = 1;
     advdata1.p_manuf_specific_data   = &manuf_specific_data;
 		
 		//Build and set scan response data

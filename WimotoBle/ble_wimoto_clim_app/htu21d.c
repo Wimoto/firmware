@@ -142,7 +142,7 @@ uint32_t HTU21D_ReadMeasurementValue(uint8_t Command_for_activity)
     if (twi_master_transfer(HTU21D_ADDRESS ,(uint8_t*)&Command_for_activity,1,TWI_DONT_ISSUE_STOP))
     {
         if(Command_for_activity == TRIG_RH_MEASUREMENT_HM)
-          delay_ms(5); 
+          delay_ms(7); 
         else
           delay_ms(7);  
         if (twi_master_transfer(HTU21D_ADDRESS | TWI_READ_BIT ,data_buffer ,3 ,TWI_ISSUE_STOP))

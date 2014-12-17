@@ -321,20 +321,16 @@ static void advertising_nonconn_init(void)
 {
 		uint32_t                   err_code;
     ble_advdata_t              advdata;
-    ble_advdata_service_data_t service_data[1];
     uint8_t                    flags = BLE_GAP_ADV_FLAG_BR_EDR_NOT_SUPPORTED;
     ble_advdata_manuf_data_t   manuf_specific_data;
-    uint8_t                    manuf_data_array[4];
-
-    service_data[0].service_uuid = BLE_UUID_BATTERY_SERVICE;
-    service_data[0].data.p_data  = &battery_lvl;
-    service_data[0].data.size    = sizeof(battery_lvl);
+    uint8_t                    manuf_data_array[5];
 
     manuf_data_array[0] = xyz_coordinates;       
     manuf_data_array[1] = xyz_coordinates >> 8;  
     manuf_data_array[2] = xyz_coordinates >> 16 ;
     manuf_data_array[3] = curr_pir_presence;                               			/* PIR alarm is 1 when an active high is at the pin P0.02*/
-
+		manuf_data_array[4] = battery_lvl;
+	
     manuf_specific_data.company_identifier = COMPANY_IDENTIFER;                 /* COMPANY IDENTIFIER */
     manuf_specific_data.data.p_data = manuf_data_array;
     manuf_specific_data.data.size = sizeof(manuf_data_array);
@@ -345,8 +341,6 @@ static void advertising_nonconn_init(void)
     advdata.name_type               = BLE_ADVDATA_FULL_NAME;
     advdata.flags.size              = sizeof(flags);
     advdata.flags.p_data            = &flags;
-    advdata.p_service_data_array    = service_data;
-    advdata.service_data_count      = 1;
     advdata.p_manuf_specific_data   = &manuf_specific_data;
 
     err_code = ble_advdata_set(&advdata, NULL);
@@ -469,7 +463,6 @@ static void gap_params_init(void)
 static void advertising_init(void)
 {
     uint32_t      err_code;
-   // ble_advdata_t advdata,advdata2;
     uint8_t       flags = BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE;
 
     // Base UUID of Sentry Profile
@@ -499,19 +492,15 @@ static void advertising_init(void)
 		// Build and set broadcast data
     ble_advdata_t              advdata1;
 		ble_advdata_t              advdata3;/*variable to set the scan response data*/
-    ble_advdata_service_data_t service_data[1];
     ble_advdata_manuf_data_t   manuf_specific_data;
-    uint8_t                    manuf_data_array[4];
-
-    service_data[0].service_uuid = BLE_UUID_BATTERY_SERVICE;
-    service_data[0].data.p_data  = &battery_lvl;
-    service_data[0].data.size    = sizeof(battery_lvl);
+    uint8_t                    manuf_data_array[5];
 
     manuf_data_array[0] = xyz_coordinates;       
     manuf_data_array[1] = xyz_coordinates >> 8;  
     manuf_data_array[2] = xyz_coordinates >> 16 ;
     manuf_data_array[3] = curr_pir_presence;                               /* PIR alarm is 1 when an active high is at the pin P0.02*/
-
+		manuf_data_array[4] = battery_lvl;
+		
     manuf_specific_data.company_identifier = COMPANY_IDENTIFER;                            /* COMPANY IDENTIFIER */
     manuf_specific_data.data.p_data = manuf_data_array;
     manuf_specific_data.data.size = sizeof(manuf_data_array);
@@ -521,8 +510,6 @@ static void advertising_init(void)
     advdata1.name_type               = BLE_ADVDATA_FULL_NAME;
     advdata1.flags.size              = sizeof(flags);
     advdata1.flags.p_data            = &flags;
-    advdata1.p_service_data_array    = service_data;
-    advdata1.service_data_count      = 1;
     advdata1.p_manuf_specific_data   = &manuf_specific_data;
 		//build sets the scan response data 
 		memset(&advdata3, 0, sizeof(advdata3));

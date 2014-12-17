@@ -58,9 +58,9 @@ static bool                                  m_memory_access_in_progress = false
 #define SEND_MEAS_BUTTON_PIN_NO              16                                         /**< Button used for sending a measurement. */
 #define BONDMNGR_DELETE_BUTTON_PIN_NO        17                                         /**< Button used for deleting all bonded masters during startup. */
 
-#define DEVICE_NAME                          "Wimoto_Th"                            /**< Name of device. Will be included in the advertising data. */
+#define DEVICE_NAME                          "Wimoto_Thermo"                            /**< Name of device. Will be included in the advertising data. */
 #define MANUFACTURER_NAME                    "Wimoto"                                   /**< Manufacturer. Will be passed to Device Information Service. */
-#define MODEL_NUM                            "Wimoto_Th"                                   /**< Model number. Will be passed to Device Information Service. */
+#define MODEL_NUM                            "Wimoto_Thermo"                            /**< Model number. Will be passed to Device Information Service. */
 #define MANUFACTURER_ID                      0x1122334455                               /**< Manufacturer ID, part of System ID. Will be passed to Device Information Service. */
 #define ORG_UNIQUE_ID                        0x667788                                   /**< Organizational Unique ID, part of System ID. Will be passed to Device Information Service. */
 
@@ -108,7 +108,7 @@ static bool                                  m_memory_access_in_progress = false
 
 #define FLASH_PAGE_SYS_ATTR                 (BLE_FLASH_PAGE_END - 3)                    /**< Flash page used for bond manager system attribute information. */
 #define FLASH_PAGE_BOND                     (BLE_FLASH_PAGE_END - 1)                    /**< Flash page used for bond manager bonding information. */
-#define BOND_DELETE_ALL_BUTTON_ID            BUTTON_1                       /**< Button used for deleting all bonded centrals during startup. */
+#define BOND_DELETE_ALL_BUTTON_ID            BUTTON_1                       						/**< Button used for deleting all bonded centrals during startup. */
 
 #define DEAD_BEEF                            0xDEADBEEF                                 /**< Value used as error code on stack dump, can be used to identify stack location on stack unwind. */
 
@@ -389,14 +389,9 @@ static void advertising_nonconn_init(void)
 {
 		uint32_t                   err_code;
     ble_advdata_t              advdata;
-    ble_advdata_service_data_t service_data[1];
     uint8_t                    flags = BLE_GAP_ADV_FLAG_BR_EDR_NOT_SUPPORTED;
     ble_advdata_manuf_data_t   manuf_specific_data;
-    uint8_t                    manuf_data_array[7];
-
-    service_data[0].service_uuid = BLE_UUID_BATTERY_SERVICE;
-    service_data[0].data.p_data  = &battery_lvl;
-    service_data[0].data.size    = sizeof(battery_lvl);
+    uint8_t                    manuf_data_array[8];
 
     manuf_data_array[0] = thermopile[0];
     manuf_data_array[1] = thermopile[1];
@@ -405,7 +400,8 @@ static void advertising_nonconn_init(void)
     manuf_data_array[4] = thermopile[4];
     manuf_data_array[5] = curr_probe_temp_level[0];
 		manuf_data_array[6] = curr_probe_temp_level[1];
-
+		manuf_data_array[7]	= battery_lvl;
+	
     manuf_specific_data.company_identifier = COMPANY_IDENTIFER;             /*COMPANY IDENTIFIER */
     manuf_specific_data.data.p_data = manuf_data_array;
     manuf_specific_data.data.size = sizeof(manuf_data_array);
@@ -416,8 +412,6 @@ static void advertising_nonconn_init(void)
     advdata.name_type               = BLE_ADVDATA_FULL_NAME;
     advdata.flags.size              = sizeof(flags);
     advdata.flags.p_data            = &flags;
-    advdata.p_service_data_array    = service_data;
-    advdata.service_data_count      = 1;
     advdata.p_manuf_specific_data   = &manuf_specific_data;
 
     err_code = ble_advdata_set(&advdata, NULL);
@@ -567,13 +561,8 @@ static void advertising_init(void)
 		// Build and set broadcast data
 		ble_advdata_t              advdata1;
 		ble_advdata_t              advdata2;	/*variable to set the scan response data*/
-    ble_advdata_service_data_t service_data[1];
     ble_advdata_manuf_data_t   manuf_specific_data;
-    uint8_t                    manuf_data_array[7];
-
-    service_data[0].service_uuid = BLE_UUID_BATTERY_SERVICE;
-    service_data[0].data.p_data  = &battery_lvl;
-    service_data[0].data.size    = sizeof(battery_lvl);
+    uint8_t                    manuf_data_array[8];
 
     manuf_data_array[0] = thermopile[0];
     manuf_data_array[1] = thermopile[1];
@@ -582,7 +571,8 @@ static void advertising_init(void)
     manuf_data_array[4] = thermopile[4];
     manuf_data_array[5] = curr_probe_temp_level[0];
 		manuf_data_array[6] = curr_probe_temp_level[1];
-
+		manuf_data_array[7] = battery_lvl;
+		
     manuf_specific_data.company_identifier = COMPANY_IDENTIFER;             /*COMPANY IDENTIFIER */
     manuf_specific_data.data.p_data = manuf_data_array;
     manuf_specific_data.data.size = sizeof(manuf_data_array);
@@ -593,8 +583,6 @@ static void advertising_init(void)
     advdata1.name_type               = BLE_ADVDATA_FULL_NAME;
     advdata1.flags.size              = sizeof(flags);
     advdata1.flags.p_data            = &flags;
-    advdata1.p_service_data_array    = service_data;
-    advdata1.service_data_count      = 1;
     advdata1.p_manuf_specific_data   = &manuf_specific_data;
 		
 		// build and set the scan response data

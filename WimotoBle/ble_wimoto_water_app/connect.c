@@ -368,18 +368,13 @@ static void advertising_nonconn_init(void)
 {
 	  uint32_t                   err_code;
     ble_advdata_t              advdata;
-    ble_advdata_service_data_t service_data[1];
     uint8_t                    flags = BLE_GAP_ADV_FLAG_BR_EDR_NOT_SUPPORTED;
     ble_advdata_manuf_data_t   manuf_specific_data;
-    uint8_t                    manuf_data_array[1];
-
-     
-    service_data[0].service_uuid = BLE_UUID_BATTERY_SERVICE;
-    service_data[0].data.p_data  = &battery_lvl;
-    service_data[0].data.size    = sizeof(battery_lvl);	
+    uint8_t                    manuf_data_array[2];	
 
     manuf_data_array[0] = curr_waterpresence;
-
+		manuf_data_array[1] = battery_lvl;
+	
     manuf_specific_data.company_identifier = COMPANY_IDENTIFER;                 /* COMPANY IDENTIFIER */
     manuf_specific_data.data.p_data = manuf_data_array;
     manuf_specific_data.data.size = sizeof(manuf_data_array);
@@ -390,8 +385,6 @@ static void advertising_nonconn_init(void)
     advdata.name_type               = BLE_ADVDATA_FULL_NAME;
     advdata.flags.size              = sizeof(flags);
     advdata.flags.p_data            = &flags;
-    advdata.p_service_data_array    = service_data;
-    advdata.service_data_count      = 1;
     advdata.p_manuf_specific_data   = &manuf_specific_data;
 
     err_code = ble_advdata_set(&advdata, NULL);
@@ -513,7 +506,6 @@ static void gap_params_init(void)
 static void advertising_init(void)
 {
     uint32_t      err_code;
-    //ble_advdata_t advdata,advdata2;
     uint8_t       flags = BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE;
 
     static uint8_t manuf_advertising_data[16] = {0x35, 0xD8, 0xC7, 0xDA, 0x9D, 0x78, 0x43,0xC2, 0xAB,0x2E, 0x0E, 0x48, 0xCA, 0xC2, 0xDB, 0xDA};
@@ -542,16 +534,12 @@ static void advertising_init(void)
 		// Build and set broadcast data
 		ble_advdata_t              advdata1;
 		ble_advdata_t              advdata3;/*variable to set scan response data*/
-    ble_advdata_service_data_t service_data[1];
     ble_advdata_manuf_data_t   manuf_specific_data;
-    uint8_t                    manuf_data_array[1];
+    uint8_t                    manuf_data_array[2];
 
-    service_data[0].service_uuid = BLE_UUID_BATTERY_SERVICE;
-    service_data[0].data.p_data  = &battery_lvl;
-    service_data[0].data.size    = sizeof(battery_lvl);	
 
     manuf_data_array[0] = curr_waterpresence;
-
+		manuf_data_array[1] = battery_lvl;
     manuf_specific_data.company_identifier = COMPANY_IDENTIFER;                 /* COMPANY IDENTIFIER */
     manuf_specific_data.data.p_data = manuf_data_array;
     manuf_specific_data.data.size = sizeof(manuf_data_array);
@@ -561,10 +549,8 @@ static void advertising_init(void)
     advdata1.name_type               = BLE_ADVDATA_FULL_NAME;
     advdata1.flags.size              = sizeof(flags);
     advdata1.flags.p_data            = &flags;
-    advdata1.p_service_data_array    = service_data;
-    advdata1.service_data_count      = 1;
     advdata1.p_manuf_specific_data   = &manuf_specific_data;
-// build and set the scan response data
+    // build and set the scan response data
 		memset(&advdata3, 0, sizeof(advdata3));
 
     advdata3.name_type               = BLE_ADVDATA_NO_NAME;
