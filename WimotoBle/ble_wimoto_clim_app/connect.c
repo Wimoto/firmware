@@ -53,9 +53,9 @@
 #include "pstorage.h"
 #include "wimoto.h"
 
-//#define WDT 
+#define WDT 
 
-#define DEVICE_NAME                          "Wimoto_Climate"                           /**< Name of device. Will be included in the advertising data. */
+#define DEVICE_NAME                          "Climate_112233"                           /**< Name of device. Will be included in the advertising data. */
 #define MANUFACTURER_NAME                    "Wimoto"                                  /**< Manufacturer. Will be passed to Device Information Service. */
 #define MODEL_NUM                            "Wimoto_Climate"                          /**< Model number. Will be passed to Device Information Service. */
 #define MANUFACTURER_ID                      0x112233                             /**< Manufacturer ID, part of System ID. Will be passed to Device Information Service. */
@@ -1364,7 +1364,7 @@ void WDT_init(void)
 {		
 	
 		//CODE for use on DK//
-		/*nrf_gpio_port_clear(NRF_GPIO_PORT_SELECT_PORT0, 0xFF);
+		nrf_gpio_port_clear(NRF_GPIO_PORT_SELECT_PORT0, 0xFF);
 		nrf_gpio_port_dir_set(NRF_GPIO_PORT_SELECT_PORT0, NRF_GPIO_PORT_DIR_OUTPUT);
 		nrf_gpio_pin_write(0, NRF_POWER->RESETREAS & 0x00000001);                //Bit A in RESETREAS
 		nrf_gpio_pin_write(1, NRF_POWER->RESETREAS & 0x00000002);                //Bit B in RESETREAS
@@ -1376,12 +1376,12 @@ void WDT_init(void)
 	
 	
 		//CODE FOR USE ON CLIMATE DEVICE
-		nrf_gpio_cfg_output(18);					//set LED pins to output
-		nrf_gpio_cfg_output(19);
-		nrf_gpio_cfg_output(20);
+		//nrf_gpio_cfg_output(18);					//set LED pins to output
+		//nrf_gpio_cfg_output(19);
+		//nrf_gpio_cfg_output(20);
 	
-		nrf_gpio_pin_write(18, NRF_POWER->RESETREAS & 0x00000002);
-		nrf_gpio_pin_write(19, NRF_POWER->RESETREAS & 0x00000008);
+		//nrf_gpio_pin_write(18, NRF_POWER->RESETREAS & 0x00000002);
+		//nrf_gpio_pin_write(19, NRF_POWER->RESETREAS & 0x00000008);
 		
 		
 		sd_power_reset_reason_clr(0xFFFFFFFF);	//clear reset reason register
@@ -1389,7 +1389,7 @@ void WDT_init(void)
 		NRF_WDT->CONFIG = WDT_CONFIG_HALT_Pause << WDT_CONFIG_HALT_Pos |
 											WDT_CONFIG_SLEEP_Run << WDT_CONFIG_SLEEP_Pos;
 		
-		NRF_WDT->CRV = 10*32768;		//set watchdog to have 7 second timeout
+		NRF_WDT->CRV = 6*32768;		//set watchdog to have 7 second timeout
 		NRF_WDT->RREN |= WDT_RREN_RR0_Msk;		//enable reload register0
 		NRF_WDT->TASKS_START = 1;							//start watchdog timer
 	
