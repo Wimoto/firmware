@@ -53,7 +53,7 @@
 #include "nrf_mbr.h"
 
 
-#define IS_SRVC_CHANGED_CHARACT_PRESENT 0                                                       /**< Include or not the service_changed characteristic. if not enabled, the server's database cannot be changed for the lifetime of the device*/
+#define IS_SRVC_CHANGED_CHARACT_PRESENT 1                                                       /**< Include or not the service_changed characteristic. if not enabled, the server's database cannot be changed for the lifetime of the device*/
 
 #define APP_GPIOTE_MAX_USERS            1                                                       /**< Number of GPIOTE users in total. Used by button module and dfu_transport_serial module (flow control). */
 
@@ -241,6 +241,10 @@ int main(void)
         APP_ERROR_CHECK(err_code);
 
         // Initiate an update of the firmware.
+				//LIGHT LED TO INDICATE IN DFU MODE
+				nrf_gpio_cfg_output(18);
+				nrf_gpio_pin_set(18);
+				//END CODE
         err_code = bootloader_dfu_start();
         APP_ERROR_CHECK(err_code);
 

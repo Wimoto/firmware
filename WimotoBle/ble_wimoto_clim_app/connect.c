@@ -53,9 +53,9 @@
 #include "pstorage.h"
 #include "wimoto.h"
 
-#define WDT 
+//#define WDT 
 
-#define DEVICE_NAME                          "Climate_112233"                           /**< Name of device. Will be included in the advertising data. */
+#define DEVICE_NAME                          "Climate_"                           /**< Name of device. Will be included in the advertising data. */
 #define MANUFACTURER_NAME                    "Wimoto"                                  /**< Manufacturer. Will be passed to Device Information Service. */
 #define MODEL_NUM                            "Wimoto_Climate"                          /**< Model number. Will be passed to Device Information Service. */
 #define MANUFACTURER_ID                      0x112233                             /**< Manufacturer ID, part of System ID. Will be passed to Device Information Service. */
@@ -385,12 +385,12 @@ static void real_time_timeout_handler(void * p_context)
 		else
 		{
 			meas_interval_seconds = 0x00;
-			NRF_WDT->RR[0] = 0x6E524635;					//kick the dog
 			CHECK_ALARM_TIMEOUT=true;
 		}
 		
     //Increment the time stamp
     m_time_stamp.seconds += 1;
+		NRF_WDT->RR[0] = 0x6E524635;					//kick the dog every second
     if (m_time_stamp.seconds > 59)
     {
         m_time_stamp.seconds -= 60;
@@ -538,7 +538,7 @@ static void gap_params_init(void)
 			
     BLE_GAP_CONN_SEC_MODE_SET_OPEN(&sec_mode);
 
-    err_code = sd_ble_gap_device_name_set(&sec_mode, (const uint8_t *)DEVICE_NAME, strlen(DEVICE_NAME));
+    err_code = sd_ble_gap_device_name_set(&sec_mode, (const uint8_t *)deviceName, strlen(deviceName));
     APP_ERROR_CHECK(err_code);
 
     err_code = sd_ble_gap_appearance_set(BLE_APPEARANCE_GENERIC_THERMOMETER);
@@ -939,12 +939,14 @@ static void dis_init(void )
 		mac_add2[1] = (NRF_FICR->DEVICEADDR0 & 0x0000FF00) >> 8;
 		mac_add2[0] = (NRF_FICR->DEVICEADDR0 & 0x000000FF);
 		
+		mac_add1[2] |= 0xC0;															//make sure 2MSBs of MAC address are set
+		
 		
 		sys_id.manufacturer_id 						= (mac_address |  ((0x00000000000000FF & (mac_add1[2]))<<16)) |
 																				(mac_address |  ((0x00000000000000FF & (mac_add1[1]))<<24)) |
 																				(mac_address |  ((0x00000000000000FF & (mac_add1[0]))<<32));
 																				
-		sys_id.organizationally_unique_id = (mac_address2 |  (0x00000000000000FF & (mac_add2[2]))) |
+		sys_id.organizationally_unique_id = (mac_address2 |  (0x00000000000000FF  & (mac_add2[2]))) |
 																				(mac_address2 |  ((0x00000000000000FF & (mac_add2[1]))<<8)) |
 																				(mac_address2 |  ((0x00000000000000FF & (mac_add2[0]))<<16));
 		
@@ -1386,10 +1388,10 @@ void WDT_init(void)
 		
 		sd_power_reset_reason_clr(0xFFFFFFFF);	//clear reset reason register
 	
-		NRF_WDT->CONFIG = WDT_CONFIG_HALT_Pause << WDT_CONFIG_HALT_Pos |
-											WDT_CONFIG_SLEEP_Run << WDT_CONFIG_SLEEP_Pos;
+		NRF_WDT->CONFIG = WDT_CONFIG_HALT_Pause << WDT_CONFIG_HALT_Pos |							//pause WDT when device in debug mode
+											WDT_CONFIG_SLEEP_Run << WDT_CONFIG_SLEEP_Pos;								//continue WDT when device is in sleep mode
 		
-		NRF_WDT->CRV = 6*32768;		//set watchdog to have 7 second timeout
+		NRF_WDT->CRV = 2*32768;								//set watchdog to have 2 second timeout
 		NRF_WDT->RREN |= WDT_RREN_RR0_Msk;		//enable reload register0
 		NRF_WDT->TASKS_START = 1;							//start watchdog timer
 	
@@ -1419,10 +1421,6 @@ void connectable_mode(void)
     application_timers_start();           /* Start execution.*/
 		#ifdef WDT
 			WDT_init();
-			
-			
-			
-
 		#endif
     advertising_start();
 
