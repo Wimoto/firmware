@@ -53,7 +53,7 @@
 #include "pstorage.h"
 #include "wimoto.h"
 
-#define DEVICE_NAME                          "Wimoto_Climate"                          /**< Name of device. Will be included in the advertising data. */
+#define DEVICE_NAME                          "Climate_112233"                          /**< Name of device. Will be included in the advertising data. */
 #define MANUFACTURER_NAME                    "Wimoto"                                  /**< Manufacturer. Will be passed to Device Information Service. */
 #define MODEL_NUM                            "Wimoto_Climate"                          /**< Model number. Will be passed to Device Information Service. */
 #define MANUFACTURER_ID                      0x1122334455                              /**< Manufacturer ID, part of System ID. Will be passed to Device Information Service. */
@@ -194,7 +194,30 @@ void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p
     //ble_debug_assert_handler(error_code, line_num, p_file_name);
 
     // On assert, the system can only recover on reset
-    NVIC_SystemReset();
+    //NVIC_SystemReset();
+	
+		static volatile uint8_t  s_file_name[128]; 
+    static volatile uint16_t s_line_num;
+    static volatile uint32_t s_error_code; 
+
+    strncpy((char *)s_file_name, (const char *)p_file_name, 128 - 1);
+    s_file_name[128 - 1] = '\0';
+    s_line_num                           = line_num;
+    s_error_code                         = error_code;
+
+    UNUSED_VARIABLE(s_file_name);
+    UNUSED_VARIABLE(s_line_num);
+    UNUSED_VARIABLE(s_error_code);
+		
+		__disable_irq();
+		
+		for (;;)
+
+    {
+
+        // Do nothing.
+
+    }
 }
 
 
