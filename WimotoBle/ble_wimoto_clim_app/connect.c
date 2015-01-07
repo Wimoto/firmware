@@ -53,7 +53,7 @@
 #include "pstorage.h"
 #include "wimoto.h"
 
-#define WDT 
+//#define WDT 
 
 #define DEVICE_NAME                          "Climate_"                           /**< Name of device. Will be included in the advertising data. */
 #define MANUFACTURER_NAME                    "Wimoto"                                  /**< Manufacturer. Will be passed to Device Information Service. */
@@ -379,7 +379,7 @@ static void real_time_timeout_handler(void * p_context)
 		
 		meas_interval_seconds += 1;													
 			
-		if(meas_interval_seconds < 0x20)			   //set the sensor measurement timeout interval to 2 sec				
+		if(meas_interval_seconds < 0x02)			   //set the sensor measurement timeout interval to 2 sec				
 		{
 			meas_interval_seconds++;
 		}
