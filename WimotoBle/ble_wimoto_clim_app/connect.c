@@ -53,7 +53,7 @@
 #include "pstorage.h"
 #include "wimoto.h"
 
-//#define WDT 
+#define WDT 
 
 #define DEVICE_NAME                          "Climate_"                           /**< Name of device. Will be included in the advertising data. */
 #define MANUFACTURER_NAME                    "Wimoto"                                  /**< Manufacturer. Will be passed to Device Information Service. */
@@ -121,7 +121,8 @@ static app_timer_id_t                        real_time_timer;                   
 static app_timer_id_t                        delay_timer;                               /**< Timer for implementing delay. */
 
 uint8_t 																		 battery_level=0; 
-ble_date_time_t                              m_time_stamp;                              /**< Time stamp. */
+
+static ble_date_time_t m_time_stamp  __attribute__( (section("NoInit"),zero_init) );                              /**< Time stamp. to be retained */
 
 bool 																				 ENABLE_DATA_LOG=false;											/**< Flag to enable data logger */
 bool 																				 READ_DATA=false;
@@ -378,7 +379,7 @@ static void real_time_timeout_handler(void * p_context)
 		
 		meas_interval_seconds += 1;													
 			
-		if(meas_interval_seconds < 0x05)			   //set the sensor measurement timeout interval to 2 sec				
+		if(meas_interval_seconds < 0x20)			   //set the sensor measurement timeout interval to 2 sec				
 		{
 			meas_interval_seconds++;
 		}
@@ -1423,6 +1424,9 @@ void connectable_mode(void)
 			WDT_init();
 		#endif
     advertising_start();
+		
+		//turn on RAM retention//
+		sd_power_ramon_set(0x000F000F);				//set blocks 0 and 1 to retention
 
     // Enter main loop.
     for (;;)  
