@@ -67,6 +67,10 @@
 
 #define SCHED_QUEUE_SIZE                20                                                      /**< Maximum number of events in the scheduler queue. */
 
+#define SECONDS_INTERVAL                APP_TIMER_TICKS(1000, APP_TIMER_PRESCALER) 							/**< seconds measurement interval (ticks). */
+
+//timer code
+static 	app_timer_id_t                  real_time_timer;                           							/**< Time keeping timer. */ 
 
 /**@brief Function for error handling, which is called when an error has occurred. 
  *
@@ -118,12 +122,32 @@ static void gpiote_init(void)
 }
 
 
+
+
+/**@brief Function for watchdog kicking. Executed every second.
+*/
+static void real_time_timeout_handler(void * p_context)
+{
+			
+		NRF_WDT->RR[0] = 0x6E524635;					//kick the dog every second
+    
+}
+
+
 /**@brief Function for initializing the timer handler module (app_timer).
  */
 static void timers_init(void)
-{
+{		
+		uint32_t err_code;
+		
     // Initialize timer module, making it use the scheduler.
     APP_TIMER_INIT(APP_TIMER_PRESCALER, APP_TIMER_MAX_TIMERS, APP_TIMER_OP_QUEUE_SIZE, true);
+	
+		//Timer code for watchdog kicking
+		err_code = app_timer_create(&real_time_timer,      
+    APP_TIMER_MODE_REPEATED,
+    real_time_timeout_handler);
+    APP_ERROR_CHECK(err_code);
 }
 
 
@@ -203,7 +227,10 @@ int main(void)
     timers_init();
     gpiote_init();
     (void)bootloader_init();
-
+		//timer code
+		err_code = app_timer_start(real_time_timer, SECONDS_INTERVAL, NULL);
+    APP_ERROR_CHECK(err_code);
+	
     if (bootloader_dfu_sd_in_progress())
     {
         err_code = bootloader_dfu_sd_update_continue();
@@ -241,6 +268,10 @@ int main(void)
         APP_ERROR_CHECK(err_code);
 
         // Initiate an update of the firmware.
+				//LIGHT LED TO INDICATE IN DFU MODE
+				nrf_gpio_cfg_output(18);
+				nrf_gpio_pin_set(18);
+				//END CODE
         err_code = bootloader_dfu_start();
         APP_ERROR_CHECK(err_code);
 

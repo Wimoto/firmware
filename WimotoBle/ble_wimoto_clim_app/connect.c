@@ -194,30 +194,8 @@ void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p
     //ble_debug_assert_handler(error_code, line_num, p_file_name);
 
     // On assert, the system can only recover on reset
-    //NVIC_SystemReset();
+    NVIC_SystemReset();
 	
-		static volatile uint8_t  s_file_name[128]; 
-    static volatile uint16_t s_line_num;
-    static volatile uint32_t s_error_code; 
-
-    strncpy((char *)s_file_name, (const char *)p_file_name, 128 - 1);
-    s_file_name[128 - 1] = '\0';
-    s_line_num                           = line_num;
-    s_error_code                         = error_code;
-
-    UNUSED_VARIABLE(s_file_name);
-    UNUSED_VARIABLE(s_line_num);
-    UNUSED_VARIABLE(s_error_code);
-		
-		__disable_irq();
-		
-		for (;;)
-
-    {
-
-        // Do nothing.
-
-    }
 }
 
 
@@ -401,6 +379,7 @@ static void real_time_timeout_handler(void * p_context)
 			CHECK_ALARM_TIMEOUT=true;
 		}
 		
+		NRF_WDT->RR[0] = 0x6E524635;					//kick the dog every second
     //Increment the time stamp
     m_time_stamp.seconds += 1;
     if (m_time_stamp.seconds > 59)
@@ -1304,6 +1283,7 @@ static void data_log_check()
 }
 
 
+
 /* Turn OFF TWI if TWI is not using , considering power optimazation*/
 void twi_turn_OFF(void)
 {
@@ -1319,6 +1299,31 @@ void twi_turn_ON(void)
     twi_master_init();
 }
 
+/** @brief Function for initiation WDT
+*/
+void WDT_init(void)
+{		
+			
+		/*CODE FOR DEBUG ON CLIMATE DEVICE
+		nrf_gpio_cfg_output(18);					//set LED pins to output
+		nrf_gpio_cfg_output(19);
+		nrf_gpio_cfg_output(20);
+	
+		nrf_gpio_pin_write(19, NRF_POWER->RESETREAS & 0x00000002);
+		nrf_gpio_pin_write(18, NRF_POWER->RESETREAS & 0x00000008);
+		
+		sd_power_reset_reason_clr(0xFFFFFFFF);	//clear reset reason register */
+	
+		NRF_WDT->CONFIG = WDT_CONFIG_HALT_Pause << WDT_CONFIG_HALT_Pos |							//pause WDT when device in debug mode
+											WDT_CONFIG_SLEEP_Run << WDT_CONFIG_SLEEP_Pos;								//continue WDT when device is in sleep mode
+		
+		NRF_WDT->CRV = 2*32768;								//set watchdog to have 2 second timeout
+		NRF_WDT->RREN |= WDT_RREN_RR0_Msk;		//enable reload register0
+		NRF_WDT->TASKS_START = 1;							//start watchdog timer
+		
+		NRF_WDT->RR[0] = 0x6E524635;					//kick the dog every second
+	
+}
 
 /**@brief Function for application main entry.
 */
@@ -1342,6 +1347,7 @@ void connectable_mode(void)
     radio_notification_init();
     twi_turn_OFF();
     application_timers_start();           /* Start execution.*/
+		WDT_init();
     advertising_start();
 
     // Enter main loop.
