@@ -53,11 +53,13 @@
 #include "pstorage.h"
 #include "wimoto.h"
 
-#define DEVICE_NAME                          "Climate_112233"                          /**< Name of device. Will be included in the advertising data. */
+#define DEVICE_NAME                          "Climate_"                          /**< Name of device. Will be included in the advertising data. */
 #define MANUFACTURER_NAME                    "Wimoto"                                  /**< Manufacturer. Will be passed to Device Information Service. */
 #define MODEL_NUM                            "Wimoto_Climate"                          /**< Model number. Will be passed to Device Information Service. */
 #define MANUFACTURER_ID                      0x1122334455                              /**< Manufacturer ID, part of System ID. Will be passed to Device Information Service. */
 #define ORG_UNIQUE_ID                        0x667788                                  /**< Organizational Unique ID, part of System ID. Will be passed to Device Information Service. */
+#define HARDWARE_ID													 "1"
+#define FIRMWARE_ID 												 "1.10"
 
 #define APP_ADV_INTERVAL                     0x81A                                     /**< The advertising interval (in units of 0.625 ms. This value corresponds to 25 ms). */
 #define APP_ADV_TIMEOUT_IN_SECONDS           0x0000                                    /**< The advertising timeout in units of seconds. */
@@ -513,10 +515,21 @@ static void gap_params_init(void)
     uint32_t                err_code;
     ble_gap_conn_params_t   gap_conn_params;
     ble_gap_conn_sec_mode_t sec_mode;
+		char deviceName[20];
+		uint8_t mac_add[3];
 			
     BLE_GAP_CONN_SEC_MODE_SET_OPEN(&sec_mode);
+	
+		//MAC ADDRESS CODE
+		mac_add[0] = (NRF_FICR->DEVICEADDR0 & 0x00FF0000) >> 16;
+		mac_add[1] = (NRF_FICR->DEVICEADDR0 & 0x0000FF00) >> 8;
+		mac_add[2] = (NRF_FICR->DEVICEADDR0 & 0x000000FF);
+	
+		sprintf(&deviceName[0], "%s%02x%02x%02x", &DEVICE_NAME[0], mac_add[0], mac_add[1], mac_add[2]);
+	
+		//END MAC ADDRESS CODE
 
-    err_code = sd_ble_gap_device_name_set(&sec_mode, (const uint8_t *)DEVICE_NAME, strlen(DEVICE_NAME));
+    err_code = sd_ble_gap_device_name_set(&sec_mode, (const uint8_t *)deviceName, strlen(deviceName));
     APP_ERROR_CHECK(err_code);
 
     err_code = sd_ble_gap_appearance_set(BLE_APPEARANCE_GENERIC_THERMOMETER);
@@ -885,10 +898,14 @@ static void dis_init(void )
 
     ble_srv_ascii_to_utf8(&dis_init.manufact_name_str, MANUFACTURER_NAME);
     ble_srv_ascii_to_utf8(&dis_init.model_num_str,     MODEL_NUM);
+	
+		//adding HW revision and FW revision
+		ble_srv_ascii_to_utf8(&dis_init.hw_rev_str, HARDWARE_ID);
+		ble_srv_ascii_to_utf8(&dis_init.fw_rev_str, FIRMWARE_ID);
 
-    sys_id.manufacturer_id            = MANUFACTURER_ID;
-    sys_id.organizationally_unique_id = ORG_UNIQUE_ID;
-    dis_init.p_sys_id                 = &sys_id;
+    //sys_id.manufacturer_id            = MANUFACTURER_ID;
+    //sys_id.organizationally_unique_id = ORG_UNIQUE_ID;
+    //dis_init.p_sys_id                 = &sys_id;
 
     BLE_GAP_CONN_SEC_MODE_SET_OPEN(&dis_init.dis_attr_md.read_perm);
     BLE_GAP_CONN_SEC_MODE_SET_NO_ACCESS(&dis_init.dis_attr_md.write_perm);
