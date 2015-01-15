@@ -371,17 +371,17 @@ static void real_time_timeout_handler(void * p_context)
 		
 		meas_interval_seconds += 1;													
 			
-		if(meas_interval_seconds < 0x05)			   //set the sensor measurement timeout interval to 2 sec				
+		if(meas_interval_seconds < 0x02)			   //set the sensor measurement timeout interval to 2 sec				
 		{
 			meas_interval_seconds++;
 		}
 		else
-		{
+		{	
+			NRF_WDT->RR[0] = 0x6E524635;					//kick the dog every 2 second
 			meas_interval_seconds = 0x00;
 			CHECK_ALARM_TIMEOUT=true;
 		}
 		
-		NRF_WDT->RR[0] = 0x6E524635;					//kick the dog every second
     //Increment the time stamp
     m_time_stamp.seconds += 1;
     if (m_time_stamp.seconds > 59)
@@ -1264,8 +1264,24 @@ static void device_manager_init(void)
 /**@brief Radio Notification event handler.
 */
 void radio_active_evt_handler(bool radio_active)
-{
-    m_radio_event = radio_active;
+{		
+		//uint32_t err_code;
+	
+		m_radio_event = radio_active;
+		
+		//PAN14 FIX
+		/*if(radio_active)
+		{
+			err_code = sd_power_mode_set(NRF_POWER_MODE_CONSTLAT);
+		}
+		else
+		{
+			err_code = sd_power_mode_set(NRF_POWER_MODE_LOWPWR);
+		}
+		
+ 
+		APP_ERROR_CHECK(err_code);*/
+	
 }
 
 
@@ -1347,10 +1363,10 @@ void WDT_init(void)
 			
 		//CODE FOR DEBUG ON CLIMATE DEVICE
 		//nrf_gpio_cfg_output(18);					//set LED pins to output
-		//nrf_gpio_cfg_output(19);
+		nrf_gpio_cfg_output(19);
 		//nrf_gpio_cfg_output(20);
 	
-		//nrf_gpio_pin_write(19, NRF_POWER->RESETREAS & 0x00000002);
+		nrf_gpio_pin_write(19, NRF_POWER->RESETREAS & 0x00000002);
 		//nrf_gpio_pin_write(18, NRF_POWER->RESETREAS & 0x00000008);
 		
 		//sd_power_reset_reason_clr(0xFFFFFFFF);	//clear reset reason register */
@@ -1358,13 +1374,39 @@ void WDT_init(void)
 		NRF_WDT->CONFIG = WDT_CONFIG_HALT_Pause << WDT_CONFIG_HALT_Pos |							//pause WDT when device in debug mode
 											WDT_CONFIG_SLEEP_Run << WDT_CONFIG_SLEEP_Pos;								//continue WDT when device is in sleep mode
 		
-		NRF_WDT->CRV = 2*32768;								//set watchdog to have 2 second timeout
+		NRF_WDT->CRV = 4*32768;								//set watchdog to have 2 second timeout
 		NRF_WDT->RREN |= WDT_RREN_RR0_Msk;		//enable reload register0
 		NRF_WDT->TASKS_START = 1;							//start watchdog timer
 		
 		NRF_WDT->RR[0] = 0x6E524635;					//kick the dog every second
 	
 }
+
+/**@brief HFCLK request function
+*/
+void HFCLK_request(void)
+{
+		uint32_t err_code;
+	
+		// Request 16 MHz XOSC to be running (as opposed to RCOSC)
+
+    err_code = sd_clock_hfclk_request();
+    APP_ERROR_CHECK(err_code);
+
+    // Make sure 16 MHz clock is requested when calibration starts
+
+    err_code = sd_ppi_channel_assign(0, &NRF_CLOCK->EVENTS_CTTO, &NRF_TIMER2->TASKS_START);
+    APP_ERROR_CHECK(err_code);
+	
+    err_code = sd_ppi_channel_assign(1, &NRF_CLOCK->EVENTS_DONE, &NRF_TIMER2->TASKS_STOP);
+    APP_ERROR_CHECK(err_code);
+
+    err_code = sd_ppi_channel_enable_set((1 << 0) | (1 << 1));
+    APP_ERROR_CHECK(err_code);
+	
+	
+}
+
 
 /**@brief Function for application main entry.
 */
@@ -1388,7 +1430,8 @@ void connectable_mode(void)
     radio_notification_init();
     twi_turn_OFF();
     application_timers_start();           /* Start execution.*/
-		WDT_init();
+		WDT_init();	
+		HFCLK_request();
     advertising_start();
 
     // Enter main loop.
