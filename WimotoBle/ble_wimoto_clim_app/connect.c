@@ -61,7 +61,7 @@
 #define HARDWARE_ID													 "1"
 #define FIRMWARE_ID 												 "1.10"
 
-#define APP_ADV_INTERVAL                     0x81A                                     /**< The advertising interval (in units of 0.625 ms. This value corresponds to 25 ms). */
+#define APP_ADV_INTERVAL                     0x808                                     /**< The advertising interval (in units of 0.625 ms. This value corresponds to 25 ms). */
 #define APP_ADV_TIMEOUT_IN_SECONDS           0x0000                                    /**< The advertising timeout in units of seconds. */
 
 #define APP_TIMER_PRESCALER                  0                                          /**< Value of the RTC1 PRESCALER register. */
@@ -78,14 +78,14 @@
 #define MAX_CELCIUS_DEGRESS                  3972                                       /**< Maximum temperature in celcius for use in the simulated measurement function (multiplied by 100 to avoid floating point arithmetic). */
 #define CELCIUS_DEGREES_INCREMENT            36                                         /**< Value by which temperature is incremented/decremented for each call to the simulated measurement function (multiplied by 100 to avoid floating point arithmetic). */
 
-#define MIN_CONN_INTERVAL                    MSEC_TO_UNITS(500, UNIT_1_25_MS)           /**< Minimum acceptable connection interval */
-#define MAX_CONN_INTERVAL                    MSEC_TO_UNITS(1000, UNIT_1_25_MS)          /**< Maximum acceptable connection interval */
+#define MIN_CONN_INTERVAL                    MSEC_TO_UNITS(50, UNIT_1_25_MS)           /**< Minimum acceptable connection interval CHANGED FROM 500 TO 100 BY MARC */
+#define MAX_CONN_INTERVAL                    MSEC_TO_UNITS(100, UNIT_1_25_MS)          /**< Maximum acceptable connection interval CHANGED FROM 100000 TO 200 BY MARC*/
 #define SLAVE_LATENCY                        0                                          /**< Slave latency. */
-#define CONN_SUP_TIMEOUT                     MSEC_TO_UNITS(4000, UNIT_10_MS)            /**< Connection supervisory timeout (4 seconds). */
+#define CONN_SUP_TIMEOUT                     MSEC_TO_UNITS(400, UNIT_10_MS)            /**< Connection supervisory timeout (4 seconds). CHANGED FROM 4000 to 400 BY MARC */
 
 #define FIRST_CONN_PARAMS_UPDATE_DELAY       APP_TIMER_TICKS(5000, APP_TIMER_PRESCALER) /**< Time from initiating event (connect or start of indication) to first time sd_ble_gap_conn_param_update is called (5 seconds). */
 #define NEXT_CONN_PARAMS_UPDATE_DELAY        APP_TIMER_TICKS(5000, APP_TIMER_PRESCALER) /**< Time between each call to sd_ble_gap_conn_param_update after the first (30 seconds). */
-#define MAX_CONN_PARAMS_UPDATE_COUNT         3                                          /**< Number of attempts before giving up the connection parameter negotiation. */
+#define MAX_CONN_PARAMS_UPDATE_COUNT         10                                          /**< Number of attempts before giving up the connection parameter negotiation. CHANGED FROM 3 TO 10 BY MARC */
 
 #define APP_GPIOTE_MAX_USERS                 1                                          /**< Maximum number of users of the GPIOTE handler. */
 
@@ -1190,7 +1190,7 @@ static void ble_stack_init(void)
     ble_enable_params_t p_ble_enable_params;
     
     // Initialize the SoftDevice handler module.
-		SOFTDEVICE_HANDLER_INIT(NRF_CLOCK_LFCLKSRC_RC_250_PPM_4000MS_CALIBRATION, false);     /*changed the clock frequency for HRM board*/
+		SOFTDEVICE_HANDLER_INIT(NRF_CLOCK_LFCLKSRC_RC_250_PPM_TEMP_1000MS_CALIBRATION, false);     /*changed the clock frequency for HRM board*/
 
     memset(&p_ble_enable_params, 0, sizeof(p_ble_enable_params));
 	  //enable service change characteristic 
@@ -1431,7 +1431,7 @@ void connectable_mode(void)
     twi_turn_OFF();
     application_timers_start();           /* Start execution.*/
 		WDT_init();	
-		HFCLK_request();
+		//HFCLK_request();
     advertising_start();
 
     // Enter main loop.
