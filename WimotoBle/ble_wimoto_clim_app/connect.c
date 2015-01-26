@@ -78,10 +78,10 @@
 #define MAX_CELCIUS_DEGRESS                  3972                                       /**< Maximum temperature in celcius for use in the simulated measurement function (multiplied by 100 to avoid floating point arithmetic). */
 #define CELCIUS_DEGREES_INCREMENT            36                                         /**< Value by which temperature is incremented/decremented for each call to the simulated measurement function (multiplied by 100 to avoid floating point arithmetic). */
 
-#define MIN_CONN_INTERVAL                    MSEC_TO_UNITS(50, UNIT_1_25_MS)           /**< Minimum acceptable connection interval CHANGED FROM 500 TO 100 BY MARC */
-#define MAX_CONN_INTERVAL                    MSEC_TO_UNITS(100, UNIT_1_25_MS)          /**< Maximum acceptable connection interval CHANGED FROM 100000 TO 200 BY MARC*/
+#define MIN_CONN_INTERVAL                    MSEC_TO_UNITS(500, UNIT_1_25_MS)           /**< Minimum acceptable connection interval CHANGED FROM 500 TO 100 BY MARC */
+#define MAX_CONN_INTERVAL                    MSEC_TO_UNITS(1000, UNIT_1_25_MS)          /**< Maximum acceptable connection interval CHANGED FROM 100000 TO 200 BY MARC*/
 #define SLAVE_LATENCY                        0                                          /**< Slave latency. */
-#define CONN_SUP_TIMEOUT                     MSEC_TO_UNITS(400, UNIT_10_MS)            /**< Connection supervisory timeout (4 seconds). CHANGED FROM 4000 to 400 BY MARC */
+#define CONN_SUP_TIMEOUT                     MSEC_TO_UNITS(4000, UNIT_10_MS)            /**< Connection supervisory timeout (4 seconds). CHANGED FROM 4000 to 400 BY MARC */
 
 #define FIRST_CONN_PARAMS_UPDATE_DELAY       APP_TIMER_TICKS(5000, APP_TIMER_PRESCALER) /**< Time from initiating event (connect or start of indication) to first time sd_ble_gap_conn_param_update is called (5 seconds). */
 #define NEXT_CONN_PARAMS_UPDATE_DELAY        APP_TIMER_TICKS(5000, APP_TIMER_PRESCALER) /**< Time between each call to sd_ble_gap_conn_param_update after the first (30 seconds). */
@@ -1265,12 +1265,12 @@ static void device_manager_init(void)
 */
 void radio_active_evt_handler(bool radio_active)
 {		
-		//uint32_t err_code;
+		uint32_t err_code;
 	
 		m_radio_event = radio_active;
 		
 		//PAN14 FIX
-		/*if(radio_active)
+		if(radio_active)
 		{
 			err_code = sd_power_mode_set(NRF_POWER_MODE_CONSTLAT);
 		}
@@ -1280,7 +1280,7 @@ void radio_active_evt_handler(bool radio_active)
 		}
 		
  
-		APP_ERROR_CHECK(err_code);*/
+		APP_ERROR_CHECK(err_code);
 	
 }
 
@@ -1291,8 +1291,8 @@ static void radio_notification_init(void)
 {
     uint32_t err_code;
 
-    err_code = ble_radio_notification_init(NRF_APP_PRIORITY_HIGH,
-    NRF_RADIO_NOTIFICATION_DISTANCE_4560US,
+    err_code = ble_radio_notification_init(NRF_APP_PRIORITY_LOW,
+    NRF_RADIO_NOTIFICATION_DISTANCE_800US,
     radio_active_evt_handler);
     APP_ERROR_CHECK(err_code);
 }
@@ -1390,8 +1390,8 @@ void HFCLK_request(void)
 	
 		// Request 16 MHz XOSC to be running (as opposed to RCOSC)
 
-    err_code = sd_clock_hfclk_request();
-    APP_ERROR_CHECK(err_code);
+    //err_code = sd_clock_hfclk_request();
+    //APP_ERROR_CHECK(err_code);
 
     // Make sure 16 MHz clock is requested when calibration starts
 
@@ -1431,7 +1431,7 @@ void connectable_mode(void)
     twi_turn_OFF();
     application_timers_start();           /* Start execution.*/
 		WDT_init();	
-		//HFCLK_request();
+		HFCLK_request();
     advertising_start();
 
     // Enter main loop.
