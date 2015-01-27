@@ -1190,7 +1190,7 @@ static void ble_stack_init(void)
     ble_enable_params_t p_ble_enable_params;
     
     // Initialize the SoftDevice handler module.
-		SOFTDEVICE_HANDLER_INIT(NRF_CLOCK_LFCLKSRC_RC_250_PPM_TEMP_1000MS_CALIBRATION, false);     /*changed the clock frequency for HRM board*/
+		SOFTDEVICE_HANDLER_INIT(NRF_CLOCK_LFCLKSRC_RC_250_PPM_4000MS_CALIBRATION, false);     /*changed the clock frequency for HRM board*/
 
     memset(&p_ble_enable_params, 0, sizeof(p_ble_enable_params));
 	  //enable service change characteristic 
@@ -1265,12 +1265,12 @@ static void device_manager_init(void)
 */
 void radio_active_evt_handler(bool radio_active)
 {		
-		uint32_t err_code;
+		//uint32_t err_code;
 	
 		m_radio_event = radio_active;
 		
 		//PAN14 FIX
-		if(radio_active)
+		/*if(radio_active)
 		{
 			err_code = sd_power_mode_set(NRF_POWER_MODE_CONSTLAT);
 		}
@@ -1280,7 +1280,7 @@ void radio_active_evt_handler(bool radio_active)
 		}
 		
  
-		APP_ERROR_CHECK(err_code);
+		APP_ERROR_CHECK(err_code);*/
 	
 }
 
@@ -1291,8 +1291,8 @@ static void radio_notification_init(void)
 {
     uint32_t err_code;
 
-    err_code = ble_radio_notification_init(NRF_APP_PRIORITY_LOW,
-    NRF_RADIO_NOTIFICATION_DISTANCE_800US,
+    err_code = ble_radio_notification_init(NRF_APP_PRIORITY_HIGH,
+    NRF_RADIO_NOTIFICATION_DISTANCE_4560US,
     radio_active_evt_handler);
     APP_ERROR_CHECK(err_code);
 }
@@ -1395,14 +1395,33 @@ void HFCLK_request(void)
 
     // Make sure 16 MHz clock is requested when calibration starts
 
-    err_code = sd_ppi_channel_assign(0, &NRF_CLOCK->EVENTS_CTTO, &NRF_TIMER2->TASKS_START);
+    err_code = sd_ppi_channel_assign(2, &NRF_CLOCK->EVENTS_CTTO, &NRF_TIMER2->TASKS_START);
     APP_ERROR_CHECK(err_code);
+	
 	
     err_code = sd_ppi_channel_assign(1, &NRF_CLOCK->EVENTS_DONE, &NRF_TIMER2->TASKS_STOP);
     APP_ERROR_CHECK(err_code);
+	
 
-    err_code = sd_ppi_channel_enable_set((1 << 0) | (1 << 1));
+    err_code = sd_ppi_channel_enable_set((1 << 2) | (1 << 1));
     APP_ERROR_CHECK(err_code);
+		
+
+		// Make sure 16 MHz clock is requested when calibration starts
+	
+		/*NRF_UART0->PSELTXD = 0; // Dummy pin. TODO: set to unused pin
+		NRF_UART0->PSELRXD = 1; // Dummy pin. TODO: set to unused pin
+		NRF_UART0->BAUDRATE			= (UART_BAUDRATE_BAUDRATE_Baud38400 << UART_BAUDRATE_BAUDRATE_Pos);
+		NRF_UART0->ENABLE				= (UART_ENABLE_ENABLE_Enabled << UART_ENABLE_ENABLE_Pos);
+		NRF_UART0->TASKS_STOPRX = 1;
+		
+		err_code = sd_ppi_channel_assign(2, &NRF_CLOCK->EVENTS_CTTO, &NRF_UART0->TASKS_STARTRX);
+		APP_ERROR_CHECK(err_code);
+		err_code = sd_ppi_channel_assign(1, &NRF_CLOCK->EVENTS_DONE, &NRF_UART0->TASKS_STOPRX);
+		APP_ERROR_CHECK(err_code);
+		
+		err_code = sd_ppi_channel_enable_set((1 << 2) | (1 << 1));
+		APP_ERROR_CHECK(err_code);*/
 	
 	
 }
