@@ -383,6 +383,7 @@ static void real_time_timeout_handler(void * p_context)
 		}
 		
     //Increment the time stamp
+		//NRF_WDT->RR[0] = 0x6E524635; //kick dog ever second
     m_time_stamp.seconds += 1;
     if (m_time_stamp.seconds > 59)
     {
@@ -1265,12 +1266,12 @@ static void device_manager_init(void)
 */
 void radio_active_evt_handler(bool radio_active)
 {		
-		//uint32_t err_code;
+		uint32_t err_code;
 	
 		m_radio_event = radio_active;
 		
 		//PAN14 FIX
-		/*if(radio_active)
+		if(radio_active)
 		{
 			err_code = sd_power_mode_set(NRF_POWER_MODE_CONSTLAT);
 		}
@@ -1280,7 +1281,7 @@ void radio_active_evt_handler(bool radio_active)
 		}
 		
  
-		APP_ERROR_CHECK(err_code);*/
+		APP_ERROR_CHECK(err_code);
 	
 }
 
@@ -1291,8 +1292,8 @@ static void radio_notification_init(void)
 {
     uint32_t err_code;
 
-    err_code = ble_radio_notification_init(NRF_APP_PRIORITY_HIGH,
-    NRF_RADIO_NOTIFICATION_DISTANCE_4560US,
+    err_code = ble_radio_notification_init(NRF_APP_PRIORITY_LOW,
+    NRF_RADIO_NOTIFICATION_DISTANCE_800US,
     radio_active_evt_handler);
     APP_ERROR_CHECK(err_code);
 }
@@ -1374,7 +1375,7 @@ void WDT_init(void)
 		NRF_WDT->CONFIG = WDT_CONFIG_HALT_Pause << WDT_CONFIG_HALT_Pos |							//pause WDT when device in debug mode
 											WDT_CONFIG_SLEEP_Run << WDT_CONFIG_SLEEP_Pos;								//continue WDT when device is in sleep mode
 		
-		NRF_WDT->CRV = 4*32768;								//set watchdog to have 2 second timeout
+		NRF_WDT->CRV = 4*32768;								//set watchdog to have 4 second timeout
 		NRF_WDT->RREN |= WDT_RREN_RR0_Msk;		//enable reload register0
 		NRF_WDT->TASKS_START = 1;							//start watchdog timer
 		
@@ -1392,6 +1393,12 @@ void HFCLK_request(void)
 
     //err_code = sd_clock_hfclk_request();
     //APP_ERROR_CHECK(err_code);
+	
+		//setup timer to make sure that it gets stopped regardless of events done trigger
+		/*NRF_TIMER2->PRESCALER = 9;	//prescaler = 2^9 = 512
+		NRF_TIMER2->BITMODE = TIMER_BITMODE_BITMODE_24Bit << TIMER_BITMODE_BITMODE_Pos;
+		NRF_TIMER2->CC[0] = 625; //20ms timeout
+		NRF_TIMER2->SHORTS = TIMER_SHORTS_COMPARE0_CLEAR_Msk | TIMER_SHORTS_COMPARE0_STOP_Msk;*/
 
     // Make sure 16 MHz clock is requested when calibration starts
 
