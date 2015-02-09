@@ -1281,13 +1281,36 @@ void LED_ON(void)
 	
 }
 
+/**@brief HFCLK request function
+*/
+void HFCLK_request(void)
+{
+		uint32_t err_code;
+	
+		// Request 16 MHz XOSC to be running (as opposed to RCOSC)
+
+    err_code = sd_clock_hfclk_request();
+    APP_ERROR_CHECK(err_code);
+
+    // Make sure 16 MHz clock is requested when calibration starts
+
+    err_code = sd_ppi_channel_assign(2, &NRF_CLOCK->EVENTS_CTTO, &NRF_TIMER2->TASKS_START);
+    APP_ERROR_CHECK(err_code);
+	
+    err_code = sd_ppi_channel_assign(1, &NRF_CLOCK->EVENTS_DONE, &NRF_TIMER2->TASKS_STOP);
+    APP_ERROR_CHECK(err_code);
+
+    err_code = sd_ppi_channel_enable_set((1 << 2) | (1 << 1));
+    APP_ERROR_CHECK(err_code);
+	
+	
+}
 
 /**@brief Function for application main entry.
 */
 void connectable_mode(void)
 {
     uint32_t err_code;
-//		char pinReading[10];
 
     // Initialization.
     ble_stack_init();
@@ -1306,6 +1329,10 @@ void connectable_mode(void)
     MMA7660_enable_active_mode();
     twi_turn_OFF();
     application_timers_start(); 
+		#ifdef rev_1
+			HFCLK_request();
+		#endif
+	
 		WDT_init();
 		LED_ON();
     advertising_start();
