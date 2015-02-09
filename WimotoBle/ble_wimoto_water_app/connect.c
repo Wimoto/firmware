@@ -670,6 +670,11 @@ static void dis_init(void )
     uint32_t         err_code;
     ble_dis_init_t   dis_init;
     ble_dis_sys_id_t sys_id;
+	
+		uint64_t mac_add1[8];
+		uint8_t mac_add2[8];
+		uint64_t mac_address = 0;
+		uint32_t mac_address2 = 0;
 
     // Initialize Device Information Service.
     memset(&dis_init, 0, sizeof(dis_init));
@@ -681,7 +686,30 @@ static void dis_init(void )
     //sys_id.manufacturer_id            = MANUFACTURER_ID;
     //sys_id.organizationally_unique_id = ORG_UNIQUE_ID;
     //dis_init.p_sys_id                 = &sys_id;
-
+		
+		    //replacing System ID with MAC Address
+		
+		mac_add1[2] = (NRF_FICR->DEVICEADDR1 & 0x0000FF00) >> 8;
+		mac_add1[1] = (NRF_FICR->DEVICEADDR1 & 0x000000FF);
+		mac_add1[0] = (NRF_FICR->DEVICEADDR0 & 0xFF000000) >> 24;
+		
+		mac_add2[2] = (NRF_FICR->DEVICEADDR0 & 0x00FF0000) >> 16;
+		mac_add2[1] = (NRF_FICR->DEVICEADDR0 & 0x0000FF00) >> 8;
+		mac_add2[0] = (NRF_FICR->DEVICEADDR0 & 0x000000FF);
+		
+		mac_add1[2] |= 0xC0;															//make sure 2MSBs of MAC address are set
+		
+		
+		sys_id.manufacturer_id 						= (mac_address |  ((0x00000000000000FF & (mac_add1[2]))<<16)) |
+																				(mac_address |  ((0x00000000000000FF & (mac_add1[1]))<<24)) |
+																				(mac_address |  ((0x00000000000000FF & (mac_add1[0]))<<32));
+																				
+		sys_id.organizationally_unique_id = (mac_address2 |  (0x00000000000000FF  & (mac_add2[2]))) |
+																				(mac_address2 |  ((0x00000000000000FF & (mac_add2[1]))<<8)) |
+																				(mac_address2 |  ((0x00000000000000FF & (mac_add2[0]))<<16));
+																				
+    dis_init.p_sys_id                 = &sys_id;
+	
     BLE_GAP_CONN_SEC_MODE_SET_OPEN(&dis_init.dis_attr_md.read_perm);
     BLE_GAP_CONN_SEC_MODE_SET_NO_ACCESS(&dis_init.dis_attr_md.write_perm);
 
