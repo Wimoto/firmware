@@ -81,7 +81,7 @@
 #define MIN_CONN_INTERVAL                    MSEC_TO_UNITS(500, UNIT_1_25_MS)           /**< Minimum acceptable connection interval CHANGED FROM 500 TO 100 BY MARC */
 #define MAX_CONN_INTERVAL                    MSEC_TO_UNITS(1000, UNIT_1_25_MS)          /**< Maximum acceptable connection interval CHANGED FROM 100000 TO 200 BY MARC*/
 #define SLAVE_LATENCY                        0                                          /**< Slave latency. */
-#define CONN_SUP_TIMEOUT                     MSEC_TO_UNITS(4000, UNIT_10_MS)            /**< Connection supervisory timeout (4 seconds). CHANGED FROM 4000 to 400 BY MARC */
+#define CONN_SUP_TIMEOUT                     MSEC_TO_UNITS(4000, UNIT_10_MS)            /**< Connection supervisory timeout (4 seconds). */
 
 #define FIRST_CONN_PARAMS_UPDATE_DELAY       APP_TIMER_TICKS(5000, APP_TIMER_PRESCALER) /**< Time from initiating event (connect or start of indication) to first time sd_ble_gap_conn_param_update is called (5 seconds). */
 #define NEXT_CONN_PARAMS_UPDATE_DELAY        APP_TIMER_TICKS(5000, APP_TIMER_PRESCALER) /**< Time between each call to sd_ble_gap_conn_param_update after the first (30 seconds). */
@@ -369,21 +369,20 @@ static void real_time_timeout_handler(void * p_context)
         days_in_month[2] = 28;
     }
 		
-		meas_interval_seconds += 1;													
+		//meas_interval_seconds += 1;													
 			
-		if(meas_interval_seconds < 0x02)			   //set the sensor measurement timeout interval to 2 sec				
+		if(meas_interval_seconds < 0x05)			   //set the sensor measurement timeout interval to 5 sec				
 		{
 			meas_interval_seconds++;
 		}
 		else
 		{	
-			NRF_WDT->RR[0] = 0x6E524635;					//kick the dog every 2 second
-			meas_interval_seconds = 0x00;
+			meas_interval_seconds = 0x01;
 			CHECK_ALARM_TIMEOUT=true;
 		}
 		
     //Increment the time stamp
-		//NRF_WDT->RR[0] = 0x6E524635; //kick dog ever second
+		NRF_WDT->RR[0] = 0x6E524635; //kick dog every second
     m_time_stamp.seconds += 1;
     if (m_time_stamp.seconds > 59)
     {
@@ -906,8 +905,8 @@ static void dis_init(void )
     ble_srv_ascii_to_utf8(&dis_init.model_num_str,     MODEL_NUM);
 	
 		//adding HW revision and FW revision
-		ble_srv_ascii_to_utf8(&dis_init.hw_rev_str, HARDWARE_ID);
-		//ble_srv_ascii_to_utf8(&dis_init.fw_rev_str, FIRMWARE_ID);
+		//ble_srv_ascii_to_utf8(&dis_init.hw_rev_str, HARDWARE_ID);
+		ble_srv_ascii_to_utf8(&dis_init.fw_rev_str, FIRMWARE_ID);
 
     //replacing System ID with MAC Address
 		
@@ -1054,7 +1053,7 @@ static void advertising_nonconn_start(void)
     adv_params.type        = BLE_GAP_ADV_TYPE_ADV_NONCONN_IND;
     adv_params.p_peer_addr = NULL;                          
     adv_params.fp          = BLE_GAP_ADV_FP_ANY;
-	  adv_params.interval    = 170;                     /* non connectable advertisements cannot be faster than 100ms.*/
+	  adv_params.interval    = APP_ADV_INTERVAL;                     /* non connectable advertisements cannot be faster than 100ms.*/
     adv_params.timeout     = APP_ADV_TIMEOUT_IN_SECONDS;
 		
 		err_code = sd_ble_gap_adv_start(&adv_params);
@@ -1364,10 +1363,10 @@ void WDT_init(void)
 			
 		//CODE FOR DEBUG ON CLIMATE DEVICE
 		//nrf_gpio_cfg_output(18);					//set LED pins to output
-		nrf_gpio_cfg_output(19);
-		//nrf_gpio_cfg_output(20);
+		//nrf_gpio_cfg_output(19);
+		
 	
-		nrf_gpio_pin_write(19, NRF_POWER->RESETREAS & 0x00000002);
+		//nrf_gpio_pin_write(19, NRF_POWER->RESETREAS & 0x00000002);
 		//nrf_gpio_pin_write(18, NRF_POWER->RESETREAS & 0x00000008);
 		
 		//sd_power_reset_reason_clr(0xFFFFFFFF);	//clear reset reason register */
@@ -1379,7 +1378,7 @@ void WDT_init(void)
 		NRF_WDT->RREN |= WDT_RREN_RR0_Msk;		//enable reload register0
 		NRF_WDT->TASKS_START = 1;							//start watchdog timer
 		
-		NRF_WDT->RR[0] = 0x6E524635;					//kick the dog every second
+		NRF_WDT->RR[0] = 0x6E524635;					//kick the dog 
 	
 }
 
@@ -1388,17 +1387,6 @@ void WDT_init(void)
 void HFCLK_request(void)
 {
 		uint32_t err_code;
-	
-		// Request 16 MHz XOSC to be running (as opposed to RCOSC)
-
-    //err_code = sd_clock_hfclk_request();
-    //APP_ERROR_CHECK(err_code);
-	
-		//setup timer to make sure that it gets stopped regardless of events done trigger
-		/*NRF_TIMER2->PRESCALER = 9;	//prescaler = 2^9 = 512
-		NRF_TIMER2->BITMODE = TIMER_BITMODE_BITMODE_24Bit << TIMER_BITMODE_BITMODE_Pos;
-		NRF_TIMER2->CC[0] = 625; //20ms timeout
-		NRF_TIMER2->SHORTS = TIMER_SHORTS_COMPARE0_CLEAR_Msk | TIMER_SHORTS_COMPARE0_STOP_Msk;*/
 
     // Make sure 16 MHz clock is requested when calibration starts
 
@@ -1412,24 +1400,21 @@ void HFCLK_request(void)
 
     err_code = sd_ppi_channel_enable_set((1 << 2) | (1 << 1));
     APP_ERROR_CHECK(err_code);
-		
+	
+	
+}
 
-		// Make sure 16 MHz clock is requested when calibration starts
-	
-		/*NRF_UART0->PSELTXD = 0; // Dummy pin. TODO: set to unused pin
-		NRF_UART0->PSELRXD = 1; // Dummy pin. TODO: set to unused pin
-		NRF_UART0->BAUDRATE			= (UART_BAUDRATE_BAUDRATE_Baud38400 << UART_BAUDRATE_BAUDRATE_Pos);
-		NRF_UART0->ENABLE				= (UART_ENABLE_ENABLE_Enabled << UART_ENABLE_ENABLE_Pos);
-		NRF_UART0->TASKS_STOPRX = 1;
-		
-		err_code = sd_ppi_channel_assign(2, &NRF_CLOCK->EVENTS_CTTO, &NRF_UART0->TASKS_STARTRX);
-		APP_ERROR_CHECK(err_code);
-		err_code = sd_ppi_channel_assign(1, &NRF_CLOCK->EVENTS_DONE, &NRF_UART0->TASKS_STOPRX);
-		APP_ERROR_CHECK(err_code);
-		
-		err_code = sd_ppi_channel_enable_set((1 << 2) | (1 << 1));
-		APP_ERROR_CHECK(err_code);*/
-	
+void LED_ON(void)
+{
+		// ON LED indicator
+		nrf_gpio_cfg_output(20);
+		nrf_gpio_pin_write(20, 1);
+		nrf_delay_ms(1000);
+		NRF_GPIO->PIN_CNF[20] = (GPIO_PIN_CNF_SENSE_Disabled << GPIO_PIN_CNF_SENSE_Pos)
+                                        | (GPIO_PIN_CNF_DRIVE_S0S1 << GPIO_PIN_CNF_DRIVE_Pos)
+                                        | (GPIO_PIN_CNF_PULL_Disabled << GPIO_PIN_CNF_PULL_Pos)
+                                        | (GPIO_PIN_CNF_INPUT_Disconnect << GPIO_PIN_CNF_INPUT_Pos)
+                                        | (GPIO_PIN_CNF_DIR_Input << GPIO_PIN_CNF_DIR_Pos);
 	
 }
 
@@ -1458,6 +1443,7 @@ void connectable_mode(void)
     application_timers_start();           /* Start execution.*/
 		WDT_init();	
 		HFCLK_request();
+		LED_ON();
     advertising_start();
 
     // Enter main loop.
