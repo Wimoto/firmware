@@ -239,6 +239,7 @@ static void real_time_timeout_handler(void * p_context)
     }
 
     m_time_stamp.seconds += 1;
+		NRF_WDT->RR[0] = 0x6E524635;					//kick the dog every second
     if (m_time_stamp.seconds > 59)
     {
         m_time_stamp.seconds -= 60;
@@ -1250,6 +1251,37 @@ void twi_turn_ON(void)
     twi_master_init();
 }
 
+/** @brief Function for initiation WDT
+*/
+void WDT_init(void)
+{		
+	
+		NRF_WDT->CONFIG = WDT_CONFIG_HALT_Pause << WDT_CONFIG_HALT_Pos |							//pause WDT when device in debug mode
+											WDT_CONFIG_SLEEP_Run << WDT_CONFIG_SLEEP_Pos;								//continue WDT when device is in sleep mode
+		
+		NRF_WDT->CRV = 4*32768;								//set watchdog to have 2 second timeout
+		NRF_WDT->RREN |= WDT_RREN_RR0_Msk;		//enable reload register0
+		NRF_WDT->TASKS_START = 1;							//start watchdog timer
+		
+		NRF_WDT->RR[0] = 0x6E524635;					//kick the dog every second
+	
+}
+
+void LED_ON(void)
+{
+		// ON LED indicator
+		nrf_gpio_cfg_output(20);
+		nrf_gpio_pin_write(20, 1);
+		nrf_delay_ms(1000);
+		NRF_GPIO->PIN_CNF[20] = (GPIO_PIN_CNF_SENSE_Disabled << GPIO_PIN_CNF_SENSE_Pos)
+                                        | (GPIO_PIN_CNF_DRIVE_S0S1 << GPIO_PIN_CNF_DRIVE_Pos)
+                                        | (GPIO_PIN_CNF_PULL_Disabled << GPIO_PIN_CNF_PULL_Pos)
+                                        | (GPIO_PIN_CNF_INPUT_Disconnect << GPIO_PIN_CNF_INPUT_Pos)
+                                        | (GPIO_PIN_CNF_DIR_Input << GPIO_PIN_CNF_DIR_Pos);
+	
+}
+
+
 /**@brief Function for application main entry.
 */
 void connectable_mode(void)
@@ -1273,7 +1305,9 @@ void connectable_mode(void)
     radio_notification_init();
     MMA7660_enable_active_mode();
     twi_turn_OFF();
-    application_timers_start();   
+    application_timers_start(); 
+		WDT_init();
+		LED_ON();
     advertising_start();
 	
 
