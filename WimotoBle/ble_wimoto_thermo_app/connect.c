@@ -1177,9 +1177,25 @@ static void gpiote_init(void)
 /**@brief Radio Notification event handler.
 */
 void radio_active_evt_handler(bool radio_active)
-{
+{		
+		uint32_t err_code;
+	
     m_radio_event = radio_active;
     ble_flash_on_radio_active_evt(m_radio_event);                        /*call the event handler in ble_flash.c*/
+	
+		#ifdef REV_1
+			//PAN14 FIX
+			if(radio_active)
+			{
+				err_code = sd_power_mode_set(NRF_POWER_MODE_CONSTLAT);
+			}
+			else
+			{
+				err_code = sd_power_mode_set(NRF_POWER_MODE_LOWPWR);
+			}
+		
+			APP_ERROR_CHECK(err_code);
+		#endif
 }
 
 
@@ -1188,11 +1204,19 @@ void radio_active_evt_handler(bool radio_active)
 static void radio_notification_init(void)
 {
     uint32_t err_code;
-
-    err_code = ble_radio_notification_init(NRF_APP_PRIORITY_HIGH,
-    NRF_RADIO_NOTIFICATION_DISTANCE_4560US,
-    radio_active_evt_handler);
-    APP_ERROR_CHECK(err_code);
+		
+		#ifdef REV_1
+			err_code = ble_radio_notification_init(NRF_APP_PRIORITY_LOW,
+			NRF_RADIO_NOTIFICATION_DISTANCE_800US,
+			radio_active_evt_handler);
+			APP_ERROR_CHECK(err_code);
+		#endif
+		#ifndef REV_1
+			err_code = ble_radio_notification_init(NRF_APP_PRIORITY_HIGH,
+			NRF_RADIO_NOTIFICATION_DISTANCE_4560US,
+			radio_active_evt_handler);
+			APP_ERROR_CHECK(err_code);
+		#endif
 }
 
 
@@ -1334,11 +1358,6 @@ void HFCLK_request(void)
 {
 		uint32_t err_code;
 	
-		// Request 16 MHz XOSC to be running (as opposed to RCOSC)
-
-    err_code = sd_clock_hfclk_request();
-    APP_ERROR_CHECK(err_code);
-
     // Make sure 16 MHz clock is requested when calibration starts
 
     err_code = sd_ppi_channel_assign(2, &NRF_CLOCK->EVENTS_CTTO, &NRF_TIMER2->TASKS_START);
@@ -1375,7 +1394,7 @@ void connectable_mode(void)
 
     // Start execution.
     application_timers_start(); 
-		#ifdef rev_1
+		#ifdef REV_1
 			HFCLK_request();
 		#endif
 		

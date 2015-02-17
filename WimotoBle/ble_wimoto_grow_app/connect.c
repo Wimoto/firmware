@@ -1280,6 +1280,23 @@ static void device_manager_init(void)
 void radio_active_evt_handler(bool radio_active)
 {
     m_radio_event = radio_active;
+		
+		#ifdef REV_1
+		uint32_t err_code;
+
+		//PAN14 FIX
+		if(radio_active)
+		{
+			err_code = sd_power_mode_set(NRF_POWER_MODE_CONSTLAT);
+		}
+		else
+		{
+			err_code = sd_power_mode_set(NRF_POWER_MODE_LOWPWR);
+		}
+		APP_ERROR_CHECK(err_code);
+		
+		#endif
+		
 }
 
 
@@ -1288,11 +1305,19 @@ void radio_active_evt_handler(bool radio_active)
 static void radio_notification_init(void)
 {
     uint32_t err_code;
-
-    err_code = ble_radio_notification_init(NRF_APP_PRIORITY_HIGH,
-    NRF_RADIO_NOTIFICATION_DISTANCE_4560US,
-    radio_active_evt_handler);
-    APP_ERROR_CHECK(err_code);
+			
+		#ifdef REV_1
+			err_code = ble_radio_notification_init(NRF_APP_PRIORITY_LOW,
+			NRF_RADIO_NOTIFICATION_DISTANCE_800US,
+			radio_active_evt_handler);
+			APP_ERROR_CHECK(err_code);
+		#endif
+		#ifndef REV_1
+			err_code = ble_radio_notification_init(NRF_APP_PRIORITY_HIGH,
+			NRF_RADIO_NOTIFICATION_DISTANCE_4560US,
+			radio_active_evt_handler);
+			APP_ERROR_CHECK(err_code);
+		#endif
 }
 
 
@@ -1390,11 +1415,6 @@ void HFCLK_request(void)
 {
 		uint32_t err_code;
 	
-		// Request 16 MHz XOSC to be running (as opposed to RCOSC)
-
-    err_code = sd_clock_hfclk_request();
-    APP_ERROR_CHECK(err_code);
-
     // Make sure 16 MHz clock is requested when calibration starts
 
     err_code = sd_ppi_channel_assign(2, &NRF_CLOCK->EVENTS_CTTO, &NRF_TIMER2->TASKS_START);
@@ -1433,7 +1453,7 @@ void connectable_mode(void)
     twi_turn_OFF();
     application_timers_start();  
 		
-		#ifdef rev_1
+		#ifdef REV_1
 			HFCLK_request();
 		#endif
 	
