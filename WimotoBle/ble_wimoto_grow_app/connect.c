@@ -892,8 +892,6 @@ static void dis_init(void )
     ble_dis_sys_id_t sys_id;
 		
 		//MAC address -> sys.id code
-		uint64_t mac_add1[8];
-		uint8_t mac_add2[8];
 		uint64_t mac_address = 0;
 		uint32_t mac_address2 = 0;
 
@@ -904,30 +902,20 @@ static void dis_init(void )
     ble_srv_ascii_to_utf8(&dis_init.model_num_str,     MODEL_NUM);
 		ble_srv_ascii_to_utf8(&dis_init.fw_rev_str, FIRMWARE_ID);
 
-    //sys_id.manufacturer_id            = MANUFACTURER_ID;
-    //sys_id.organizationally_unique_id = ORG_UNIQUE_ID;
-    //dis_init.p_sys_id                 = &sys_id;
 		
-		//replacing System ID with MAC Address
+		//replacing System ID with MAC Address		
+		//assemble mac_address to work with the sys_id
 		
-		mac_add1[2] = (NRF_FICR->DEVICEADDR1 & 0x0000FF00) >> 8;
-		mac_add1[1] = (NRF_FICR->DEVICEADDR1 & 0x000000FF);
-		mac_add1[0] = (NRF_FICR->DEVICEADDR0 & 0xFF000000) >> 24;
+		mac_address = mac_address | (((NRF_FICR->DEVICEADDR1 & 0x0000FF00) | 0x0000C000) <<8) | 
+																((NRF_FICR->DEVICEADDR1 & 0x000000FF) << 24) | 
+																((long long)(NRF_FICR->DEVICEADDR0 & 0xFF000000) << 8) ;
+																
+		mac_address2 = mac_address2 | ((NRF_FICR->DEVICEADDR0 & 0x00FF0000) >> 16) | 
+																	(NRF_FICR->DEVICEADDR0 & 0x0000FF00) | 
+																	((NRF_FICR->DEVICEADDR0 & 0x000000FF) << 16);
 		
-		mac_add2[2] = (NRF_FICR->DEVICEADDR0 & 0x00FF0000) >> 16;
-		mac_add2[1] = (NRF_FICR->DEVICEADDR0 & 0x0000FF00) >> 8;
-		mac_add2[0] = (NRF_FICR->DEVICEADDR0 & 0x000000FF);
-		
-		mac_add1[2] |= 0xC0;															//make sure 2MSBs of MAC address are set
-		
-		sys_id.manufacturer_id 						= (mac_address |  ((0x00000000000000FF & (mac_add1[2]))<<16)) |
-																				(mac_address |  ((0x00000000000000FF & (mac_add1[1]))<<24)) |
-																				(mac_address |  ((0x00000000000000FF & (mac_add1[0]))<<32));
-																				
-		sys_id.organizationally_unique_id = (mac_address2 |  (0x00000000000000FF  & (mac_add2[2]))) |
-																				(mac_address2 |  ((0x00000000000000FF & (mac_add2[1]))<<8)) |
-																				(mac_address2 |  ((0x00000000000000FF & (mac_add2[0]))<<16));
-																				
+		sys_id.manufacturer_id 						= mac_address;																		
+		sys_id.organizationally_unique_id = mac_address2;																	
     dis_init.p_sys_id                 = &sys_id;
 		
 		
