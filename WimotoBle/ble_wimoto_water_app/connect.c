@@ -138,7 +138,8 @@ bool                                         delay_complete = false;            
 extern bool                                  WATERPS_CONNECTED_STATE;                   /**< This flag indicates water presence service is in connected state*/
 extern bool                                  WATERLS_CONNECTED_STATE;                   /**< This flag indicates water level service is in connected state*/
 extern bool																	 DLOGS_CONNECTED_STATE;                     /**< This flag indicate Dalatlogging is in connected state */
-extern bool  																 DFU_ENABLE;                                /**< This flag indicates DFU mode is enabled/not*/       
+extern bool  																 DFU_ENABLE;                                /**< This flag indicates DFU mode is enabled/not*/   
+extern bool																	 LED_BLINK;																	/**< This flag indicates that the LED should be blinked */
 extern bool                                  DEVICE_CONNECTED_STATE;                    /**< This flag indicates device management service is in connected start or now*/
 volatile bool                                ACTIVE_CONN_FLAG = false;                  /**<flag indicating active connection*/
 
@@ -763,7 +764,7 @@ static void device_init(void)
 
     // Set the default  value for DFU, Switch mode and time stamp characteristics 
     device_init.device_dfu_mode_set          = DEFAULT_ALARM_SET;
-    device_init.device_mode_switch_set       = DEFAULT_ALARM_SET;
+    device_init.device_LED_set       				 = DEFAULT_ALARM_SET;
 
     // Initialize the time stamp and time stamp set
     device_init.device_time_stamp_set[0]      = 0x00;
@@ -1340,6 +1341,11 @@ void connectable_mode(void)
 				{
 					  battery_start();		                                        /* Measure battery level*/
 						MEAS_BATTERY_LEVEL = false;
+				}
+				if (LED_BLINK)
+				{
+					LED_ON();
+					LED_BLINK = false;
 				}
         power_manage(); 
 

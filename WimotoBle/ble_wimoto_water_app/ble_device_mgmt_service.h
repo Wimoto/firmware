@@ -40,7 +40,7 @@ typedef struct
 typedef enum
 {
     BLE_DEVICE_DFU_WRITE,                                                /**< DFU write event. */
-    BLE_DEVICE_SWITCH_MODE_WRITE,                                        /**< switch mode char write event. */
+    BLE_DEVICE_LED_WRITE,                                        				/**< switch mode char write event. */
     BLE_DEVICE_TIME_STAMP_WRITE	                                         /**< time stamp write event. */           
 } ble_device_write_evt_type_t;
 
@@ -69,7 +69,7 @@ typedef struct
     bool                              support_notification;           /**< TRUE if notification of Device Management Level measurement is supported. */
     ble_srv_report_ref_t *            p_report_ref;                   /**< If not NULL, a Report Reference descriptor with the specified value will be added to the characteristic */
     uint8_t												    device_dfu_mode_set;            /**< Device Firmware Update mode set **/
-    uint8_t												    device_mode_switch_set;   			/**< Mode Switch mode set **/
+    uint8_t												    device_LED_set;   							/**< LED set **/
     uint8_t												    device_time_stamp_set[7];       /**< time stamp set **/
     ble_srv_cccd_security_mode_t      device_char_attr_md;            /**< Initial security level for Device Management characteristics attribute */
     ble_srv_cccd_security_mode_t      device_char_attr_md2;           /**< Initial security level for Device Management characteristics attribute */
@@ -83,11 +83,11 @@ typedef struct ble_device_s
     ble_device_write_evt_handler_t    write_evt_handler;              /**< Event handler to be called for handling events in the Device Management Service. */
     uint16_t                          service_handle;                 /**< Handle of temperature Service (as provided by the BLE stack). */
     uint8_t                           uuid_type;
-    ble_gatts_char_handles_t          switch_mode_handles;            /**< Handles for Device Firmware Update characteristic. */
-    ble_gatts_char_handles_t          dfu_mode_handles;             	/**< Handles for  Mode Switch characteristic. */
+    ble_gatts_char_handles_t          LED_handles;            				/**< Handles for LED characteristic. */
+    ble_gatts_char_handles_t          dfu_mode_handles;             	/**< Handles for Device Firmware Update characteristic. */
     ble_gatts_char_handles_t          time_stamp_handles;             /**< Handles for  time stamp characteristic. */
     uint8_t												    device_dfu_mode_set;            /**< Device Firmware Update mode set **/
-    uint8_t												    device_mode_switch_set;   		  /**< Mode Switch mode set **/
+    uint8_t												    device_LED_set;   		  				/**< LED set **/
     uint8_t												    device_time_stamp_set[7];       /**< time stamp set **/
     uint16_t                          report_ref_handle;              /**< Handle of the Report Reference descriptor. */
     uint16_t                          conn_handle;                    /**< Handle of the current connection (as provided by the BLE stack, is BLE_CONN_HANDLE_INVALID if not in a connection). */

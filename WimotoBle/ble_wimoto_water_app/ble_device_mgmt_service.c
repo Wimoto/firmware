@@ -23,6 +23,7 @@
 
 bool   DEVICE_CONNECTED_STATE = false;                  /* This flag indicates whether a client is connected to the peripheral or not*/
 bool   DFU_ENABLE             = false;                  /* Flah to check whether DFU feature has been enabled or not*/
+bool	 LED_BLINK							= false;									/* Flag to indicate whether or not to blink LED */
 extern ble_date_time_t m_time_stamp;                    /* Time stamp defined in connect.c. */
 extern bool TIME_SET;                                   /* Flag to start time updation, defined in connect.c*/
 extern uint8_t	 var_receive_uuid;											/*variable to receive uuid*/
@@ -75,7 +76,10 @@ static void write_evt_handler (ble_device_t * p_device, ble_device_write_evt_t *
         break;
     case BLE_DEVICE_TIME_STAMP_WRITE:
         TIME_SET = true;
-        break;  
+        break; 
+		case BLE_DEVICE_LED_WRITE:
+				LED_BLINK = true;
+				break;
     default:
         break;
     }
@@ -189,6 +193,26 @@ static void on_write(ble_device_t * p_device, ble_evt_t * p_ble_evt)
         p_device->device_time_stamp_set[4] =   p_evt_write->data[4];
         p_device->device_time_stamp_set[5] =   p_evt_write->data[5];
         p_device->device_time_stamp_set[6] =   p_evt_write->data[6];
+
+        // call application event handler
+        p_device->write_evt_handler(p_device, &evt);
+    }
+		
+		/*Write event for mode LED char value.*/
+
+    if (
+            (p_evt_write->handle == p_device->LED_handles.value_handle) 
+            && 
+            (p_evt_write->len == 1)
+            &&
+            (p_device->write_evt_handler != NULL)
+            )
+    {  
+        ble_device_write_evt_t evt;
+        evt.evt_type           = BLE_DEVICE_LED_WRITE;
+
+        // update the service stucture
+        //p_device->device_LED_set =   p_evt_write->data[0];
 
         // call application event handler
         p_device->write_evt_handler(p_device, &evt);
@@ -361,6 +385,66 @@ static uint32_t time_stamp_char_add(ble_device_t * p_device, const ble_device_in
     return NRF_SUCCESS;
 }
 
+/**@brief Function for adding LED characteristic.
+*
+* @param[in]   p_device       Device Management Service structure.
+* @param[in]   p_device_init  Information needed to initialize the service.
+*
+* @return      NRF_SUCCESS on success, otherwise an error code.
+*/
+static uint32_t LED_char_add(ble_device_t * p_device, const ble_device_init_t * p_device_init)
+{
+    uint32_t            err_code;
+    ble_gatts_char_md_t char_md;
+    ble_gatts_attr_t    attr_char_value;
+    ble_uuid_t          ble_uuid;
+    ble_gatts_attr_md_t attr_md;
+    static uint8_t      LED_char = 0x00;
+
+    memset(&char_md, 0, sizeof(char_md));
+
+    char_md.char_props.read   = 1;
+		char_md.char_props.write  = 1;                                /*add fix for characteristic write issue*/
+		char_md.char_props.write_wo_resp = 1;                           /*add fix for characteristic write issue*/
+    char_md.p_char_user_desc  =	NULL;
+    char_md.p_char_user_desc  =	NULL;
+    char_md.p_char_pf         = NULL;
+    char_md.p_user_desc_md    = NULL;
+    char_md.p_cccd_md         = NULL;
+    char_md.p_sccd_md         = NULL;
+
+    //Adding custom UUID
+    ble_uuid.type = p_device->uuid_type;
+    ble_uuid.uuid = WATER_PROFILE_DEVICE_LED_CHAR_UUID;       
+
+    memset(&attr_md, 0, sizeof(attr_md));
+
+    attr_md.read_perm  = p_device_init->device_char_attr_md.read_perm;
+    attr_md.write_perm = p_device_init->device_char_attr_md.write_perm;
+    attr_md.vloc       = BLE_GATTS_VLOC_USER;
+    attr_md.rd_auth    = 0;
+    attr_md.wr_auth    = 0;
+    attr_md.vlen       = 0;
+
+    memset(&attr_char_value, 0, sizeof(attr_char_value));
+
+    attr_char_value.p_uuid       = &ble_uuid;
+    attr_char_value.p_attr_md    = &attr_md;
+    attr_char_value.init_len     = sizeof(uint8_t);
+    attr_char_value.init_offs    = 0;
+    attr_char_value.max_len      = sizeof(uint8_t);
+    attr_char_value.p_value      = &LED_char;
+
+    err_code = sd_ble_gatts_characteristic_add(p_device->service_handle, &char_md,
+    &attr_char_value,
+    &p_device->LED_handles);
+    if (err_code != NRF_SUCCESS)
+    {
+        return err_code;
+    }
+
+    return NRF_SUCCESS;
+}
 
 
 /**@brief Function for initializing the Device management service.
@@ -386,7 +470,7 @@ uint32_t ble_device_init(ble_device_t * p_device, const ble_device_init_t * p_de
     p_device->conn_handle               = BLE_CONN_HANDLE_INVALID;
     p_device->is_notification_supported = p_device_init->support_notification;
     p_device->device_dfu_mode_set       = p_device_init->device_dfu_mode_set;    
-    p_device->device_mode_switch_set    = p_device_init->device_mode_switch_set; 
+    p_device->device_LED_set    				= p_device_init->device_LED_set; 
 
     // Add service 
     err_code = sd_ble_gatts_service_add(BLE_GATTS_SRVC_TYPE_PRIMARY, &ble_uuid, &p_device->service_handle);
@@ -407,6 +491,12 @@ uint32_t ble_device_init(ble_device_t * p_device, const ble_device_init_t * p_de
         return err_code;
     }
 
+		err_code =  LED_char_add(p_device, p_device_init);  			/* Add LED blink characteristic */
+    if (err_code != NRF_SUCCESS)
+    {
+        return err_code;
+    }
+	
     return NRF_SUCCESS;
 
 }

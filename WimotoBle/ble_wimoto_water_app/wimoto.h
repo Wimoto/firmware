@@ -161,7 +161,7 @@
 /*custom UUID definitions for Device Management service.*/
 #define WATER_PROFILE_DEVICE_SERVICE_UUID                 0xC7E9
 #define WATER_PROFILE_DEVICE_DFU_MODE_CHAR_UUID           0xC7EA
-#define WATER_PROFILE_DEVICE_SWITCH_MODE_CHAR_UUID        0xC7EB
+#define WATER_PROFILE_DEVICE_LED_CHAR_UUID        0xC7EB
 #define WATER_PROFILE_DEVICE_TIME_STAMP_CHAR_UUID         0x1805
 
 
