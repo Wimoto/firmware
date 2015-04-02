@@ -1346,6 +1346,7 @@ void connectable_mode(void)
 				{
 					LED_ON();
 					LED_BLINK = false;
+					//sd_ble_gatts_value_set(m_device->LED_handles.value_handle, 0, &len, &val);
 				}
         power_manage(); 
 

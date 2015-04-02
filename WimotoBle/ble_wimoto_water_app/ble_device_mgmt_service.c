@@ -95,6 +95,8 @@ static void write_evt_handler (ble_device_t * p_device, ble_device_write_evt_t *
 static void on_write(ble_device_t * p_device, ble_evt_t * p_ble_evt)
 {
     ble_gatts_evt_write_t * p_evt_write = &p_ble_evt->evt.gatts_evt.params.write;
+		uint16_t len = 1;
+		uint8_t val=0;
 
     if (p_device->is_notification_supported)
     {
@@ -211,11 +213,13 @@ static void on_write(ble_device_t * p_device, ble_evt_t * p_ble_evt)
         ble_device_write_evt_t evt;
         evt.evt_type           = BLE_DEVICE_LED_WRITE;
 
-        // update the service stucture
+        // update the service stuctures
         //p_device->device_LED_set =   p_evt_write->data[0];
 
         // call application event handler
         p_device->write_evt_handler(p_device, &evt);
+			
+				sd_ble_gatts_value_set(p_device->LED_handles.value_handle, 0, &len, &val);
     }
 }
 
@@ -404,7 +408,7 @@ static uint32_t LED_char_add(ble_device_t * p_device, const ble_device_init_t * 
     memset(&char_md, 0, sizeof(char_md));
 
     char_md.char_props.read   = 1;
-		char_md.char_props.write  = 1;                                /*add fix for characteristic write issue*/
+		char_md.char_props.write  = 1;                                	/*add fix for characteristic write issue*/
 		char_md.char_props.write_wo_resp = 1;                           /*add fix for characteristic write issue*/
     char_md.p_char_user_desc  =	NULL;
     char_md.p_char_user_desc  =	NULL;
