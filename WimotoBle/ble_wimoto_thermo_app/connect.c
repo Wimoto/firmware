@@ -58,14 +58,14 @@ static bool                                  m_memory_access_in_progress = false
 #define SEND_MEAS_BUTTON_PIN_NO              16                                         /**< Button used for sending a measurement. */
 #define BONDMNGR_DELETE_BUTTON_PIN_NO        17                                         /**< Button used for deleting all bonded masters during startup. */
 
-#define DEVICE_NAME                          "Thermo_"                            /**< Name of device. Will be included in the advertising data. */
+#define DEVICE_NAME                          "Thermo_"                            			/**< Name of device. Will be included in the advertising data. */
 #define MANUFACTURER_NAME                    "Wimoto"                                   /**< Manufacturer. Will be passed to Device Information Service. */
 #define MODEL_NUM                            "Wimoto_Thermo"                            /**< Model number. Will be passed to Device Information Service. */
 #define MANUFACTURER_ID                      0x1122334455                               /**< Manufacturer ID, part of System ID. Will be passed to Device Information Service. */
 #define ORG_UNIQUE_ID                        0x667788                                   /**< Organizational Unique ID, part of System ID. Will be passed to Device Information Service. */
 #define FIRMWARE_ID 												 "1.10"
 
-#define APP_ADV_INTERVAL                     0x81A                                      /**< The advertising interval (in units of 0.625 ms. This value corresponds to 25 ms). */
+#define APP_ADV_INTERVAL                     0x808                                      /**< The advertising interval (in units of 0.625 ms. This value corresponds to 25 ms). */
 #define APP_ADV_TIMEOUT_IN_SECONDS           0x0000                                     /**< The advertising timeout in units of seconds. */
 
 #define APP_TIMER_PRESCALER                  0                                          /**< Value of the RTC1 PRESCALER register. */
@@ -971,7 +971,7 @@ static void advertising_nonconn_start(void)
     adv_params.type        = BLE_GAP_ADV_TYPE_ADV_NONCONN_IND;
     adv_params.p_peer_addr = NULL;                          
     adv_params.fp          = BLE_GAP_ADV_FP_ANY;
-	  adv_params.interval    = 170;                     /* non connectable advertisements cannot be faster than 100ms.*/
+	  adv_params.interval    = APP_ADV_INTERVAL;                     /* non connectable advertisements cannot be faster than 100ms.*/
     adv_params.timeout     = APP_ADV_TIMEOUT_IN_SECONDS;
 		
 		err_code = sd_ble_gap_adv_start(&adv_params);
@@ -1387,8 +1387,8 @@ void connectable_mode(void)
 		#endif
 		
 		WDT_init();
-		LED_ON();
     advertising_start();
+		LED_ON();
 
     // Enter main loop.
      for (;;)

@@ -1434,8 +1434,9 @@ void connectable_mode(void)
     application_timers_start();           /* Start execution.*/
 		WDT_init();	
 		HFCLK_request();
-		LED_ON();
+		
     advertising_start();
+		LED_ON();
 
     // Enter main loop.
     for (;;)  
