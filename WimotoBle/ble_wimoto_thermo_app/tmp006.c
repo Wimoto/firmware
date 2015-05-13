@@ -247,7 +247,7 @@ float TMP006_readDieTempC(void)
 *  Parameter:	None
 *  Return:		None
 -----------------------------------------------------------------------------*/
-void convert (unsigned long int value, unsigned char * dest)
+void convert (int value, unsigned char * dest)
 {
     unsigned char digit = 0;
     unsigned char flag = 0;
@@ -373,28 +373,41 @@ void convert (unsigned long int value, unsigned char * dest)
 *  Parameter:	None
 *  Return:		None
 -----------------------------------------------------------------------------*/
-void float_to_str(double source , char *dest)
+void float_to_str(float source , char *dest)
 {
-    unsigned char int_part[8],dec_part[8];
+    unsigned char int_part[4],dec_part[2];
     int value,i,j;
-    value = (int)source;
-    convert(value,int_part);
-    for(i=0;int_part[i]!='\0';i++)
+  
+		if (source <0)																					//If source value is negative, make it positive, and add a - sign as the first character
+		{
+			source = source * (-1);
+			*dest = '-';
+			dest++;
+		}
+		
+    value = (int)source;																		//Truncate source value							
+    convert(value,int_part);																//Create character representations for integer part of source number
+    for(i=0;int_part[i]!='\0';i++)													//Put integer characters into current_thermopile_array
     {
-        *dest = int_part[i];
+        *dest = int_part[i];                                                                                                                                                                                                                                                                                         
         dest++;
     }
-    *dest = '.';
+		
+		
+    *dest = '.';																						//Add decimal to current_thermopile_array
     dest++;
-    source = (source - (double)value)*1000;
-    value = (int)source;
-    convert(value,dec_part);
-    for(j=0,i=i+1;dec_part[j]!='\0';j++,i++)
+    source = (source - (float)value)*10 ;										//Subtract integer value from decimal value in order to isolate value, multiply by 10 to make decimal integer number
+    value = (int)source;																		//Truncate newly created "decimal" value
+    convert(value,dec_part);																//Create character representations for decimal part of source number 
+    for(j=0;dec_part[j]!='\0';j++)													//Put decimal character into current_thermopile_array
     {
         *dest = dec_part[j];
         dest++;
     }
-    *dest ='\0';
+    //*dest ='\0';																					//Extra null character not needed, also not within 5 byte allocation.
+		
+		
+		
     return;
 }
 
