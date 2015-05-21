@@ -22,9 +22,9 @@
 
 
 
-/** @brief Function for initializing the Timer 2 peripheral.
+/** @brief Function for initializing the Timer 1 peripheral.
 */
-void timer2_init(void)
+void timer1_init(void)
 {
     uint8_t  softdevice_enabled,err_code;
     uint32_t ret_val;
@@ -43,30 +43,30 @@ void timer2_init(void)
             //Do nothing.
         }
     }
-    else
+    
+		else
     {
         sd_clock_hfclk_request(); 		
         while (ret_val == 0) 
         {
             sd_clock_hfclk_is_running(&ret_val);//Do nothing.
         }
+			}
 
-    }
-
-    NRF_TIMER2->MODE        = TIMER_MODE_MODE_Timer;
-    NRF_TIMER2->BITMODE     = TIMER_BITMODE_BITMODE_08Bit << TIMER_BITMODE_BITMODE_Pos;
-    NRF_TIMER2->PRESCALER   = TIMER_PRESCALERS;
+    NRF_TIMER1->MODE        = TIMER_MODE_MODE_Timer;
+    NRF_TIMER1->BITMODE     = TIMER_BITMODE_BITMODE_08Bit << TIMER_BITMODE_BITMODE_Pos;
+    NRF_TIMER1->PRESCALER   = TIMER_PRESCALERS;
 
     //Enable Shortcut between CC[0] event and the CLEAR task. 
-    NRF_TIMER2->SHORTS = TIMER_SHORTS_COMPARE0_CLEAR_Enabled << TIMER_SHORTS_COMPARE0_CLEAR_Pos;
+    NRF_TIMER1->SHORTS = TIMER_SHORTS_COMPARE0_CLEAR_Enabled << TIMER_SHORTS_COMPARE0_CLEAR_Pos;
 
     // Clears the timer, sets it to 0.
-    NRF_TIMER2->TASKS_CLEAR = 1;
+    NRF_TIMER1->TASKS_CLEAR = 1;
 
-    // Load the initial values to TIMER2 CC register.
-    NRF_TIMER2->CC[0] = TICKS ;
+    // Load the initial values to TIMER1 CC register.
+    NRF_TIMER1->CC[0] = TICKS ;
 
-    NRF_TIMER2->EVENTS_COMPARE[0] = 0;
+    NRF_TIMER1->EVENTS_COMPARE[0] = 0;
 
 }
 
@@ -95,21 +95,21 @@ void gpiote1_init(void)
 void ppi_init(void)
 {
     uint8_t  softdevice_enabled,err_code;		
-    // Configure PPI channel 0 to toggle PWM_OUTPUT_PIN on every TIMER2 COMPARE[0] match.
+    // Configure PPI channel 0 to toggle PWM_OUTPUT_PIN on every TIMER1 COMPARE[0] match.
 
     err_code = sd_softdevice_is_enabled(&softdevice_enabled);
     APP_ERROR_CHECK(err_code);
 
     if (softdevice_enabled == 0)
-    {		// Configure PPI channel 0 to toggle PWM_OUTPUT_PIN on every TIMER2 COMPARE[0] match.
-        NRF_PPI->CH[0].EEP = (uint32_t)&NRF_TIMER2->EVENTS_COMPARE[0];
+    {		// Configure PPI channel 0 to toggle PWM_OUTPUT_PIN on every TIMER1 COMPARE[0] match.
+        NRF_PPI->CH[0].EEP = (uint32_t)&NRF_TIMER1->EVENTS_COMPARE[0];
         NRF_PPI->CH[0].TEP = (uint32_t)&NRF_GPIOTE->TASKS_OUT[0]; 
         // Enable PPI channel 0.
         NRF_PPI->CHEN = (PPI_CHEN_CH0_Enabled << PPI_CHEN_CH0_Pos);
     }
     else
     {
-        err_code = sd_ppi_channel_assign( 0 , &NRF_TIMER2->EVENTS_COMPARE[0], &NRF_GPIOTE->TASKS_OUT[0]);
+        err_code = sd_ppi_channel_assign( 0 , &NRF_TIMER1->EVENTS_COMPARE[0], &NRF_GPIOTE->TASKS_OUT[0]);
         err_code = sd_ppi_channel_enable_set(PPI_CHEN_CH0_Enabled << PPI_CHEN_CH0_Pos);		
     }
 }
@@ -122,10 +122,10 @@ int one_mhz_start(void)
 {
     gpiote1_init();
     ppi_init();
-    timer2_init();
+    timer1_init();
 
     // Start the timer.
-    NRF_TIMER2->TASKS_START = 1;
+    NRF_TIMER1->TASKS_START = 1;
     return 0;		
 }
 
@@ -145,12 +145,16 @@ int one_mhz_stop(void)
 
 		sd_ppi_channel_enable_clr(PPI_CHEN_CH0_Disabled << PPI_CHEN_CH0_Pos);           /*Disable the PPI channel*/
 		
-	  NRF_TIMER2->TASKS_STOP  = 1; 	                                                  /* Stop TIMER 2 after conversion*/		
+	  NRF_TIMER1->TASKS_STOP  = 1; 	                                                  /* Stop TIMER 1 after conversion*/		
 	
 	  
-    NRF_TIMER2->SHORTS = TIMER_SHORTS_COMPARE0_CLEAR_Disabled << TIMER_SHORTS_COMPARE0_CLEAR_Pos; /*Disable Shortcut between CC[0] event and the CLEAR task. */
+    NRF_TIMER1->SHORTS = TIMER_SHORTS_COMPARE0_CLEAR_Disabled << TIMER_SHORTS_COMPARE0_CLEAR_Pos; /*Disable Shortcut between CC[0] event and the CLEAR task. */
 		
+		
+		
+
 	  sd_clock_hfclk_release();																										/* Releases the high frequency crystal oscillator */
+		
 		return 0;
 }
 
