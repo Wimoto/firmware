@@ -404,7 +404,10 @@ void float_to_str(float source , char *dest)
         *dest = dec_part[j];
         dest++;
     }
-    //*dest ='\0';																					//Extra null character not needed, also not within 5 byte allocation.
+    
+		if(i < 4){
+			*dest ='\0';																					//Add a null character at the end incase the string is not five characters
+		}			
 		
 		
 		

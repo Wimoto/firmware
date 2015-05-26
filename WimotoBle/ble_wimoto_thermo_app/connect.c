@@ -1378,6 +1378,7 @@ void connectable_mode(void)
     conn_params_init();
     sec_params_init();
     radio_notification_init();
+		TMP006_enable_powerdown_mode();				/*power down TMP006 */
     twi_turn_OFF();
 
     // Start execution.
