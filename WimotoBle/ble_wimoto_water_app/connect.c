@@ -1265,7 +1265,6 @@ void connectable_mode(void)
     ble_stack_init();											        
     timers_init();
     gpiote_init();
-		waterps_pins_config();
 	  device_manager_init();
     gap_params_init();
 	  init_battery_level();                 /*measure the battery level before advertisement*/

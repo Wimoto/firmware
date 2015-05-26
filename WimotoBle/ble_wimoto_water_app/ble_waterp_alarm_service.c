@@ -526,12 +526,28 @@ uint32_t ble_waterps_alarm_check(ble_waterps_t * p_waterps,ble_device_t *p_devic
     uint16_t len1 = sizeof(uint8_t);
 		uint16_t len	= 8;	//length of alarm with time stamp characteristics
 	
+		//Set up necessary pins for presence measurement
+		nrf_gpio_cfg_input(WATERP_GPIOTE_PIN,GPIO_PIN_CNF_PULL_Disabled);           /* Configure pin p0.01 as input with pull-up disabled*/
+		nrf_gpio_cfg_output(WATER_SENSOR_ENERGIZE_PIN);                             /* Configure P0.02 as output to energize the water presence sensor */
 		 
     nrf_gpio_pin_set(WATER_SENSOR_ENERGIZE_PIN);                    /* Set the value of P0.02 to high for water presence sensor*/
-		delay_ms(10);																								/*delay for sensor response*/
+		delay_ms(10);																										/*delay for sensor response*/
     waterp_pin_reading = nrf_gpio_pin_read(WATERP_GPIOTE_PIN);			/*read the current water presence from p0.01. Active Low voltage indicates water presence*/
-		delay_ms(10);																								/*delay for sensor response*/
+		delay_ms(10);																										/*delay for sensor response*/
 		nrf_gpio_pin_clear(WATER_SENSOR_ENERGIZE_PIN);	                /* Clear the pin P0.02 after reading*/
+		
+		//Disable presence measurement pins
+		NRF_GPIO->PIN_CNF[WATERP_GPIOTE_PIN] = (GPIO_PIN_CNF_SENSE_Disabled << GPIO_PIN_CNF_SENSE_Pos)
+                                        | (GPIO_PIN_CNF_DRIVE_S0S1 << GPIO_PIN_CNF_DRIVE_Pos)
+                                        | (GPIO_PIN_CNF_PULL_Disabled << GPIO_PIN_CNF_PULL_Pos)
+                                        | (GPIO_PIN_CNF_INPUT_Disconnect << GPIO_PIN_CNF_INPUT_Pos)
+                                        | (GPIO_PIN_CNF_DIR_Input << GPIO_PIN_CNF_DIR_Pos);
+		
+		NRF_GPIO->PIN_CNF[WATER_SENSOR_ENERGIZE_PIN] = (GPIO_PIN_CNF_SENSE_Disabled << GPIO_PIN_CNF_SENSE_Pos)
+                                        | (GPIO_PIN_CNF_DRIVE_S0S1 << GPIO_PIN_CNF_DRIVE_Pos)
+                                        | (GPIO_PIN_CNF_PULL_Disabled << GPIO_PIN_CNF_PULL_Pos)
+                                        | (GPIO_PIN_CNF_INPUT_Disconnect << GPIO_PIN_CNF_INPUT_Pos)
+                                        | (GPIO_PIN_CNF_DIR_Input << GPIO_PIN_CNF_DIR_Pos);
 		
 		current_waterpresence = !(waterp_pin_reading);									/* Active Low voltage in pin indicates water presence.So invert the waterp_pin_reading */
 		curr_waterpresence =current_waterpresence; 											/*copy the current waterpresence value for global broadcast data*/							
