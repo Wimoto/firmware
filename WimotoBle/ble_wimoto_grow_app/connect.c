@@ -60,7 +60,7 @@
 #define MODEL_NUM                            "Wimoto_Grow"                                   /**< Model number. Will be passed to Device Information Service. */
 #define MANUFACTURER_ID                      0x1122334455                               /**< Manufacturer ID, part of System ID. Will be passed to Device Information Service. */
 #define ORG_UNIQUE_ID                        0x667788                                   /**< Organizational Unique ID, part of System ID. Will be passed to Device Information Service. */
-#define FIRMWARE_ID 												 "1.10"
+#define FIRMWARE_ID 												 "1.20"
 
 #define APP_ADV_INTERVAL                     0x808                                      /**< The advertising interval (in units of 0.625 ms. This value corresponds to 25 ms). */
 #define APP_ADV_TIMEOUT_IN_SECONDS           0x0000                                     /**< The advertising timeout in units of seconds. */
@@ -156,11 +156,17 @@ static void bas_init(void);
 static void advertising_init(void);
 static void advertising_nonconn_init(void);
 void data_log_sys_event_handler(uint32_t sys_evt);
+
+static uint8_t															 rev_no;																		/**<Revision number of silicon*/
+
+
 uint32_t buf[4];																																				/*array for the flash operation*/
 uint8_t				             temperature[2]={0x00,0x00};
 uint8_t				             light_level[2] = {0x00,0x00};
 uint8_t				             curr_soil_mois_level;           															 /* Humidity value from htu21d*/
 uint8_t                    battery_lvl;                                                 /*battery level for broadcasting*/
+
+
 
 #define ADC_REF_VOLTAGE_IN_MILLIVOLTS        1200                                      /**< Reference voltage (in milli volts) used by ADC while doing conversion. */
 #define ADC_PRE_SCALING_COMPENSATION         3                                         /**< The ADC is configured to use VDD with 1/3 prescaling as input. And hence the result of conversion is to be multiplied by 3 to get the actual value of the battery voltage.*/
@@ -1265,11 +1271,10 @@ static void device_manager_init(void)
 
 /**@brief Radio Notification event handler.
 */
-void radio_active_evt_handler(bool radio_active)
+void radio_active_evt_handler_rev1(bool radio_active)
 {
     m_radio_event = radio_active;
 		
-		#ifdef REV_1
 		uint32_t err_code;
 
 		//PAN14 FIX
@@ -1283,8 +1288,14 @@ void radio_active_evt_handler(bool radio_active)
 		}
 		APP_ERROR_CHECK(err_code);
 		
-		#endif
 		
+}
+
+/**@brief Radio Notification event handler when not using rev 1 silicon
+*/
+void radio_active_evt_handler(bool radio_active)
+{		
+		m_radio_event = radio_active;	
 }
 
 
@@ -1294,18 +1305,18 @@ static void radio_notification_init(void)
 {
     uint32_t err_code;
 			
-		#ifdef REV_1
+		if (rev_no == 0x01) {
 			err_code = ble_radio_notification_init(NRF_APP_PRIORITY_LOW,
 			NRF_RADIO_NOTIFICATION_DISTANCE_800US,
-			radio_active_evt_handler);
+			radio_active_evt_handler_rev1);
 			APP_ERROR_CHECK(err_code);
-		#endif
-		#ifndef REV_1
+		}
+		else {
 			err_code = ble_radio_notification_init(NRF_APP_PRIORITY_HIGH,
 			NRF_RADIO_NOTIFICATION_DISTANCE_4560US,
 			radio_active_evt_handler);
 			APP_ERROR_CHECK(err_code);
-		#endif
+		}
 }
 
 
@@ -1417,12 +1428,30 @@ void HFCLK_request(void)
 	
 }
 
+/**@brief Get silicon revision
+*/
+void get_die_revision_no(void)
+
+{	
+	/*
+	0x0001  0x01  = rev.1 128k FLASH/ 16k RAM or 256k FLASH/ 16k RAM
+	0x0001  0x04  = rev.2 128k FLASH/ 16k RAM or 256k FLASH/ 16k RAM
+	0x0001  0x07  = rev.3 256k FLASH/ 16k RAM
+	0x0001  0x08  = rev.3 128k FLASH/ 16k RAM
+	0x0001  0x09  = rev.3 256k FLASH/ 32k RAM*/
+	
+  rev_no = (uint8_t) ((*(uint32_t *)0xF0000FE8) & 0x000000F0);
+  rev_no = ((rev_no >> 0x04) & (0x0F));
+
+}
+
 /**@brief Function for application main entry.
 */
 void connectable_mode(void)
 {
     uint32_t err_code;
 	  // Initialize.
+		get_die_revision_no();								 	/*Get silicon revision before init*/
 		ble_stack_init();
     twi_master_init();                    /* Configure twi*/
     config_tmp102_shutdown_mode();        /* Configure tmp102 in shut-down mode*/
@@ -1441,9 +1470,9 @@ void connectable_mode(void)
     twi_turn_OFF();
     application_timers_start();  
 		
-		#ifdef REV_1
+		if(rev_no == 0x01){											/* Activate HFCLK workaround for PAN14 if rev 1 silicon*/
 			HFCLK_request();
-		#endif
+		}
 	
 		WDT_init();
     advertising_start();
