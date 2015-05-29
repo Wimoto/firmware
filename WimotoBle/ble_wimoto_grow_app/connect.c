@@ -278,6 +278,7 @@ static void grow_param_meas_timeout_handler(void * p_context)
     {
         minutes_15_count =0x01;
         DATA_LOG_CHECK=true;
+				CHECK_ALARM_TIMEOUT = true;
     }
 
 
@@ -305,7 +306,7 @@ static void real_time_timeout_handler(void * p_context)
     }
 
 	
-		if(meas_interval_seconds < 0x02)			   //set the sensor measurement timeout interval to 2 sec				
+		/*if(meas_interval_seconds < 0x02)			   //set the sensor measurement timeout interval to 2 sec				
 		{
 			meas_interval_seconds++;
 		}
@@ -313,7 +314,7 @@ static void real_time_timeout_handler(void * p_context)
 		{
 			meas_interval_seconds = 0x00;
 			CHECK_ALARM_TIMEOUT=true;
-		}
+		}*/
     // Increment time stamp
 		NRF_WDT->RR[0] = 0x6E524635;					//kick the dog every second
     m_time_stamp.seconds += 1;

@@ -76,8 +76,8 @@
 
 #define WATER_TYPE_AS_CHARACTERISTIC         0                                          /**< Determines if water type is given as characteristic (1) or as a field of measurement (0). */
 
-#define MIN_CONN_INTERVAL                    MSEC_TO_UNITS(50, UNIT_1_25_MS)           /**< Minimum acceptable connection interval (25 milliseconds) */
-#define MAX_CONN_INTERVAL                    MSEC_TO_UNITS(500, UNIT_1_25_MS)          /**< Maximum acceptable connection interval (125 millisecond). */
+#define MIN_CONN_INTERVAL                    MSEC_TO_UNITS(500, UNIT_1_25_MS)           /**< Minimum acceptable connection interval (25 milliseconds) */
+#define MAX_CONN_INTERVAL                    MSEC_TO_UNITS(1000, UNIT_1_25_MS)          /**< Maximum acceptable connection interval (125 millisecond). */
 #define SLAVE_LATENCY                        0                                          /**< Slave latency. */
 #define CONN_SUP_TIMEOUT                     MSEC_TO_UNITS(4000, UNIT_10_MS)            /**< Connection supervisory timeout (4 seconds). */
 

@@ -83,8 +83,8 @@ static bool                                  m_memory_access_in_progress = false
 #define MAX_CELCIUS_DEGRESS                  3972                                       /**< Maximum temperature in celcius for use in the simulated measurement function (multiplied by 100 to avoid floating point arithmetic). */
 #define CELCIUS_DEGREES_INCREMENT            36                                         /**< Value by which temperature is incremented/decremented for each call to the simulated measurement function (multiplied by 100 to avoid floating point arithmetic). */
 
-#define MIN_CONN_INTERVAL                    MSEC_TO_UNITS(50, UNIT_1_25_MS)           /**< Minimum acceptable connection interval (25 milliseconds) */
-#define MAX_CONN_INTERVAL                    MSEC_TO_UNITS(500, UNIT_1_25_MS)          /**< Maximum acceptable connection interval (125 millisecond). */
+#define MIN_CONN_INTERVAL                    MSEC_TO_UNITS(500, UNIT_1_25_MS)           /**< Minimum acceptable connection interval (25 milliseconds) */
+#define MAX_CONN_INTERVAL                    MSEC_TO_UNITS(1000, UNIT_1_25_MS)          /**< Maximum acceptable connection interval (125 millisecond). */
 #define SLAVE_LATENCY                        0                                          /**< Slave latency. */
 #define CONN_SUP_TIMEOUT                     MSEC_TO_UNITS(4000, UNIT_10_MS)            /**< Connection supervisory timeout (4 seconds). */
 
@@ -263,7 +263,7 @@ static void alarm_check(void)
 static void thermo_param_meas_timeout_handler(void * p_context)
 {
     UNUSED_PARAMETER(p_context);
-    static uint8_t minutes_count = 0x01, sensor_minutes= 0x01;
+    static uint8_t minutes_count = 0x01;
     if (minutes_count < 0x0F)
     {
         minutes_count++;
@@ -274,15 +274,7 @@ static void thermo_param_meas_timeout_handler(void * p_context)
         DATA_LOG_CHECK=true;
     }
 
-    if (sensor_minutes < 0x02)
-    {
-        sensor_minutes++;
-    }
-    else 
-    {
-        sensor_minutes =0x01;
-        CHECK_ALARM_TIMEOUT=true;                           /* Set the flag to indicate alarm conditions check*/
-    }
+
 
 }
 
@@ -292,7 +284,8 @@ static void thermo_param_meas_timeout_handler(void * p_context)
 static void real_time_timeout_handler(void * p_context)
 {
     uint32_t err_code;
-    static uint8_t battery_meas_timeout  = 0x00;		
+    static uint8_t battery_meas_timeout  = 0x00;
+		static uint8_t sensor_meas_timeout = 0x00;
 	
     // Store days in months to an aaray
     uint8_t days_in_month[]={0,31,28,31,30,31,30,31,31,30,31,30,31};
@@ -306,6 +299,15 @@ static void real_time_timeout_handler(void * p_context)
     {
         days_in_month[2] = 28;
     }
+		
+		if(sensor_meas_timeout < 0x1e){
+			sensor_meas_timeout++;
+		}
+		else
+		{
+			sensor_meas_timeout = 0x00;
+			CHECK_ALARM_TIMEOUT = true;
+		}
 
     // Increment time stamp
     m_time_stamp.seconds += 1;
