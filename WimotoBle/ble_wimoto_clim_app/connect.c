@@ -59,7 +59,7 @@
 #define MANUFACTURER_ID                      0x1122334455                              /**< Manufacturer ID, part of System ID. Will be passed to Device Information Service. */
 #define ORG_UNIQUE_ID                        0x667788                                  /**< Organizational Unique ID, part of System ID. Will be passed to Device Information Service. */
 #define HARDWARE_ID													 "1"
-#define FIRMWARE_ID 												 "1.10"
+#define FIRMWARE_ID 												 "1.20"
 
 #define APP_ADV_INTERVAL                     0x808                                     /**< The advertising interval (in units of 0.625 ms. This value corresponds to 25 ms). */
 #define APP_ADV_TIMEOUT_IN_SECONDS           0x0000                                    /**< The advertising timeout in units of seconds. */
@@ -153,6 +153,7 @@ static void dlogs_init(void);
 void data_log_sys_event_handler(uint32_t sys_evt);																			/**<data log system event handler declaration>*/
 static void advertising_init(void);
 
+static uint8_t															 rev_no;																		/**<Revision number of silicon*/
 
 uint32_t buf[4];																																				/*buffer for flash write operation*/
 uint8_t				             temperature[2]   = {0x00,0x00};              /* Temperature value*/
@@ -371,7 +372,7 @@ static void real_time_timeout_handler(void * p_context)
 		
 		//meas_interval_seconds += 1;													
 			
-		if(meas_interval_seconds < 0x05)			   //set the sensor measurement timeout interval to 5 sec				
+		if(meas_interval_seconds < 0x1e)			   //set the sensor measurement timeout interval to 5 sec				
 		{
 			meas_interval_seconds++;
 		}
@@ -1254,7 +1255,7 @@ static void device_manager_init(void)
 
 /**@brief Radio Notification event handler.
 */
-void radio_active_evt_handler(bool radio_active)
+void radio_active_evt_handler_rev1(bool radio_active)
 {		
 		uint32_t err_code;
 	
@@ -1275,6 +1276,12 @@ void radio_active_evt_handler(bool radio_active)
 	
 }
 
+/**@brief Radio Notification event handler when not using rev 1 silicon
+*/
+void radio_active_evt_handler(bool radio_active)
+{		
+		m_radio_event = radio_active;	
+}
 
 /**@brief Function for initializing the Radio Notification events.
 */
@@ -1282,10 +1289,18 @@ static void radio_notification_init(void)
 {
     uint32_t err_code;
 
-    err_code = ble_radio_notification_init(NRF_APP_PRIORITY_LOW,
-    NRF_RADIO_NOTIFICATION_DISTANCE_800US,
-    radio_active_evt_handler);
-    APP_ERROR_CHECK(err_code);
+    if (rev_no == 0x01) {
+			err_code = ble_radio_notification_init(NRF_APP_PRIORITY_LOW,
+			NRF_RADIO_NOTIFICATION_DISTANCE_800US,
+			radio_active_evt_handler_rev1);
+			APP_ERROR_CHECK(err_code);
+		}
+		else {
+			err_code = ble_radio_notification_init(NRF_APP_PRIORITY_HIGH,
+			NRF_RADIO_NOTIFICATION_DISTANCE_4560US,
+			radio_active_evt_handler);
+			APP_ERROR_CHECK(err_code);
+		}
 }
 
 
@@ -1409,6 +1424,23 @@ void LED_ON(void)
 	
 }
 
+/**@brief Get silicon revision
+*/
+void get_die_revision_no(void)
+
+{	
+	/*
+	0x0001  0x01  = rev.1 128k FLASH/ 16k RAM or 256k FLASH/ 16k RAM
+	0x0001  0x04  = rev.2 128k FLASH/ 16k RAM or 256k FLASH/ 16k RAM
+	0x0001  0x07  = rev.3 256k FLASH/ 16k RAM
+	0x0001  0x08  = rev.3 128k FLASH/ 16k RAM
+	0x0001  0x09  = rev.3 256k FLASH/ 32k RAM*/
+	
+  rev_no = (uint8_t) ((*(uint32_t *)0xF0000FE8) & 0x000000F0);
+  rev_no = ((rev_no >> 0x04) & (0x0F));
+
+}
+
 
 /**@brief Function for application main entry.
 */
@@ -1416,6 +1448,7 @@ void connectable_mode(void)
 {
     uint32_t err_code;
 		// Initialize.
+		get_die_revision_no();								 /*Get silicon revision before init*/
     ble_stack_init();
     twi_master_init();                     /* Configure twi*/
 		HTU21D_configure();										 /* Configure HTU21D */
@@ -1424,17 +1457,20 @@ void connectable_mode(void)
     gpiote_init();
     device_manager_init();
     gap_params_init();
-    init_battery_level();                 /*measure the battery level before advertisement*/
+    init_battery_level();                  /*measure the battery level before advertisement*/
 		advertising_init();
 	  services_init();
     conn_params_init();
     sec_params_init();
     radio_notification_init();
     twi_turn_OFF();
-    application_timers_start();           /* Start execution.*/
-		WDT_init();	
-		HFCLK_request();
+    application_timers_start();            /* Start execution.*/
+	
+		if(rev_no == 0x01){										 /* Activate HFCLK workaround for PAN14 if rev 1 silicon*/
+			HFCLK_request();
+		}
 		
+		WDT_init();	
     advertising_start();
 		LED_ON();
 

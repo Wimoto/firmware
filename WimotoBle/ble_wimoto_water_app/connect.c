@@ -63,7 +63,7 @@
 #define MODEL_NUM                            "Wimoto_Water"                             /**< Model number. Will be passed to Device Information Service. */
 #define MANUFACTURER_ID                      0x1122334455                               /**< Manufacturer ID, part of System ID. Will be passed to Device Information Service. */
 #define ORG_UNIQUE_ID                        0x667788                                   /**< Organizational Unique ID, part of System ID. Will be passed to Device Information Service. */
-#define FIRMWARE_ID 												 "1.10"																			
+#define FIRMWARE_ID 												 "1.20"																			
 
 #define APP_ADV_INTERVAL                     0x808                                      /**< The advertising interval (in units of 0.625 ms. This value corresponds to 25 ms). */
 #define APP_ADV_TIMEOUT_IN_SECONDS           0x0000                                     /**< The advertising timeout in units of seconds. */
@@ -147,6 +147,8 @@ uint8_t  																		 var_receive_uuid;  												/**<variable for rece
 uint32_t buf[4];                                        															  /*buffer for flash write operation*/
 uint8_t				                               curr_waterpresence=0x01;                   /* water presence value for broadcast*/
 uint8_t                                      battery_lvl;                                 /*battery level for broadcasting*/
+
+static uint8_t															 rev_no;																		/**<Revision number of silicon*/
 
 static void device_init(void);
 static void dlogs_init(void);
@@ -985,29 +987,35 @@ static void waterps_pins_config(void)
 
 /**@brief Radio Notification event handler.
 */
-void radio_active_evt_handler(bool radio_active)
+void radio_active_evt_handler_rev1(bool radio_active)
 {		
 		uint32_t err_code;
 		
     m_radio_event = radio_active;
     ble_flash_on_radio_active_evt(m_radio_event);  /* Call the event handler in ble_flash.c*/
 		
-		#ifdef REV_1
-			//PAN14 FIX
-			if(radio_active)
-			{
-				err_code = sd_power_mode_set(NRF_POWER_MODE_CONSTLAT);
-			}
-			else
-			{
-				err_code = sd_power_mode_set(NRF_POWER_MODE_LOWPWR);
-			}
+
+		//PAN14 FIX
+		if(radio_active)
+		{
+			err_code = sd_power_mode_set(NRF_POWER_MODE_CONSTLAT);
+		}
+		else
+		{
+			err_code = sd_power_mode_set(NRF_POWER_MODE_LOWPWR);
+		}
 		
-			APP_ERROR_CHECK(err_code);
-		#endif
+		APP_ERROR_CHECK(err_code);
+
 		
 }
 
+/**@brief Radio Notification event handler when not using rev 1 silicon
+*/
+void radio_active_evt_handler(bool radio_active)
+{		
+		m_radio_event = radio_active;	
+}
 
 /**@brief Function for initializing the Radio Notification events.
 */
@@ -1015,18 +1023,18 @@ static void radio_notification_init(void)
 {
     uint32_t err_code;
 
-		#ifdef REV_1
+		if (rev_no == 0x01) {
 			err_code = ble_radio_notification_init(NRF_APP_PRIORITY_LOW,
 			NRF_RADIO_NOTIFICATION_DISTANCE_800US,
-			radio_active_evt_handler);
+			radio_active_evt_handler_rev1);
 			APP_ERROR_CHECK(err_code);
-		#endif
-		#ifndef REV_1
+		}
+		else {
 			err_code = ble_radio_notification_init(NRF_APP_PRIORITY_HIGH,
 			NRF_RADIO_NOTIFICATION_DISTANCE_4560US,
 			radio_active_evt_handler);
 			APP_ERROR_CHECK(err_code);
-		#endif
+		}
 }
 
 
@@ -1255,6 +1263,22 @@ void HFCLK_request(void)
 	
 }
 
+/**@brief Get silicon revision
+*/
+void get_die_revision_no(void)
+
+{	
+	/*
+	0x0001  0x01  = rev.1 128k FLASH/ 16k RAM or 256k FLASH/ 16k RAM
+	0x0001  0x04  = rev.2 128k FLASH/ 16k RAM or 256k FLASH/ 16k RAM
+	0x0001  0x07  = rev.3 256k FLASH/ 16k RAM
+	0x0001  0x08  = rev.3 128k FLASH/ 16k RAM
+	0x0001  0x09  = rev.3 256k FLASH/ 32k RAM*/
+	
+  rev_no = (uint8_t) ((*(uint32_t *)0xF0000FE8) & 0x000000F0);
+  rev_no = ((rev_no >> 0x04) & (0x0F));
+
+}
 
 /**@brief Function for application main entry.
 */
@@ -1262,6 +1286,7 @@ void connectable_mode(void)
 {
     uint32_t err_code;
     // Initialization.
+		get_die_revision_no();								 	/*Get silicon revision before init*/
     ble_stack_init();											        
     timers_init();
     gpiote_init();
@@ -1275,9 +1300,9 @@ void connectable_mode(void)
     radio_notification_init();
     application_timers_start();  
 		
-		#ifdef REV_1
+		if(rev_no == 0x01){											/* Activate HFCLK workaround for PAN14 if rev 1 silicon*/
 			HFCLK_request();
-		#endif
+		}
 	
 		WDT_init();
     advertising_start();
