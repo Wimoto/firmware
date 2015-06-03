@@ -110,14 +110,14 @@ static bool twi_master_read(uint8_t *data, uint8_t data_length, bool issue_stop_
     }
     //NRF_PPI->CHENSET = PPI_CHENSET_CH0_Msk;
     sd_ppi_channel_enable_set(PPI_CHEN_CH0_Msk);
-		NRF_TWI1->EVENTS_RXDREADY = 0;
+		//NRF_TWI1->EVENTS_RXDREADY = 0;
     NRF_TWI1->TASKS_STARTRX = 1;
     while(true)
     {
         while(NRF_TWI1->EVENTS_RXDREADY == 0 && NRF_TWI1->EVENTS_ERROR == 0 && (--timeout))
         {  //nrf_app_event_wait();
         }
-
+				NRF_TWI1->EVENTS_RXDREADY = 0;
         if(timeout == 0 || NRF_TWI1->EVENTS_ERROR != 0)
         {
             // Recover the peripheral as indicated by PAN 56: "TWI: TWI module lock-up." found at
