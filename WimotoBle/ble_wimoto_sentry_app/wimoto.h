@@ -105,7 +105,7 @@
 /*custom UUID definitions for Device Management service.*/                                                       
 #define SENTRY_PROFILE_DEVICE_MGMT_SERVICE_UUID           0xDC75
 #define SENTRY_PROFILE_DEVICE_DFU_MODE_CHAR_UUID          0xDC76
-#define SENTRY_PROFILE_DEVICE_SWITCH_MODE_CHAR_UUID       0xDC77
+#define SENTRY_PROFILE_DEVICE_MMA_SWITCH_CHAR_UUID       0xDC77
 #define SENTRY_PROFILE_DEVICE_TIME_STAMP_CHAR_UUID        0x1805
 
 

@@ -53,6 +53,7 @@
 #include "boards.h"
 #include "battery.h"
 #include "pstorage.h"
+#include "mma8653.h"
 
 
 #define DEVICE_NAME                          "Sentry_"                            /**< Name of device. Will be included in the advertising data. */
@@ -765,13 +766,13 @@ static void device_init(void)
     BLE_GAP_CONN_SEC_MODE_SET_OPEN(&device_init.battery_level_report_read_perm);
 
     device_init.evt_handler          = NULL;
-    device_init.write_evt_handler   = NULL;
+    device_init.write_evt_handler    = NULL;
     device_init.support_notification = true;
     device_init.p_report_ref         = NULL; 
 
     // Set the default low value for DFU and Switch mode characteristics 
     device_init.device_dfu_mode_set          = DEFAULT_ALARM_SET;
-    device_init.device_mode_switch_set       = DEFAULT_ALARM_SET;
+    device_init.device_mma_switch_set        = 0x01;																			//Initially have MMA set as on
 
     // Start Time satmp from initial values
     device_init.device_time_stamp_set[0] =  0x00;
@@ -1108,7 +1109,7 @@ static void gpiote_init(void)
     }                                                                 
 
 
-    // Calls an event handler whenever a HIGH->LOW or LOW->HIGH transition is incurred on P0.04 GPIO pin
+    // Calls an event handler whenever a HIGH->LOW or LOW->HIGH transition is incurred on P0.11 GPIO pin
     err_code = app_gpiote_user_register(&movement_measurement_gpiote, 
     NULL, 
     MOVEMENT_PINS_HIGH_TO_LOW_MASK, 
@@ -1320,11 +1321,23 @@ void HFCLK_request(void)
 void connectable_mode(void)
 {
     uint32_t err_code;
+		uint8_t reg_val, reg_val2, reg_val3, reg_val4, reg_val5;
+		uint8_t mma8653;
+		uint32_t xyz_dat;
 
     // Initialization.
     ble_stack_init();
     twi_master_init(); 
-    MMA7660_config_standby_and_initialize();
+	
+		//Check which MMA is present
+		MMA8653_StandbyMode_Enable();
+		MMA8653_read_register(MMA8653_WHO_AM_I, &reg_val);
+		MMA8653_read_register(MMA8653_SYSMOD, &reg_val);
+		mma8653 = MMMA8653_Init();
+		//MMA8653_ReadXYZdata(&xyz_dat);
+		
+	
+    //MMA7660_config_standby_and_initialize();
     timers_init();
     gpiote_init();
     device_manager_init();
@@ -1335,8 +1348,8 @@ void connectable_mode(void)
     conn_params_init();
     sec_params_init();
     radio_notification_init();
-    MMA7660_enable_active_mode();
-    twi_turn_OFF();
+    //MMA7660_enable_active_mode();
+    
     application_timers_start(); 
 		#ifdef rev_1
 			HFCLK_request();
@@ -1344,15 +1357,28 @@ void connectable_mode(void)
 	
 		WDT_init();
 		LED_ON();
-    advertising_start();
-	
+    //advertising_start();
+		MMA8653_read_register(MMA8653_CTRL_REG2, &reg_val2);
+		MMA8653_read_register(MMA8653_CTRL_REG3, &reg_val3);
+		MMA8653_read_register(MMA8653_CTRL_REG4, &reg_val4);
+		MMA8653_read_register(MMA8653_CTRL_REG5, &reg_val5);
 
+		twi_turn_OFF();
+	
 
     // Enter main loop.
     for (;;)
-    {
-
+    {	
+				//twi_turn_ON();
+				//MMA8653_ReadXYZdata(&xyz_dat);
+				//twi_turn_OFF();
         // If the dfu enable flag is true go to the bootloader 
+				twi_turn_ON();
+				MMA8653_read_register(MMA8653_SYSMOD, &reg_val);
+				MMA8653_read_register(MMA8653_FF_MT_SRC, &reg_val);
+				MMA8653_read_register(MMA8653_INT_SOURCE, &reg_val);
+				MMA8653_ReadXYZdata(&xyz_dat);
+				twi_turn_OFF();
         if(DFU_ENABLE)  
         {
              
