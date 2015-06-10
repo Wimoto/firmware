@@ -1090,7 +1090,8 @@ static void gpiote_init(void)
     // Configure GPIO pin as input which is connected PIR sensor output
     nrf_gpio_cfg_input(PIR_GPIOTE_PIN, GPIO_PIN_CNF_PULL_Disabled); 
     // Configure GPIO pin as input which is connected INT1 pin of MMA7660 accelerometer
-    nrf_gpio_cfg_input(MOVEMENT_GPIOTE_PIN, NRF_GPIO_PIN_PULLUP);
+    nrf_gpio_cfg_input(MOVEMENT_GPIOTE_PIN, NRF_GPIO_PIN_PULLDOWN);
+		nrf_gpio_cfg_input(12, NRF_GPIO_PIN_PULLUP);
 
     // Calls an event handler whenever a HIGH->LOW or LOW->HIGH transition is incurred on P0.02 GPIO pin
     err_code = app_gpiote_user_register(&pir_measurement_gpiote, 
@@ -1112,7 +1113,7 @@ static void gpiote_init(void)
     // Calls an event handler whenever a HIGH->LOW or LOW->HIGH transition is incurred on P0.11 GPIO pin
     err_code = app_gpiote_user_register(&movement_measurement_gpiote, 
     NULL, 
-    MOVEMENT_PINS_HIGH_TO_LOW_MASK, 
+    0x00001000, 
     movement_gpiote_evt_handler);  /* Register the gpiote user for accelerometer */
     if (err_code != NRF_SUCCESS )                                     
     {                                                                 
@@ -1358,27 +1359,39 @@ void connectable_mode(void)
 		WDT_init();
 		LED_ON();
     //advertising_start();
+		MMA8653_read_register(MMA8653_FF_MT_CFG, &reg_val2);
+		MMA8653_read_register(MMA8653_FF_MT_THS, &reg_val3);
+		MMA8653_read_register(MMA8653_FF_MT_COUNT, &reg_val4);
+		
+		//CTRL regs
 		MMA8653_read_register(MMA8653_CTRL_REG2, &reg_val2);
 		MMA8653_read_register(MMA8653_CTRL_REG3, &reg_val3);
 		MMA8653_read_register(MMA8653_CTRL_REG4, &reg_val4);
 		MMA8653_read_register(MMA8653_CTRL_REG5, &reg_val5);
 
 		twi_turn_OFF();
+		
+		twi_turn_ON();
+				MMA8653_read_register(MMA8653_SYSMOD, &reg_val);
+				MMA8653_read_register(MMA8653_INT_SOURCE, &reg_val);
+				MMA8653_read_register(MMA8653_FF_MT_SRC, &reg_val);
+				MMA8653_read_register(MMA8653_INT_SOURCE, &reg_val);
+				
+				MMA8653_ReadXYZdata(&xyz_dat);
+		twi_turn_OFF();
 	
 
     // Enter main loop.
     for (;;)
     {	
-				//twi_turn_ON();
+				/*twi_turn_ON();
 				//MMA8653_ReadXYZdata(&xyz_dat);
-				//twi_turn_OFF();
-        // If the dfu enable flag is true go to the bootloader 
-				twi_turn_ON();
-				MMA8653_read_register(MMA8653_SYSMOD, &reg_val);
-				MMA8653_read_register(MMA8653_FF_MT_SRC, &reg_val);
 				MMA8653_read_register(MMA8653_INT_SOURCE, &reg_val);
 				MMA8653_ReadXYZdata(&xyz_dat);
+				MMA8653_read_register(MMA8653_FF_MT_SRC, &reg_val);
 				twi_turn_OFF();
+        // If the dfu enable flag is true go to the bootloader 
+				*/
         if(DFU_ENABLE)  
         {
              

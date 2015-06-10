@@ -422,10 +422,10 @@ bool MMMA8653_Init(void)
     if ( false == MMA8653_FullScaleRange_Set (MMA8653_FSR_2G) ) return false; 
 	
 		/* Enable motion detection and X,Y and Z axis are taken for motion detection*/
-    if ( false == MMA8653_FreefallMotionConfigReg_Set ((MMA8653_MOTION_DETECTION | MMA8653_ZEFE | MMA8653_YEFE | MMA8653_XEFE)) ) return false; 
+    if ( false == MMA8653_FreefallMotionConfigReg_Set (( 0x80 | MMA8653_MOTION_DETECTION | MMA8653_ZEFE | MMA8653_YEFE | MMA8653_XEFE)) ) return false; 
 	
 	  /* Sets the threshold for the motion detection */
-	  if ( false == MMA8653_FreefallMotionThresholdReg_Set( MMA8653_MOTION_THRESHOLD_1 | MMA8653_DBCNTM_SET) ) return false;
+	  if ( false == MMA8653_FreefallMotionThresholdReg_Set( 0x14) ) return false;
 	
 	  /* Set the number of debounce sample counts for the event trigger */
 	  if ( false == MMA8653_DebounceRegister_Set(0x01) ) return false;
@@ -446,12 +446,12 @@ bool MMMA8653_Init(void)
     if ( false == MMA8653_AutoSleep_Enable() ) return false;  				//extraneous?
 		
 	  /* Enable Motion/Free-fall interrupt for waking up from sleep*/
-    if ( false == MMA8653_InterruptControlReg_config((MMA8653_INTERRUPT_PIN_CONFIG )) ) return false; 
+    if ( false == MMA8653_InterruptControlReg_config((MMA8653_CR3_MOTION_ENABLE | MMA8653_INTERRUPT_PIN_CONFIG )) ) return false; 
 		
 		//MMA8653_write_to_reg (MMA8653_CTRL_REG4 , 0x00);
 		
 	  /*Free-fall/Motion Interrupt Enable  */
-    if ( false == MMA8653_InterruptEnableReg_config(MMA8653_AUTO_SLEEP_WAKEUP_INTERRUPT_ENABLE | MMA8653_MOTION_INTERRUPT_ENABLE ) ) return false;  
+    if ( false == MMA8653_InterruptEnableReg_config(MMA8653_MOTION_INTERRUPT_ENABLE ) ) return false;  
 		
 		/* Use INT1 pin for routing the interrupt */
     //if ( false == MMA8653_InterruptConfigurationReg_config(MMA8653_AUTO_SLEEP_WAKE_INT1 | MMA8653_MOTION_FREEFALL_INT1) ) return false; 
