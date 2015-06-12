@@ -156,6 +156,26 @@ bool MMA8653_DebounceRegister_Set (uint8_t Count_val)
 }
 
 /**
+*@brief   Function to set the number of debounce sample counts for the event trigger on Orientation Detection
+*@details 1.Set the bits D[7:0] for the debounce sample counts that continuously match the detection condition
+*         2.Function returns a true value on the success of the function 
+*/
+bool MMA8653_OrientationDebounceRegister_Set (uint8_t Count_val)
+{
+    uint8_t read_Reg_Val;
+    
+	  MMA8653_write_to_reg (MMA8653_PL_COUNT , Count_val);
+	
+    if (false == MMA8653_read_register (MMA8653_PL_COUNT, &read_Reg_Val)) return false;  
+    
+	  if (read_Reg_Val == Count_val) 
+        return true;
+    else
+        return false;
+		
+}
+
+/**
 *@brief   Function to enable the Fast Read Mode (8 bit data's are obtained from the X,Y,Z registers)
 *@details 1.Set the bit F_READ in System Control 1 register
 *         2.Function returns a true value on the success of the function 
@@ -401,6 +421,32 @@ bool MMA8653_FreefallMotionConfigReg_Set (uint8_t config_val)          /*Expecte
 }	
 
 /**
+*@brief   Portrait/orientation reg config
+*@details 1. Set DBCNTM value to 1 so that counter clears to zero whenever motion stops.
+					2. Set PL_EN to 1 to enable portrait/landscape detection.
+*         3.Function returns a true value on the success of the function 
+*/
+bool MMA8653_OrientationConfigReg_Set (uint8_t config_val)         
+{
+    uint8_t read_Reg_Val;
+    uint8_t write_to_Reg_Val;
+
+	  if (false == MMA8653_read_register (MMA8653_PL_CFG,&read_Reg_Val)) return false;
+	
+    write_to_Reg_Val = read_Reg_Val | config_val;
+    MMA8653_write_to_reg (MMA8653_PL_CFG , write_to_Reg_Val);
+    
+	  if (false == MMA8653_read_register (MMA8653_PL_CFG,&read_Reg_Val)) return false;
+    
+	  if (read_Reg_Val == write_to_Reg_Val) 
+        return true;
+    else
+        return false;		
+
+}	
+
+
+/**
 *@brief   Initialization of MMA8653 accelerometer
 *@details MMA8653 accelerometer is configured to produce 8 bit data from the X_MSB,Y_MSB,Z_MSB register
 *          and also configured for generating an interrupt if a movement occured. The threshold value for
@@ -420,21 +466,28 @@ bool MMMA8653_Init(void)
 	
 		/* 1 Count corresponds to 15.6mg */
     if ( false == MMA8653_FullScaleRange_Set (MMA8653_FSR_2G) ) return false; 
-	
+		//MOTION DETECTION CODE-----------------------------------------------------------------------
 		/* Enable motion detection and X,Y and Z axis are taken for motion detection*/
-    if ( false == MMA8653_FreefallMotionConfigReg_Set (( 0x80 | MMA8653_MOTION_DETECTION | MMA8653_ZEFE | MMA8653_YEFE | MMA8653_XEFE)) ) return false; 
+    if ( false == MMA8653_FreefallMotionConfigReg_Set ((  MMA8653_MOTION_DETECTION | MMA8653_ZEFE | MMA8653_YEFE | MMA8653_XEFE)) ) return false; 
 	
 	  /* Sets the threshold for the motion detection */
 	  if ( false == MMA8653_FreefallMotionThresholdReg_Set( 0x14) ) return false;
 	
 	  /* Set the number of debounce sample counts for the event trigger */
-	  if ( false == MMA8653_DebounceRegister_Set(0x01) ) return false;
+	  if ( false == MMA8653_DebounceRegister_Set(0x02) ) return false;
+	
+		//ORIENTATION DETECTION CODE------------------------------------------------------------------
+		/* Activate orientation interrupt */
+		if ( false == MMA8653_OrientationConfigReg_Set (0xC0)) return false;
+		
+		if ( false == MMA8653_OrientationDebounceRegister_Set(0x05)) return false;
+		
 
 	  /* Set the data rate for 50hz when the device is woke up by an interrupt*/
     if ( false == MMA8653_DATA_RATE_Set(MMA8653_DR_50HZ) ) return false;	 
 	
 	  /* Set the data rate for 1.56Hz when device is put to sleep mode*/
-    if ( false == MMA8653_ASLP_RATE_Set(MMA8653_ASLP_RATE_1HZ) ) return false;
+    if ( false == MMA8653_ASLP_RATE_Set(MMA8653_ASLP_RATE_12HZ) ) return false;
 	
     /* Time-out required to put back the device into Sleep mode*/	
     if ( false == MMA8653_ASLPCounter_val(MMA8653_3S_TIMEOUT) ) return false;  
@@ -446,15 +499,15 @@ bool MMMA8653_Init(void)
     if ( false == MMA8653_AutoSleep_Enable() ) return false;  				//extraneous?
 		
 	  /* Enable Motion/Free-fall interrupt for waking up from sleep*/
-    if ( false == MMA8653_InterruptControlReg_config((MMA8653_CR3_MOTION_ENABLE | MMA8653_INTERRUPT_PIN_CONFIG )) ) return false; 
+    if ( false == MMA8653_InterruptControlReg_config((MMA8653_CR3_ORIENTATION_ENABLE | MMA8653_CR3_MOTION_ENABLE | MMA8653_INTERRUPT_PIN_CONFIG )) ) return false; 
 		
 		//MMA8653_write_to_reg (MMA8653_CTRL_REG4 , 0x00);
 		
 	  /*Free-fall/Motion Interrupt Enable  */
-    if ( false == MMA8653_InterruptEnableReg_config(MMA8653_MOTION_INTERRUPT_ENABLE ) ) return false;  
+    if ( false == MMA8653_InterruptEnableReg_config(MMA8653_ORIENTATION_INTERRUPT_ENABLE | MMA8653_MOTION_INTERRUPT_ENABLE ) ) return false;  
 		
 		/* Use INT1 pin for routing the interrupt */
-    //if ( false == MMA8653_InterruptConfigurationReg_config(MMA8653_AUTO_SLEEP_WAKE_INT1 | MMA8653_MOTION_FREEFALL_INT1) ) return false; 
+    if ( false == MMA8653_InterruptConfigurationReg_config( MMA8653_ORIENTATION_INT1 | MMA8653_MOTION_FREEFALL_INT1) ) return false; 
 		
 		/*Configure Active mode for continuous monitoring*/
     if ( false == MMA8653_ActiveMode_Enable() ) return false; 

@@ -160,6 +160,9 @@ uint8_t										 var_receive_uuid;    											                  /**< varible
 uint8_t				             curr_pir_presence;                              	            /* water pir value for broadcast*/
 uint32_t                   xyz_coordinates;                                             /*accelerometer value for broadcast*/
 uint8_t                    battery_lvl;                                                 /*battery level for broadcasting*/
+
+uint8_t										 MMA_ID;
+
 #define ADC_REF_VOLTAGE_IN_MILLIVOLTS        1200                                       /**< Reference voltage (in milli volts) used by ADC while doing conversion. */
 #define ADC_PRE_SCALING_COMPENSATION         3                                          /**< The ADC is configured to use VDD with 1/3 prescaling as input. And hence the result of conversion is to be multiplied by 3 to get the actual value of the battery voltage.*/
 #define DIODE_FWD_VOLT_DROP_MILLIVOLTS       0                                        /**< Typical forward voltage drop of the diode (Part no: SD103ATW-7-F) that is connected in series with the voltage supply. This is the voltage drop when the forward current is 1mA. Source: Data sheet of 'SURFACE MOUNT SCHOTTKY BARRIER DIODE ARRAY' available at www.diodes.com. */
@@ -1333,6 +1336,7 @@ void connectable_mode(void)
 		//Check which MMA is present
 		MMA8653_StandbyMode_Enable();
 		MMA8653_read_register(MMA8653_WHO_AM_I, &reg_val);
+		MMA_ID = reg_val;
 		MMA8653_read_register(MMA8653_SYSMOD, &reg_val);
 		mma8653 = MMMA8653_Init();
 		//MMA8653_ReadXYZdata(&xyz_dat);
@@ -1358,13 +1362,13 @@ void connectable_mode(void)
 	
 		WDT_init();
 		LED_ON();
-    //advertising_start();
+    advertising_start();
 		MMA8653_read_register(MMA8653_FF_MT_CFG, &reg_val2);
 		MMA8653_read_register(MMA8653_FF_MT_THS, &reg_val3);
 		MMA8653_read_register(MMA8653_FF_MT_COUNT, &reg_val4);
 		
 		//CTRL regs
-		MMA8653_read_register(MMA8653_CTRL_REG2, &reg_val2);
+		MMA8653_read_register(MMA8653_CTRL_REG1, &reg_val2);
 		MMA8653_read_register(MMA8653_CTRL_REG3, &reg_val3);
 		MMA8653_read_register(MMA8653_CTRL_REG4, &reg_val4);
 		MMA8653_read_register(MMA8653_CTRL_REG5, &reg_val5);
@@ -1378,20 +1382,40 @@ void connectable_mode(void)
 				MMA8653_read_register(MMA8653_INT_SOURCE, &reg_val);
 				
 				MMA8653_ReadXYZdata(&xyz_dat);
+				MMA8653_read_register(MMA8653_PL_STATUS, &reg_val);
 		twi_turn_OFF();
 	
 
     // Enter main loop.
     for (;;)
     {	
-				/*twi_turn_ON();
+				twi_turn_ON();
 				//MMA8653_ReadXYZdata(&xyz_dat);
 				MMA8653_read_register(MMA8653_INT_SOURCE, &reg_val);
-				MMA8653_ReadXYZdata(&xyz_dat);
-				MMA8653_read_register(MMA8653_FF_MT_SRC, &reg_val);
+				//MMA8653_ReadXYZdata(&xyz_dat);
+				//MMA8653_read_register(MMA8653_FF_MT_SRC, &reg_val);
+				//MMA8653_read_register(MMA8653_SYSMOD, &reg_val);
+				//MMA8653_read_register(MMA8653_SYSMOD, &reg_val);
+			
+				//MMA8653_read_register(MMA8653_PL_STATUS, &reg_val);
 				twi_turn_OFF();
+			
+				if (reg_val & 0x10){										//CHECK IF ORIENTATION INTERRUPT
+					nrf_gpio_cfg_output(18);
+					nrf_gpio_pin_write(18, 1);
+				}
+				
+				if (reg_val & 0x04) {
+					nrf_gpio_cfg_output(18);
+					nrf_gpio_pin_write(18, 1);
+				}
+				
+				if (reg_val == 0x00){
+					nrf_gpio_pin_write(18, 0);
+					nrf_gpio_pin_write(19, 0);
+				}
         // If the dfu enable flag is true go to the bootloader 
-				*/
+				
         if(DFU_ENABLE)  
         {
              
@@ -1445,7 +1469,14 @@ void connectable_mode(void)
 							advertising_init();                     
 						else																			/*an active connection exists*/
 							advertising_nonconn_init();
-            MOVEMENT_EVENT_FLAG=false;					 /* Reset the gpiote event flag*/
+						
+						twi_turn_ON();																					
+						MMA8653_read_register(MMA8653_INT_SOURCE, &reg_val);
+						twi_turn_OFF();
+						
+						if(reg_val == 0x00){												
+            MOVEMENT_EVENT_FLAG=false;					 /* Reset the gpiote event flag only if the interrupt has disappeared*/
+						}
         }
         if (DATA_LOG_CHECK)
         {
