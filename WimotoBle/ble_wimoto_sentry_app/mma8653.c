@@ -536,7 +536,7 @@ bool MMA8653_ReadXYZdata(uint32_t * ptr_to_Reg_val)
         {
             twi_master_transfer ( MMA8653_ADDRESS | TWI_READ_BIT ,data_buffer ,3 ,TWI_ISSUE_STOP);
 					  
-					 *ptr_to_Reg_val = ((data_buffer[0] << 24) | (data_buffer[1] << 16) | data_buffer[2]); 
+					 *ptr_to_Reg_val = ((data_buffer[0] << 16) | (data_buffer[1] << 8) | data_buffer[2]); 
 					
 					  return true;
         }
