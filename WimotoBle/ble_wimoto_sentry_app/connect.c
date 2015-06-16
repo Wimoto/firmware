@@ -1093,7 +1093,7 @@ static void gpiote_init(void)
     // Configure GPIO pin as input which is connected PIR sensor output
     nrf_gpio_cfg_input(PIR_GPIOTE_PIN, GPIO_PIN_CNF_PULL_Disabled); 
     // Configure GPIO pin as input which is connected INT1 pin of MMA7660 accelerometer
-    nrf_gpio_cfg_input(MOVEMENT_GPIOTE_PIN, NRF_GPIO_PIN_PULLDOWN);
+    nrf_gpio_cfg_input(MOVEMENT_GPIOTE_PIN, NRF_GPIO_PIN_PULLUP);
 		nrf_gpio_cfg_input(12, NRF_GPIO_PIN_PULLUP);
 
     // Calls an event handler whenever a HIGH->LOW or LOW->HIGH transition is incurred on P0.02 GPIO pin
@@ -1116,7 +1116,7 @@ static void gpiote_init(void)
     // Calls an event handler whenever a HIGH->LOW or LOW->HIGH transition is incurred on P0.11 GPIO pin
     err_code = app_gpiote_user_register(&movement_measurement_gpiote, 
     NULL, 
-    0x00001000, 
+    0x00000800, 
     movement_gpiote_evt_handler);  /* Register the gpiote user for accelerometer */
     if (err_code != NRF_SUCCESS )                                     
     {                                                                 
@@ -1334,15 +1334,20 @@ void connectable_mode(void)
     twi_master_init(); 
 	
 		//Check which MMA is present
-		MMA8653_StandbyMode_Enable();
+		mma8653 = MMA8653_StandbyMode_Enable();
 		MMA8653_read_register(MMA8653_WHO_AM_I, &reg_val);
 		MMA_ID = reg_val;
-		MMA8653_read_register(MMA8653_SYSMOD, &reg_val);
-		mma8653 = MMMA8653_Init();
-		//MMA8653_ReadXYZdata(&xyz_dat);
-		
+		//MMA8653_read_register(MMA8653_SYSMOD, &reg_val);
 	
-    //MMA7660_config_standby_and_initialize();
+		if (MMA_ID == 0x5A)																//initialize appropriate sensor
+			{	
+		mma8653 = MMMA8653_Init();
+			}
+		
+		else{
+			MMA7660_config_standby_and_initialize();
+		}
+			
     timers_init();
     gpiote_init();
     device_manager_init();
@@ -1363,12 +1368,12 @@ void connectable_mode(void)
 		WDT_init();
 		LED_ON();
     advertising_start();
-		MMA8653_read_register(MMA8653_FF_MT_CFG, &reg_val2);
+		/*MMA8653_read_register(MMA8653_FF_MT_CFG, &reg_val2);
 		MMA8653_read_register(MMA8653_FF_MT_THS, &reg_val3);
 		MMA8653_read_register(MMA8653_FF_MT_COUNT, &reg_val4);
 		
 		//CTRL regs
-		MMA8653_read_register(MMA8653_CTRL_REG1, &reg_val2);
+		MMA8653_read_register(MMA8653_CTRL_REG2, &reg_val2);
 		MMA8653_read_register(MMA8653_CTRL_REG3, &reg_val3);
 		MMA8653_read_register(MMA8653_CTRL_REG4, &reg_val4);
 		MMA8653_read_register(MMA8653_CTRL_REG5, &reg_val5);
@@ -1383,24 +1388,24 @@ void connectable_mode(void)
 				
 				MMA8653_ReadXYZdata(&xyz_dat);
 				MMA8653_read_register(MMA8653_PL_STATUS, &reg_val);
-		twi_turn_OFF();
+		twi_turn_OFF();*/
 	
 
     // Enter main loop.
     for (;;)
     {	
-				twi_turn_ON();
+				//twi_turn_ON();
 				//MMA8653_ReadXYZdata(&xyz_dat);
-				MMA8653_read_register(MMA8653_INT_SOURCE, &reg_val);
+				//MMA8653_read_register(MMA8653_INT_SOURCE, &reg_val);
 				//MMA8653_ReadXYZdata(&xyz_dat);
 				//MMA8653_read_register(MMA8653_FF_MT_SRC, &reg_val);
 				//MMA8653_read_register(MMA8653_SYSMOD, &reg_val);
 				//MMA8653_read_register(MMA8653_SYSMOD, &reg_val);
 			
 				//MMA8653_read_register(MMA8653_PL_STATUS, &reg_val);
-				twi_turn_OFF();
+				//twi_turn_OFF();
 			
-				if (reg_val & 0x10){										//CHECK IF ORIENTATION INTERRUPT
+				/*if (reg_val & 0x10){										//CHECK IF ORIENTATION INTERRUPT
 					nrf_gpio_cfg_output(18);
 					nrf_gpio_pin_write(18, 1);
 				}
@@ -1413,7 +1418,7 @@ void connectable_mode(void)
 				if (reg_val == 0x00){
 					nrf_gpio_pin_write(18, 0);
 					nrf_gpio_pin_write(19, 0);
-				}
+				}*/
         // If the dfu enable flag is true go to the bootloader 
 				
         if(DFU_ENABLE)  
@@ -1474,8 +1479,12 @@ void connectable_mode(void)
 						MMA8653_read_register(MMA8653_INT_SOURCE, &reg_val);
 						twi_turn_OFF();
 						
-						if(reg_val == 0x00){												
-            MOVEMENT_EVENT_FLAG=false;					 /* Reset the gpiote event flag only if the interrupt has disappeared*/
+						if(MMA_ID == 0x5A && (reg_val != 0x00)){												
+							MOVEMENT_EVENT_FLAG=true;					 /* Reset the gpiote event flag only if the interrupt has disappeared*/
+						}
+						else
+						{
+							MOVEMENT_EVENT_FLAG = false;
 						}
         }
         if (DATA_LOG_CHECK)
