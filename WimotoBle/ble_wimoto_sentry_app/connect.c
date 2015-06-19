@@ -144,6 +144,9 @@ extern bool     	                           PIR_CONNECTED_STATE;                
 extern bool                                  ACCELEROMETER_CONNECTED_STATE;             /**< Flag indicates accelerometer alarm service is in connected start or now */ 
 volatile bool                                ACTIVE_CONN_FLAG = false;                  /**<flag indicating active connection*/
 
+extern bool																	 MMA_SWITCH;
+extern uint8_t															 MMA_STATUS;
+
 extern uint8_t  current_xyz_array[3];
 static dm_application_instance_t             m_app_handle;                              /**< Application identifier allocated by device manager */
 static bool                                  m_memory_access_in_progress = false;       /**< Flag to keep track of ongoing operations on persistent memory. */
@@ -1429,7 +1432,20 @@ void connectable_mode(void)
 						err_code=sd_ble_gatts_service_changed(m_conn_handle,0x01,0x4D); /*function for service change indication*/
 						
 						sd_nvic_SystemReset();               /* Apply a system reset for jumping into bootloader*/                     
-        }                                       
+        }             
+
+				if(MMA_SWITCH){
+					twi_turn_ON();
+					if(MMA_STATUS == 0x01){
+						MMA7660_config_standby_and_initialize();
+					}
+					
+					if(MMA_STATUS == 0x00){
+						MMA7660_enable_standby_mode();
+					}
+					twi_turn_OFF();
+					MMA_SWITCH = false;
+				}
 
         // If the PIR event mode flag is true and go for alarm check condition
         if(PIR_EVENT_FLAG)

@@ -28,6 +28,9 @@ extern ble_date_time_t m_time_stamp;                    /* Time stamp defined in
 extern bool TIME_SET;                                   /* Flag to start time updation, defined in connect.c*/
 extern uint8_t	 var_receive_uuid;
 
+bool 	MMA_SWITCH = false;
+uint8_t MMA_STATUS = 0x00;
+
 /**@brief Function for handling the Connect event.
 *
 * @param[in]   p_device    Device Management Service structure.
@@ -76,16 +79,8 @@ static void write_evt_handler (ble_device_t * p_device, ble_device_write_evt_t *
         TIME_SET = true;
         break;  
 		case BLE_DEVICE_mma_switch_WRITE:
-				if (p_device->device_mma_switch_set != 0x00)
-				{
-						MMA7660_enable_active_mode();										//If switch is on, set MMA7660 to active mode
-				}
-				else
-				{		
-						twi_turn_ON();
-						MMA7660_enable_standby_mode();									//If switch is off, set MMA7660 to standby mode
-						twi_turn_OFF();
-				}
+				MMA_SWITCH = true;
+				MMA_STATUS = p_device->device_mma_switch_set;
     default:
         break;
     }
@@ -170,7 +165,7 @@ static void on_write(ble_device_t * p_device, ble_evt_t * p_ble_evt)
     {  
         ble_device_write_evt_t evt;
         evt.evt_type           = BLE_DEVICE_mma_switch_WRITE;
-
+				p_device->device_mma_switch_set = p_evt_write->data[0];
 
 
         // call application event handler
@@ -401,7 +396,7 @@ static uint32_t mma_switch_char_add(ble_device_t * p_device, const ble_device_in
     ble_gatts_attr_t    attr_char_value;
     ble_uuid_t          ble_uuid;
     ble_gatts_attr_md_t attr_md;
-    static uint8_t      mma_status = 0x00;
+    static uint8_t      mma_status = 0x01;
 
     memset(&char_md, 0, sizeof(char_md));
 
