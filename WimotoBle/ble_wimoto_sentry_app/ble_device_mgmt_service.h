@@ -40,7 +40,7 @@ typedef struct
 typedef enum
 {
     BLE_DEVICE_DFU_WRITE,                                                /**< DFU write event. */
-    BLE_DEVICE_SWITCH_MODE_WRITE,                                        /**< switch mode char write event. */
+    BLE_DEVICE_MMA_SWITCH_WRITE,                                        /**< switch mode char write event. */
     BLE_DEVICE_TIME_STAMP_WRITE	                                         /**< time stamp write event. */           
 } ble_device_write_evt_type_t;
 

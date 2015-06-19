@@ -27,6 +27,9 @@ extern ble_date_time_t m_time_stamp;                    /* Time stamp defined in
 extern bool TIME_SET;                                   /* Flag to start time updation, defined in connect.c*/
 extern uint8_t	 var_receive_uuid;
 
+bool MMA_SWITCH = false;
+uint8_t MMA_STATUS = 0x00;
+
 /**@brief Function for handling the Connect event.
 *
 * @param[in]   p_device    Device Management Service structure.
@@ -74,6 +77,10 @@ static void write_evt_handler (ble_device_t * p_device, ble_device_write_evt_t *
     case BLE_DEVICE_TIME_STAMP_WRITE:
         TIME_SET = true;
         break;  
+		case BLE_DEVICE_MMA_SWITCH_WRITE:
+				MMA_SWITCH = true;
+				MMA_STATUS = p_device->device_mma_switch_set;
+				break;
     default:
         break;
     }
@@ -95,6 +102,33 @@ static void on_write(ble_device_t * p_device, ble_evt_t * p_ble_evt)
 
         if (
                 (p_evt_write->handle == p_device->dfu_mode_handles.cccd_handle)
+                &&
+                (p_evt_write->len == 2)
+                )
+        {   
+            // CCCD written, call application event handler
+            if (p_device->evt_handler != NULL)
+            {
+                ble_device_evt_t evt;
+
+                if (ble_srv_is_notification_enabled(p_evt_write->data))
+                {
+                    evt.evt_type = BLE_DEVICE_LOW_EVT_NOTIFICATION_ENABLED;
+                }
+                else
+                {
+                    evt.evt_type = BLE_DEVICE_LOW_EVT_NOTIFICATION_DISABLED;
+                }
+
+                p_device->evt_handler(p_device, &evt);
+
+            }
+        } 
+				
+				 /*Write event for mma switch set cccd*/
+
+        if (
+                (p_evt_write->handle == p_device->mma_switch_handles.cccd_handle)
                 &&
                 (p_evt_write->len == 2)
                 )
@@ -147,9 +181,26 @@ static void on_write(ble_device_t * p_device, ble_evt_t * p_ble_evt)
     }
 
 
+		 /*Write event for mma switch char value.*/
 
+    if ( 
+            (p_evt_write->handle == p_device->mma_switch_handles.value_handle) 
+            && 
+            (p_evt_write->len == 1)
+            &&
+            (p_device->write_evt_handler != NULL)
+            )
+    {  
+        ble_device_write_evt_t evt;
+        evt.evt_type           = BLE_DEVICE_MMA_SWITCH_WRITE;
+				p_device->device_mma_switch_set = p_evt_write->data[0];
+
+
+        // call application event handler
+        p_device->write_evt_handler(p_device, &evt);
 
     /*Write event for mode dfu mode char value.*/
+		}
 
     if (
             (p_evt_write->handle == p_device->dfu_mode_handles.value_handle) 

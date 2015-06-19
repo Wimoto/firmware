@@ -144,6 +144,9 @@ extern bool     	                           PIR_CONNECTED_STATE;                
 extern bool                                  ACCELEROMETER_CONNECTED_STATE;             /**< Flag indicates accelerometer alarm service is in connected start or now */ 
 volatile bool                                ACTIVE_CONN_FLAG = false;                  /**<flag indicating active connection*/
 
+extern bool																	 MMA_SWITCH;																/**<flag to check if it is time to change state of MMA7660*/
+extern uint8_t															 MMA_STATUS;																/**<Flag indicating to which state the MMA7660 should switch*/
+
 extern uint8_t  current_xyz_array[3];
 static dm_application_instance_t             m_app_handle;                              /**< Application identifier allocated by device manager */
 static bool                                  m_memory_access_in_progress = false;       /**< Flag to keep track of ongoing operations on persistent memory. */
@@ -1350,7 +1353,8 @@ void get_die_revision_no(void)
 void connectable_mode(void)
 {
     uint32_t err_code;
-		uint8_t reg_val;
+		uint16_t len = 1;
+		uint8_t reg_val, val;
 		bool mma8653;
 
     // Initialization.
@@ -1408,7 +1412,30 @@ void connectable_mode(void)
 						err_code=sd_ble_gatts_service_changed(m_conn_handle,0x01,0x4D); /*function for service change indication*/
 						
 						sd_nvic_SystemReset();               /* Apply a system reset for jumping into bootloader*/                     
-        }                                       
+        }    
+				
+				// If the MMA_SWITCH flag is true, change state of MMA7660 to whatever MMA_STATUS is
+				if(MMA_SWITCH){													
+					twi_turn_ON();
+					if(MMA_STATUS == 0x01){
+						if(MMA7660_config_standby_and_initialize() == false)																							//Turn on MMA7660, if it fails reset characteristic to 0 indicating off
+						{	
+							val = 0;
+							sd_ble_gatts_value_set(m_device.mma_switch_handles.value_handle, 0, &len, &val);
+						}
+						
+					}
+					
+					if(MMA_STATUS == 0x00){																																							//Turn off MMA7660, if it fails reset characteristic to 1 indicating on
+						if (MMA7660_enable_standby_mode() == false)
+						{
+							val = 1;
+							sd_ble_gatts_value_set(m_device.mma_switch_handles.value_handle, 0, &len, &val);
+						}
+					}
+					twi_turn_OFF();
+					MMA_SWITCH = false;
+				}
 
         // If the PIR event mode flag is true and go for alarm check condition
         if(PIR_EVENT_FLAG)
