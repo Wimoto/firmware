@@ -440,6 +440,11 @@
               <FileType>1</FileType>
               <FilePath>..\mma7660fc.c</FilePath>
             </File>
+            <File>
+              <FileName>mma8653.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\mma8653.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -997,6 +1002,11 @@
               <FileName>mma7660fc.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\mma7660fc.c</FilePath>
+            </File>
+            <File>
+              <FileName>mma8653.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\mma8653.c</FilePath>
             </File>
           </Files>
         </Group>
