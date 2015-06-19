@@ -776,7 +776,7 @@ static void device_init(void)
 
     // Set the default low value for DFU and Switch mode characteristics 
     device_init.device_dfu_mode_set          = DEFAULT_ALARM_SET;
-    device_init.device_mode_switch_set       = DEFAULT_ALARM_SET;
+    device_init.device_mma_switch_set        = DEFAULT_ALARM_SET;
 
     // Start Time satmp from initial values
     device_init.device_time_stamp_set[0] =  0x00;
