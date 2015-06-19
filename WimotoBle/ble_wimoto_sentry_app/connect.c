@@ -53,6 +53,7 @@
 #include "boards.h"
 #include "battery.h"
 #include "pstorage.h"
+#include "mma8653.h"
 
 
 #define DEVICE_NAME                          "Sentry_"                            /**< Name of device. Will be included in the advertising data. */
@@ -60,7 +61,7 @@
 #define MODEL_NUM                            "Wimoto_Sentry"                            /**< Model number. Will be passed to Device Information Service. */
 #define MANUFACTURER_ID                      0x1122334455                               /**< Manufacturer ID, part of System ID. Will be passed to Device Information Service. */
 #define ORG_UNIQUE_ID                        0x667788                                   /**< Organizational Unique ID, part of System ID. Will be passed to Device Information Service. */
-#define FIRMWARE_ID 												 "1.20"
+#define FIRMWARE_ID 												 "1.21b"
 
 #define APP_ADV_INTERVAL                     0x808                                      /**< The advertising interval (in units of 0.625 ms. This value corresponds to 25 ms). */
 #define APP_ADV_TIMEOUT_IN_SECONDS           0x0000                                     /**< The advertising timeout in units of seconds. */
@@ -162,6 +163,7 @@ uint8_t										 var_receive_uuid;    											                  /**< varible
 uint8_t				             curr_pir_presence;                              	            /* water pir value for broadcast*/
 uint32_t                   xyz_coordinates;                                             /*accelerometer value for broadcast*/
 uint8_t                    battery_lvl;                                                 /*battery level for broadcasting*/
+uint8_t										 MMA_ID;																											/*Device ID to differentiate between MMA7660 and MMA8653*/
 #define ADC_REF_VOLTAGE_IN_MILLIVOLTS        1200                                       /**< Reference voltage (in milli volts) used by ADC while doing conversion. */
 #define ADC_PRE_SCALING_COMPENSATION         3                                          /**< The ADC is configured to use VDD with 1/3 prescaling as input. And hence the result of conversion is to be multiplied by 3 to get the actual value of the battery voltage.*/
 #define DIODE_FWD_VOLT_DROP_MILLIVOLTS       0                                        /**< Typical forward voltage drop of the diode (Part no: SD103ATW-7-F) that is connected in series with the voltage supply. This is the voltage drop when the forward current is 1mA. Source: Data sheet of 'SURFACE MOUNT SCHOTTKY BARRIER DIODE ARRAY' available at www.diodes.com. */
@@ -1092,7 +1094,8 @@ static void gpiote_init(void)
     // Configure GPIO pin as input which is connected PIR sensor output
     nrf_gpio_cfg_input(PIR_GPIOTE_PIN, GPIO_PIN_CNF_PULL_Disabled); 
     // Configure GPIO pin as input which is connected INT1 pin of MMA7660 accelerometer
-    nrf_gpio_cfg_input(MOVEMENT_GPIOTE_PIN, NRF_GPIO_PIN_PULLUP);
+    //nrf_gpio_cfg_input(MOVEMENT_GPIOTE_PIN, NRF_GPIO_PIN_PULLUP);
+		nrf_gpio_cfg_input(12, NRF_GPIO_PIN_PULLUP);
 
     // Calls an event handler whenever a HIGH->LOW or LOW->HIGH transition is incurred on P0.02 GPIO pin
     err_code = app_gpiote_user_register(&pir_measurement_gpiote, 
@@ -1114,7 +1117,8 @@ static void gpiote_init(void)
     // Calls an event handler whenever a HIGH->LOW or LOW->HIGH transition is incurred on P0.04 GPIO pin
     err_code = app_gpiote_user_register(&movement_measurement_gpiote, 
     NULL, 
-    MOVEMENT_PINS_HIGH_TO_LOW_MASK, 
+    //MOVEMENT_PINS_HIGH_TO_LOW_MASK,
+		0x00001000,
     movement_gpiote_evt_handler);  /* Register the gpiote user for accelerometer */
     if (err_code != NRF_SUCCESS )                                     
     {                                                                 
@@ -1347,12 +1351,28 @@ void get_die_revision_no(void)
 void connectable_mode(void)
 {
     uint32_t err_code;
+		uint8_t reg_val;
+		bool mma8653;
 
     // Initialization.
 		get_die_revision_no();								 	/*Get silicon revision before init*/
     ble_stack_init();
     twi_master_init(); 
-    MMA7660_config_standby_and_initialize();
+	
+		//Check which MMA is present
+		mma8653 = MMA8653_StandbyMode_Enable();
+		MMA8653_read_register(MMA8653_WHO_AM_I, &reg_val);
+		MMA_ID = reg_val;
+	
+		if(MMA_ID == 0x5A)
+		{
+			mma8653 = MMMA8653_Init();
+		} else
+		{
+			MMA7660_config_standby_and_initialize();
+		}
+		//End of MMA checking
+	
     timers_init();
     gpiote_init();
     device_manager_init();
@@ -1363,7 +1383,7 @@ void connectable_mode(void)
     conn_params_init();
     sec_params_init();
     radio_notification_init();
-    MMA7660_enable_active_mode();
+    //MMA7660_enable_active_mode();
     twi_turn_OFF();
     application_timers_start(); 
 		if(rev_no == 0x01){											/* Activate HFCLK workaround for PAN14 if rev 1 silicon*/

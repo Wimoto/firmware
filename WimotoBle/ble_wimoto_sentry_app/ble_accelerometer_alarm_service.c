@@ -26,6 +26,7 @@
 #include "wimoto_sensors.h"
 #include "ble_accelerometer_alarm_service.h"
 #include "app_error.h"
+#include "mma8653.h"
 
 extern   bool       	MOVEMENT_EVENT_FLAG;
 extern   bool 	      CLEAR_MOVE_ALARM;
@@ -36,6 +37,7 @@ extern   uint8_t	    var_receive_uuid;						/*variable to receive uuid*/
 extern 	 uint32_t     xyz_coordinates;           /*accelerometer value for broadcast*/
 static    uint8_t 		movement_alarm[8]= {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00}; /*movement alarm with timestamp*/
 extern   bool         CENTRAL_DEVICE_CONNECTED;
+extern	 uint8_t 			MMA_ID;
 
 bool     							m_movement_alarm_ind_conf_pending = false;       /**< Flag to keep track of when an indication confirmation is pending. */
 extern bool     			m_pir_alarm_ind_conf_pending;
@@ -681,20 +683,50 @@ uint32_t ble_movement_alarm_check(ble_movement_t * p_movement,ble_device_t *p_de
     uint32_t err_code;
 
     uint32_t current_xyz;
+		uint8_t reg_val;
 
     uint16_t len = sizeof(movement_alarm);		//length of the time stamp with alarm
     uint16_t len1 = sizeof(current_xyz_array);
 
-    twi_turn_ON();
-
-
-    if(false == MMA7660_read_xyz_reg_one_time(&current_xyz))
+		twi_turn_ON();
+		
+		//Check which MMA is present and read data
+		
+		if (MMA_ID == 0x5A)																																		
+		{
+				if (false == MMA8653_read_register(MMA8653_INT_SOURCE, &reg_val))
+					return false;
+			
+		
+				if (reg_val & 0x10){
+				if (false == MMA8653_read_register(MMA8653_PL_STATUS, &reg_val))									//Clear orientation interrupt
+					return false;
+			}
+				
+				if (reg_val & 0x04)
+					{
+					if (false == MMA8653_read_register(MMA8653_FF_MT_SRC, &reg_val))								//Clear motion interrupt
+					return false;
+				}
+				
+				
+				if (false == MMA8653_ReadXYZdata(&current_xyz))																		//Read XYZ data from MMA8653
+					return false;
+				MMA8653_read_register(MMA8653_INT_SOURCE, &reg_val);
+				
+			
+		}
+		else{
+    if(false == MMA7660_read_xyz_reg_one_time(&current_xyz))															//Read XYZ data from MMA7660
 			return false;
-
+			}
 		//copy the current accelerometer value for broadcast
 		xyz_coordinates=current_xyz;
 
 		twi_turn_OFF();
+
+
+		
     current_xyz_array[0] = current_xyz;
     current_xyz_array[1] = current_xyz >> 8;
     current_xyz_array[2] = current_xyz >> 16;
