@@ -1094,8 +1094,8 @@ static void gpiote_init(void)
     // Configure GPIO pin as input which is connected PIR sensor output
     nrf_gpio_cfg_input(PIR_GPIOTE_PIN, GPIO_PIN_CNF_PULL_Disabled); 
     // Configure GPIO pin as input which is connected INT1 pin of MMA7660 accelerometer
-    //nrf_gpio_cfg_input(MOVEMENT_GPIOTE_PIN, NRF_GPIO_PIN_PULLUP);
-		nrf_gpio_cfg_input(12, NRF_GPIO_PIN_PULLUP);
+    nrf_gpio_cfg_input(MOVEMENT_GPIOTE_PIN, NRF_GPIO_PIN_PULLUP);
+		//nrf_gpio_cfg_input(12, NRF_GPIO_PIN_PULLUP);
 
     // Calls an event handler whenever a HIGH->LOW or LOW->HIGH transition is incurred on P0.02 GPIO pin
     err_code = app_gpiote_user_register(&pir_measurement_gpiote, 
@@ -1117,8 +1117,7 @@ static void gpiote_init(void)
     // Calls an event handler whenever a HIGH->LOW or LOW->HIGH transition is incurred on P0.04 GPIO pin
     err_code = app_gpiote_user_register(&movement_measurement_gpiote, 
     NULL, 
-    //MOVEMENT_PINS_HIGH_TO_LOW_MASK,
-		0x00001000,
+    MOVEMENT_PINS_HIGH_TO_LOW_MASK,
     movement_gpiote_evt_handler);  /* Register the gpiote user for accelerometer */
     if (err_code != NRF_SUCCESS )                                     
     {                                                                 
@@ -1454,7 +1453,18 @@ void connectable_mode(void)
 							advertising_init();                     
 						else																			/*an active connection exists*/
 							advertising_nonconn_init();
-            MOVEMENT_EVENT_FLAG=false;					 /* Reset the gpiote event flag*/
+						
+						twi_turn_ON();																					
+						MMA8653_read_register(MMA8653_INT_SOURCE, &reg_val);
+						twi_turn_OFF();
+						
+						if(MMA_ID == 0x5A && (reg_val != 0x00)){												
+							MOVEMENT_EVENT_FLAG=true;					 /* Reset the gpiote event flag only if the interrupt has disappeared*/
+						}
+						else
+						{
+							MOVEMENT_EVENT_FLAG = false;
+						}
         }
         if (DATA_LOG_CHECK)
         {
