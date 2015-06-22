@@ -60,7 +60,7 @@
 #define MODEL_NUM                            "Wimoto_Sentry"                            /**< Model number. Will be passed to Device Information Service. */
 #define MANUFACTURER_ID                      0x1122334455                               /**< Manufacturer ID, part of System ID. Will be passed to Device Information Service. */
 #define ORG_UNIQUE_ID                        0x667788                                   /**< Organizational Unique ID, part of System ID. Will be passed to Device Information Service. */
-#define FIRMWARE_ID 												 "1.20"
+#define FIRMWARE_ID 												 "1.21"
 
 #define APP_ADV_INTERVAL                     0x808                                      /**< The advertising interval (in units of 0.625 ms. This value corresponds to 25 ms). */
 #define APP_ADV_TIMEOUT_IN_SECONDS           0x0000                                     /**< The advertising timeout in units of seconds. */
@@ -142,6 +142,8 @@ extern bool                                  DEVICE_CONNECTED_STATE;            
 extern bool     	                           PIR_CONNECTED_STATE;                       /**< Flag indicates Passive INfrared alarm service is in connected start or now */
 extern bool                                  ACCELEROMETER_CONNECTED_STATE;             /**< Flag indicates accelerometer alarm service is in connected start or now */ 
 volatile bool                                ACTIVE_CONN_FLAG = false;                  /**<flag indicating active connection*/
+extern bool																	 MMA_SWITCH;																/**< Flag to check if the state of the MMA7660 needs to change */
+extern uint8_t															 MMA_STATUS;																/**< Flag indicating to which state the MMA7660 should switch */
 
 extern uint8_t  current_xyz_array[3];
 static dm_application_instance_t             m_app_handle;                              /**< Application identifier allocated by device manager */
@@ -774,7 +776,7 @@ static void device_init(void)
 
     // Set the default low value for DFU and Switch mode characteristics 
     device_init.device_dfu_mode_set          = DEFAULT_ALARM_SET;
-    device_init.device_mode_switch_set       = DEFAULT_ALARM_SET;
+    device_init.device_mma_switch_set        = DEFAULT_ALARM_SET;
 
     // Start Time satmp from initial values
     device_init.device_time_stamp_set[0] =  0x00;
@@ -1344,6 +1346,8 @@ void get_die_revision_no(void)
 void connectable_mode(void)
 {
     uint32_t err_code;
+		uint16_t len = 1;
+		uint8_t val;
 
     // Initialization.
 		get_die_revision_no();								 	/*Get silicon revision before init*/
@@ -1387,7 +1391,30 @@ void connectable_mode(void)
 						err_code=sd_ble_gatts_service_changed(m_conn_handle,0x01,0x4D); /*function for service change indication*/
 						
 						sd_nvic_SystemReset();               /* Apply a system reset for jumping into bootloader*/                     
-        }                                       
+        }          
+
+				if(MMA_SWITCH)
+				{
+					twi_turn_ON();
+					if(MMA_STATUS == 0x01)
+					{
+						if(MMA7660_config_standby_and_initialize() == false)				//Turn on MMA7660. If it fails, reset characteristic to 0 indicating off.
+						{
+							val = 0;
+							sd_ble_gatts_value_set(m_device.mma_switch_handles.value_handle, 0, &len, &val);
+						}
+					}
+					if(MMA_STATUS == 0x00)
+					{
+						if(MMA7660_enable_standby_mode() == false)									//Turn off MMA7660. If it fails, reset characteristic to 1 indicating on.
+						{
+							val = 1;
+							sd_ble_gatts_value_set(m_device.mma_switch_handles.value_handle, 0, &len, &val);
+						}
+					}
+					twi_turn_OFF();
+					MMA_SWITCH = false;
+				}
 
         // If the PIR event mode flag is true and go for alarm check condition
         if(PIR_EVENT_FLAG)

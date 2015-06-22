@@ -26,6 +26,8 @@ bool   DFU_ENABLE             = false;                  /* Flah to check whether
 extern ble_date_time_t m_time_stamp;                    /* Time stamp defined in connect.c. */
 extern bool TIME_SET;                                   /* Flag to start time updation, defined in connect.c*/
 extern uint8_t	 var_receive_uuid;
+bool 	 MMA_SWITCH       			= false;									/*Flag indicating that the MMA7660 needs to change its state*/
+uint8_t MMA_STATUS 						= 0x00;										/*Flag indicating whether to turn on or off the MMA7660*/
 
 /**@brief Function for handling the Connect event.
 *
@@ -74,6 +76,10 @@ static void write_evt_handler (ble_device_t * p_device, ble_device_write_evt_t *
     case BLE_DEVICE_TIME_STAMP_WRITE:
         TIME_SET = true;
         break;  
+		case BLE_DEVICE_MMA_SWITCH_WRITE:
+				MMA_SWITCH = true;
+				MMA_STATUS = p_device->device_mma_switch_set;
+				break;
     default:
         break;
     }
@@ -142,14 +148,41 @@ static void on_write(ble_device_t * p_device, ble_evt_t * p_ble_evt)
                 p_device->evt_handler(p_device, &evt);
             }
         }
+			
+				/*Write event for mma switch set cccd*/
 
+        if (
+                (p_evt_write->handle == p_device->mma_switch_handles.cccd_handle)
+                &&
+                (p_evt_write->len == 2)
+                )
+        {   
+            // CCCD written, call application event handler
+            if (p_device->evt_handler != NULL)
+            {
+                ble_device_evt_t evt;
+
+                if (ble_srv_is_notification_enabled(p_evt_write->data))
+                {
+                    evt.evt_type = BLE_DEVICE_LOW_EVT_NOTIFICATION_ENABLED;
+                }
+                else
+                {
+                    evt.evt_type = BLE_DEVICE_LOW_EVT_NOTIFICATION_DISABLED;
+                }
+
+                p_device->evt_handler(p_device, &evt);
+
+            }
+        } 
 
     }
-
-    /*Write event for mode switch char value.*/
+		
+		
+		/*Write event for mma switch char value.*/
 
     if ( 
-            (p_evt_write->handle == p_device->switch_mode_handles.value_handle) 
+            (p_evt_write->handle == p_device->mma_switch_handles.value_handle) 
             && 
             (p_evt_write->len == 1)
             &&
@@ -157,16 +190,14 @@ static void on_write(ble_device_t * p_device, ble_evt_t * p_ble_evt)
             )
     {  
         ble_device_write_evt_t evt;
-        evt.evt_type           = BLE_DEVICE_SWITCH_MODE_WRITE;
+        evt.evt_type           = BLE_DEVICE_MMA_SWITCH_WRITE;
+				p_device->device_mma_switch_set = p_evt_write->data[0];
 
-        // update the service structure
-        p_device->device_mode_switch_set =   p_evt_write->data[0];
 
         // call application event handler
         p_device->write_evt_handler(p_device, &evt);
-    }
 
-
+		}
     /*Write event for mode dfu mode char value.*/
 
     if (
@@ -376,6 +407,67 @@ static uint32_t time_stamp_char_add(ble_device_t * p_device, const ble_device_in
     return NRF_SUCCESS;
 }
 
+/**@brief Function for adding MMA switch characteristic.
+*
+* @param[in]   p_device       Device Management Service structure.
+* @param[in]   p_device_init  Information needed to initialize the service.
+*
+* @return      NRF_SUCCESS on success, otherwise an error code.
+*/
+static uint32_t mma_switch_char_add(ble_device_t * p_device, const ble_device_init_t * p_device_init)
+{
+    uint32_t            err_code;
+    ble_gatts_char_md_t char_md;
+    ble_gatts_attr_t    attr_char_value;
+    ble_uuid_t          ble_uuid;
+    ble_gatts_attr_md_t attr_md;
+    static uint8_t      mma_status = 0x01;
+
+    memset(&char_md, 0, sizeof(char_md));
+
+    char_md.char_props.read   = 1;
+		char_md.char_props.write  = 1;                                	/*add fix for characteristic write issue*/
+		char_md.char_props.write_wo_resp = 1;                           /*add fix for characteristic write issue*/
+    char_md.p_char_user_desc  =	NULL;
+    char_md.p_char_user_desc  =	NULL;
+    char_md.p_char_pf         = NULL;
+    char_md.p_user_desc_md    = NULL;
+    char_md.p_cccd_md         = NULL;
+    char_md.p_sccd_md         = NULL;
+
+    //Adding custom UUID
+    ble_uuid.type = p_device->uuid_type;
+    ble_uuid.uuid = SENTRY_PROFILE_DEVICE_MMA_SWITCH_CHAR_UUID;       
+
+    memset(&attr_md, 0, sizeof(attr_md));
+
+    attr_md.read_perm  = p_device_init->device_char_attr_md.read_perm;
+    attr_md.write_perm = p_device_init->device_char_attr_md.write_perm;
+    attr_md.vloc       = BLE_GATTS_VLOC_USER;
+    attr_md.rd_auth    = 0;
+    attr_md.wr_auth    = 0;
+    attr_md.vlen       = 0;
+
+    memset(&attr_char_value, 0, sizeof(attr_char_value));
+
+    attr_char_value.p_uuid       = &ble_uuid;
+    attr_char_value.p_attr_md    = &attr_md;
+    attr_char_value.init_len     = sizeof(uint8_t);
+    attr_char_value.init_offs    = 0;
+    attr_char_value.max_len      = sizeof(uint8_t);
+    attr_char_value.p_value      = &mma_status;
+
+    err_code = sd_ble_gatts_characteristic_add(p_device->service_handle, &char_md,
+    &attr_char_value,
+    &p_device->mma_switch_handles);
+    if (err_code != NRF_SUCCESS)
+    {
+        return err_code;
+    }
+
+    return NRF_SUCCESS;
+}
+
 /**@brief Function for initializing the Device management service.
 *
 * @param[in]   p_device        Device Management Service structure.
@@ -399,7 +491,7 @@ uint32_t ble_device_init(ble_device_t * p_device, const ble_device_init_t * p_de
     p_device->conn_handle               = BLE_CONN_HANDLE_INVALID;
     p_device->is_notification_supported = p_device_init->support_notification;
     p_device->device_dfu_mode_set       = p_device_init->device_dfu_mode_set;    
-    p_device->device_mode_switch_set    = p_device_init->device_mode_switch_set; 
+    p_device->device_mma_switch_set    	= p_device_init->device_mma_switch_set; 
 
     // Add service 
     err_code = sd_ble_gatts_service_add(BLE_GATTS_SRVC_TYPE_PRIMARY, &ble_uuid, &p_device->service_handle);
@@ -419,6 +511,12 @@ uint32_t ble_device_init(ble_device_t * p_device, const ble_device_init_t * p_de
     {
         return err_code;
     }
+		
+		err_code = mma_switch_char_add(p_device, p_device_init);	/* Add MMA7660 switching function. Power savings! */
+		if (err_code != NRF_SUCCESS)
+		{
+				return err_code;
+		}
 
     return NRF_SUCCESS;
 
