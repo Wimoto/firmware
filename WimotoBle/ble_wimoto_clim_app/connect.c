@@ -68,7 +68,7 @@
 #define APP_TIMER_MAX_TIMERS                 5                                          /**< Maximum number of simultaneously created timers. */
 #define APP_TIMER_OP_QUEUE_SIZE              4                                          /**< Size of timer operation queues. */
 
-#define TEMPERATURE_LEVEL_MEAS_INTERVAL      APP_TIMER_TICKS(60000, APP_TIMER_PRESCALER)/**< temperature level measurement interval (ticks). */
+#define TEMPERATURE_LEVEL_MEAS_INTERVAL      APP_TIMER_TICKS(15000, APP_TIMER_PRESCALER)/**< temperature level measurement interval (ticks) on steroids for log testing */
 #define CONNECTED_MODE_TIMEOUT_INTERVAL      APP_TIMER_TICKS(30000, APP_TIMER_PRESCALER)/**< Connected mode timeout interval (ticks). */
 #define SECONDS_INTERVAL                     APP_TIMER_TICKS(1000, APP_TIMER_PRESCALER) /**< seconds measurement interval (ticks). */
 
@@ -335,7 +335,7 @@ static void alarm_check(void)
 
 static void climate_param_meas_timeout_handler(void * p_context)
 {
-    UNUSED_PARAMETER(p_context);
+    /*UNUSED_PARAMETER(p_context);
     static uint8_t minutes_count = 0x01;
     if (minutes_count < 0x0F)
     { 
@@ -345,7 +345,9 @@ static void climate_param_meas_timeout_handler(void * p_context)
     {
         minutes_count =0x01;
         DATA_LOG_CHECK=true;
-    }
+    }*/
+	
+		DATA_LOG_CHECK = true;
 
 
 }
