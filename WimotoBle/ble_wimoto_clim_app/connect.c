@@ -1333,7 +1333,9 @@ static void create_log_data(uint32_t * data)
 		data[1]=(m_time_stamp.hours<<16)|(m_time_stamp.minutes<<8)|m_time_stamp.seconds; /* Second word contains time HHMMSS*/
 		data[2]=current_temperature;
 		data[2]=(current_temperature<<16)|current_light_level;										/* Third word contains temperature and light level*/	
-		data[3]=current_humidity_level | log_id;                                           /* Fouth word contains soil moisture level and record ID*/
+		data[3]=(current_humidity_level << 16) | log_id;                                           /* Fouth word contains soil moisture level and record ID*/
+	
+		log_id++;
 }
 
 
