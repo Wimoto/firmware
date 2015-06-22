@@ -59,7 +59,7 @@
 #define MANUFACTURER_ID                      0x1122334455                              /**< Manufacturer ID, part of System ID. Will be passed to Device Information Service. */
 #define ORG_UNIQUE_ID                        0x667788                                  /**< Organizational Unique ID, part of System ID. Will be passed to Device Information Service. */
 #define HARDWARE_ID													 "1"
-#define FIRMWARE_ID 												 "1.20"
+#define FIRMWARE_ID 												 "1.21b"
 
 #define APP_ADV_INTERVAL                     0x808                                     /**< The advertising interval (in units of 0.625 ms. This value corresponds to 25 ms). */
 #define APP_ADV_TIMEOUT_IN_SECONDS           0x0000                                    /**< The advertising timeout in units of seconds. */
@@ -161,6 +161,7 @@ uint8_t				             temperature[2]   = {0x00,0x00};              /* Temperat
 uint8_t				             light_level[2]   = {0x00,0x00};              /* Light value*/
 uint8_t				             htu_hum_level[2] = {0x00,0x00};              /* Humidity value*/
 uint8_t                    battery_lvl;                                 /*battery level for broadcasting*/ 
+uint16_t									 log_id = 0x00;																/*data log record id*/
 
 #define ADC_REF_VOLTAGE_IN_MILLIVOLTS        1200                                      /**< Reference voltage (in milli volts) used by ADC while doing conversion. */
 #define ADC_PRE_SCALING_COMPENSATION         3                                         /**< The ADC is configured to use VDD with 1/3 prescaling as input. And hence the result of conversion is to be multiplied by 3 to get the actual value of the battery voltage.*/
@@ -1330,7 +1331,7 @@ static void create_log_data(uint32_t * data)
 		data[1]=(m_time_stamp.hours<<16)|(m_time_stamp.minutes<<8)|m_time_stamp.seconds; /* Second word contains time HHMMSS*/
 		data[2]=current_temperature;
 		data[2]=(current_temperature<<16)|current_light_level;										/* Third word contains temperature and light level*/	
-		data[3]=current_humidity_level;                                           /* Fouth word contains soil moisture level*/
+		data[3]=current_humidity_level | log_id;                                           /* Fouth word contains soil moisture level and record ID*/
 }
 
 
