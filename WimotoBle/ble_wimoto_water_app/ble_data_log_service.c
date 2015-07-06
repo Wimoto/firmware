@@ -35,6 +35,7 @@ uint32_t            write_pg;                     /* flash page number to which 
 
 static uint32_t *write_addr;                      /* write_address of the word to which data is being written*/
 static uint32_t pg_end;                           /* last page in the buffer*/ 
+static bool reread = false;												/* whether or not to reread the last 4 bytes */
 
 bool   DLOGS_CONNECTED_STATE=false;               /* Indicates whether the data logger service is connected or not*/
 
@@ -43,6 +44,7 @@ bool   flash_comp_evt = false;			              /*flag to indicate flash operatio
 extern ble_date_time_t m_time_stamp;              /* time stamp structure*/ 
 extern uint8_t	 var_receive_uuid;  							/*variable for receiving uuid*/
 extern uint32_t buf[4];														/*buffer for flash write operation*/
+extern uint16_t log_id;
 /**@brief Function for handling the Connect event.
 *
 * @param[in]   ble_dlogs     Data logger service structure.
@@ -536,6 +538,9 @@ void write_data_flash(uint32_t *data)
 		buf[1]=*(data+1);
 		buf[2]=*(data+2);
 		buf[3]=*(data+3);
+	
+		
+		
 		if(first_write)                                         /* for the first write cycle set the start address and erase the page*/
     {
         pg_size   = NRF_FICR->CODEPAGESIZE;
@@ -553,14 +558,17 @@ void write_data_flash(uint32_t *data)
 				}
         first_write = false;
     }
-    
+    if (log_id == 0x0B41)
+		{
+				flash_comp_evt = false;
+		}
     if(write_pg <= pg_end)								
     {		
         
         if(i < pg_size)                                    /* stay in same page if the page size(1024 bytes) is not exceeded*/
         {		
 						flash_comp_evt = false;
-						sd_flash_write(write_addr,buf,4);      /* write four words*/
+						sd_flash_write(write_addr,buf,4);      				/* write four words*/
 						while(flash_comp_evt!=true)
 						{
 								sd_app_evt_wait();
@@ -571,7 +579,7 @@ void write_data_flash(uint32_t *data)
         else if((++write_pg) <= pg_end)                    /* increment the page number when the current page size is exceeded*/
         {
 						flash_comp_evt = false;
-            sd_flash_page_erase(write_pg);         /* Erase the page before writing*/
+            sd_flash_page_erase(write_pg);         				/* Erase the page before writing*/
 						while(flash_comp_evt!=true)	                  /*wait for the completeion of flash erase*/
 						{
 								sd_app_evt_wait();
@@ -598,29 +606,31 @@ void write_data_flash(uint32_t *data)
         }
         
     }
-    else
-    {
-        write_pg  = DATA_LOGGER_BUFFER_START_PAGE;        /* when the last page is reached, go back to the first page*/
-        read_pg = write_pg + 1;
-				flash_comp_evt = false;
-        sd_flash_page_erase(write_pg);
-				while(flash_comp_evt!=true)
-				{
-						sd_app_evt_wait();
-				}
+    //if (write_pg > pg_end)																/* If the write page has gone over page end, make sure to start over*/
+    //{
+    //    write_pg  = DATA_LOGGER_BUFFER_START_PAGE;        /* when the last page is reached, go back to the first page*/
+    //    read_pg = write_pg + 1;
+		//		flash_comp_evt = false;
+    //    sd_flash_page_erase(write_pg);
+		//		while(flash_comp_evt!=true)
+		//		{
+		//				sd_app_evt_wait();
+		//		}
 				
-        write_addr = (uint32_t *)(pg_size * write_pg);
-				flash_comp_evt = false;
-        sd_flash_write(write_addr,buf,4);
-				while(flash_comp_evt != true)
-				{
-						sd_app_evt_wait();
-				}
-				i = 16;															
-				write_addr+=4;      
-				write_cycle=0x01;                               /* if write operation reached the end of the buffer, change the cycle to 1*/
+    //    write_addr = (uint32_t *)(pg_size * write_pg);
+		//		flash_comp_evt = false;
+    //    sd_flash_write(write_addr,buf,4);
+		//		while(flash_comp_evt != true)
+		//		{
+		//				sd_app_evt_wait();
+		//		}
+		//		i = 16;															
+		//		write_addr+=4;      
+		//		write_cycle=0x01;                               /* if write operation reached the end of the buffer, change the cycle to 1*/
          
-    }	
+    //}	
+		
+
 }
 
 /**@brief Function to send data to the connected BLE central device.
@@ -641,21 +651,37 @@ void send_data(ble_dlogs_t * ble_dlogs)
         switch(state)
         {
         case READ:
-            read_data_flash(ble_dlogs,data);							/* read data from the flash*/
-            if(done_read)                                               /* If all the data has been read set the next state to read complete*/
-            {
-                state=READ_COMPLETE;
-            }
-            else																					
-            {	
-                state=TXMIT;                                            /* If data read is not complete set the next state to trasmit*/
-            }
-            
+            read_data_flash(ble_dlogs,data);														/* read data from the flash*/
+            //if(done_read)                                               /* If all the data has been read set the next state to read complete*/
+            //{
+            //    state=READ_COMPLETE;
+            //}
+            //else																					
+            //{	
+            //    state=TXMIT;                                            /* If data read is not complete set the next state to trasmit*/
+            //}
+						if(done_read)
+						{
+							state = READ_COMPLETE;
+							break;
+						}
+            err_code=send_data_to_central(ble_dlogs,data);
+				
+						if(err_code == BLE_ERROR_NO_TX_BUFFERS)
+						{	
+							reread= true;
+							state = TXMIT;
+							break;
+						}else if (err_code != NRF_SUCCESS)
+						{
+							APP_ERROR_HANDLER(err_code);
+						}
+							
             break;
 
         case TXMIT: 		
-            err_code=send_data_to_central(ble_dlogs,data);              /* trasmit data to the connected central device*/
-            APP_ERROR_CHECK(err_code);
+            //err_code=send_data_to_central(ble_dlogs,data);              /* trasmit data to the connected central device*/
+            //APP_ERROR_CHECK(err_code);
 
             while(!TX_COMPLETE)                                        /* Wait for TX complete event*/
             {
@@ -699,6 +725,12 @@ uint32_t read_data_flash(ble_dlogs_t * ble_dlogs, uint32_t * data)
     int i;
     pg_size = NRF_FICR->CODEPAGESIZE;
     buffer_end_addr = (uint32_t *)(pg_size * (pg_end + 1));
+	
+		if(reread == true)
+		{
+			read_addr = read_addr - 4;
+			reread = false;
+		}
 
     if(first_read)
     {																				/*in the first read operation, set the address to be read as the first word of read page set by the write routine. i.e the oldest data*/	

@@ -63,7 +63,7 @@
 #define MODEL_NUM                            "Wimoto_Water"                             /**< Model number. Will be passed to Device Information Service. */
 #define MANUFACTURER_ID                      0x1122334455                               /**< Manufacturer ID, part of System ID. Will be passed to Device Information Service. */
 #define ORG_UNIQUE_ID                        0x667788                                   /**< Organizational Unique ID, part of System ID. Will be passed to Device Information Service. */
-#define FIRMWARE_ID 												 "1.10"																			
+#define FIRMWARE_ID 												 "1.11b"																			
 
 #define APP_ADV_INTERVAL                     0x808                                      /**< The advertising interval (in units of 0.625 ms. This value corresponds to 25 ms). */
 #define APP_ADV_TIMEOUT_IN_SECONDS           0x0000                                     /**< The advertising timeout in units of seconds. */
@@ -72,17 +72,22 @@
 #define APP_TIMER_MAX_TIMERS                 5                                          /**< Maximum number of simultaneously created timers. */
 #define APP_TIMER_OP_QUEUE_SIZE              4                                          /**< Size of timer operation queues. */
 																														
-#define WATER_LEVEL_MEAS_INTERVAL            APP_TIMER_TICKS(60000, APP_TIMER_PRESCALER) /**< water level measurement interval (ticks). */
+#define WATER_LEVEL_MEAS_INTERVAL            APP_TIMER_TICKS(10000, APP_TIMER_PRESCALER) /**< water level measurement interval (ticks). */
 #define CONNECTED_MODE_TIMEOUT_INTERVAL      APP_TIMER_TICKS(30000, APP_TIMER_PRESCALER)/**< Connected mode timeout interval (ticks). */
 #define SECONDS_INTERVAL                     APP_TIMER_TICKS(1000, APP_TIMER_PRESCALER) /**< seconds measurement interval (ticks). */
 #define BROADCAST_INTERVAL       						 APP_TIMER_TICKS(1000, APP_TIMER_PRESCALER) /**< updating interval of broadcast data*/ 
 
 #define WATER_TYPE_AS_CHARACTERISTIC         0                                          /**< Determines if water type is given as characteristic (1) or as a field of measurement (0). */
 
-#define MIN_CONN_INTERVAL                    MSEC_TO_UNITS(50, UNIT_1_25_MS)           /**< Minimum acceptable connection interval (25 milliseconds) */
-#define MAX_CONN_INTERVAL                    MSEC_TO_UNITS(500, UNIT_1_25_MS)          /**< Maximum acceptable connection interval (125 millisecond). */
-#define SLAVE_LATENCY                        0                                          /**< Slave latency. */
+#define MIN_CONN_INTERVAL                    MSEC_TO_UNITS(100, UNIT_1_25_MS)           /**< Minimum acceptable connection interval (25 milliseconds) */
+#define MAX_CONN_INTERVAL                    MSEC_TO_UNITS(200, UNIT_1_25_MS)          /**< Maximum acceptable connection interval (125 millisecond). */
+#define SLAVE_LATENCY                        4                                          /**< Slave latency. */
 #define CONN_SUP_TIMEOUT                     MSEC_TO_UNITS(4000, UNIT_10_MS)            /**< Connection supervisory timeout (4 seconds). */
+
+#define MIN_CONN_INTERVAL_TRANS							 MSEC_TO_UNITS(20, UNIT_1_25_MS)						
+#define MAX_CONN_INTERVAL_TRANS							 MSEC_TO_UNITS(40, UNIT_1_25_MS)
+#define SLAVE_LATENCY_TRANS									 0
+#define CONN_SUP_TIMEOUT_TRANS							 MSEC_TO_UNITS(4000, UNIT_10_MS)
 
 #define FIRST_CONN_PARAMS_UPDATE_DELAY       APP_TIMER_TICKS(5000, APP_TIMER_PRESCALER) /**< Time from initiating event (connect or start of indication) to first time sd_ble_gap_conn_param_update is called (5 seconds). */
 #define NEXT_CONN_PARAMS_UPDATE_DELAY        APP_TIMER_TICKS(5000, APP_TIMER_PRESCALER) /**< Time between each call to sd_ble_gap_conn_param_update . */
@@ -147,6 +152,8 @@ uint8_t  																		 var_receive_uuid;  												/**<variable for rece
 uint32_t buf[4];                                        															  /*buffer for flash write operation*/
 uint8_t				                               curr_waterpresence=0x01;                   /* water presence value for broadcast*/
 uint8_t                                      battery_lvl;                                 /*battery level for broadcasting*/
+
+uint16_t 																		 log_id = 0x00;															//record id for data logs
 
 static void device_init(void);
 static void dlogs_init(void);
@@ -242,7 +249,7 @@ static void water_param_meas_timeout_handler(void * p_context)
 {
     UNUSED_PARAMETER(p_context);
     static uint8_t minutes_count = 0x01;
-    if (minutes_count < 0x0F)
+    /*if (minutes_count < 0x0F)
     {
         minutes_count++;
     }
@@ -250,7 +257,8 @@ static void water_param_meas_timeout_handler(void * p_context)
     {
         minutes_count =0x01;
         DATA_LOG_CHECK=true;
-    }
+    }*/
+		DATA_LOG_CHECK = true;
 
 }
 
@@ -1058,6 +1066,15 @@ static void create_log_data(uint32_t * data)
     data[1]=(m_time_stamp.hours<<16)|(m_time_stamp.minutes<<8)|m_time_stamp.seconds; /* Second word contains time HHMMSS*/
 
     data[2]=current_water_presence;										/* Third word contains water presence*/	
+		data[3]= log_id;
+	
+		if (log_id == 65535)
+		{
+			log_id = 0;
+		}else
+		{
+			log_id++;
+		}
 }
 
 
@@ -1255,6 +1272,43 @@ void HFCLK_request(void)
 	
 }
 
+/**@brief Update conn params for data transfer
+*/
+void update_conn_params()
+{
+	uint32_t                err_code;
+	ble_gap_conn_params_t   gap_conn_params;
+	
+	memset(&gap_conn_params, 0, sizeof(gap_conn_params));
+
+  gap_conn_params.min_conn_interval = MIN_CONN_INTERVAL_TRANS;
+  gap_conn_params.max_conn_interval = MAX_CONN_INTERVAL_TRANS;
+  gap_conn_params.slave_latency     = SLAVE_LATENCY_TRANS;
+  gap_conn_params.conn_sup_timeout  = CONN_SUP_TIMEOUT_TRANS;
+
+  err_code =ble_conn_params_change_conn_params(&gap_conn_params);
+  APP_ERROR_CHECK(err_code);
+	
+}
+
+/**@brief Return conn params to default after data log upload is complete
+*/
+void reset_conn_params()
+{
+	uint32_t                err_code;
+	ble_gap_conn_params_t   gap_conn_params;
+	
+	memset(&gap_conn_params, 0, sizeof(gap_conn_params));
+
+  gap_conn_params.min_conn_interval = MIN_CONN_INTERVAL;
+  gap_conn_params.max_conn_interval = MAX_CONN_INTERVAL;
+  gap_conn_params.slave_latency     = SLAVE_LATENCY;
+  gap_conn_params.conn_sup_timeout  = CONN_SUP_TIMEOUT;
+
+  err_code =ble_conn_params_change_conn_params(&gap_conn_params);
+  APP_ERROR_CHECK(err_code);
+	
+}
 
 /**@brief Function for application main entry.
 */
@@ -1301,7 +1355,7 @@ void connectable_mode(void)
         if (DATA_LOG_CHECK)
         {		
              data_log_check();
-            DATA_LOG_CHECK= false;
+						 DATA_LOG_CHECK= false;
         }
 
         // If READ_DATA flag is set, start sending data to the connected device
@@ -1309,16 +1363,18 @@ void connectable_mode(void)
         {
             err_code=app_timer_stop(water_measurement_timer);		       /* Stop the timers before start sending the historical data*/
             APP_ERROR_CHECK(err_code);
-            err_code=app_gpiote_user_disable(waterp_measurement_gpiote);/* Disable the water presence gpiote*/
-            APP_ERROR_CHECK(err_code);
+            //err_code=app_gpiote_user_disable(waterp_measurement_gpiote);/* Disable the water presence gpiote*/
+            //APP_ERROR_CHECK(err_code);
+						update_conn_params();																				/*Update the connection parameters for faster data transfer*/
             READ_DATA=false;
             ENABLE_DATA_LOG = false;                                    /* Disable data logging functionality */
             send_data(&m_dlogs);																         /* Start sending the data*/												
             application_timers_start();													       /* Restart the timers when sending is finished*/
-            err_code=app_gpiote_user_enable(waterp_measurement_gpiote); /* Re-enable water presence gpiote*/
-            APP_ERROR_CHECK(err_code);
+            //err_code=app_gpiote_user_enable(waterp_measurement_gpiote); /* Re-enable water presence gpiote*/
+            //APP_ERROR_CHECK(err_code);
             err_code=reset_data_log(&m_dlogs);									         /* Reset the data logger enable and data read switches*/
-            APP_ERROR_CHECK(err_code);	
+            APP_ERROR_CHECK(err_code);
+						reset_conn_params();
         }
 
         // If TIME_SET flag is set, create new time stamp

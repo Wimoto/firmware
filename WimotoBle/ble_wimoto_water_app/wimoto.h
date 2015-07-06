@@ -281,7 +281,7 @@
 #define PROBE_TEMP_DEFAULT_HIGH_VALUE             0xFF        /**< Default value of soil moisture low value>*/
  
 #define DATA_LOGGER_BUFFER_START_PAGE             0xC0        /**< first flash page of the datalogger cyclic buffer*/
-#define DATA_LOGGER_BUFFER_END_PAGE               0xC3        /**< last flash page of the datalogger cyclic buffer*/
+#define DATA_LOGGER_BUFFER_END_PAGE               0xEC        /**< last flash page of the datalogger cyclic buffer*/
 #define COMPANY_IDENTIFER                         0x1701      /**< comapany identifier*/                                                                 
 #define BATTERY_MEAS_INTERVAL                     0x0F        /**< interval for measuring the battery level*/
 

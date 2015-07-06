@@ -72,7 +72,7 @@ static bool                                  m_memory_access_in_progress = false
 #define APP_TIMER_MAX_TIMERS                 5                                          /**< Maximum number of simultaneously created timers. */
 #define APP_TIMER_OP_QUEUE_SIZE              4                                          /**< Size of timer operation queues. */
 																														
-#define THERMOPILE_LEVEL_MEAS_INTERVAL       APP_TIMER_TICKS(60000, APP_TIMER_PRESCALER)/**< temperature level measurement interval (ticks). */
+#define THERMOPILE_LEVEL_MEAS_INTERVAL       APP_TIMER_TICKS(2000, APP_TIMER_PRESCALER)/**< temperature level measurement interval (ticks). */
 #define CONNECTED_MODE_TIMEOUT_INTERVAL      APP_TIMER_TICKS(30000, APP_TIMER_PRESCALER)/**< Connected mode timeout interval (ticks). */
 #define SECONDS_INTERVAL                     APP_TIMER_TICKS(1000, APP_TIMER_PRESCALER) /**< seconds measurement interval (ticks). */
 #define BROADCAST_INTERVAL       						 APP_TIMER_TICKS(1000, APP_TIMER_PRESCALER) /**< updating interval of broadcast data*/ 
@@ -154,7 +154,9 @@ extern uint8_t  current_thermopile_temp_store[THERMOP_CHAR_SIZE];               
 uint32_t buf[4];  													 					/*buffer for flash write operation*/
 uint8_t	 thermopile[5];    														/*variable to store current Thermopile temperature to broadcast*/
 uint8_t	 curr_probe_temp_level[2];										/*variable to store current probe temperature to broadcast*/
-uint8_t  battery_lvl;                                 /*battery level for broadcasting*/		
+uint8_t  battery_lvl;                                 /*battery level for broadcasting*/	
+
+uint16_t																		 log_id = 0;																/**<Record ID for data logs*/
 
 static void device_init(void);
 static void thermops_init(void);
@@ -264,7 +266,7 @@ static void thermo_param_meas_timeout_handler(void * p_context)
 {
     UNUSED_PARAMETER(p_context);
     static uint8_t minutes_count = 0x01, sensor_minutes= 0x01;
-    if (minutes_count < 0x0F)
+    /*if (minutes_count < 0x0F)
     {
         minutes_count++;
     }
@@ -272,7 +274,8 @@ static void thermo_param_meas_timeout_handler(void * p_context)
     {
         minutes_count =0x01;
         DATA_LOG_CHECK=true;
-    }
+    }*/
+		DATA_LOG_CHECK = true;
 
     if (sensor_minutes < 0x02)
     {
@@ -1225,10 +1228,18 @@ static void create_log_data(uint32_t * data)
     current_probe_temp_level=read_probe_temp_level();
 
     data[0]=(m_time_stamp.year<<16)|(m_time_stamp.month<<8)|m_time_stamp.day;				 /*firt word writeen to memory contains date (YYYYMMDD)*/
-    data[1]=(m_time_stamp.hours<<16)|(m_time_stamp.minutes<<8)|m_time_stamp.seconds; /*second word contains time 00HHMMSS*/
+    data[1]=(m_time_stamp.hours<<24)|(m_time_stamp.minutes<<16)|(m_time_stamp.seconds<<8)|current_thermopile_temp_store[0] ; /*second word contains time 00HHMMSS*/
 
-    data[2]=current_thermopile_temp_store[0]<<24|current_thermopile_temp_store[1]<<16|current_thermopile_temp_store[2]<<8|current_thermopile_temp_store[3];
-    data[3]=current_thermopile_temp_store[4]<<24|current_probe_temp_level;                                           /*fourth word contains current thermopile and probe temperature level*/
+    data[2]= current_thermopile_temp_store[1]<<24|current_thermopile_temp_store[2]<<16|current_thermopile_temp_store[3]<<8|current_thermopile_temp_store[4];
+    data[3]= (current_probe_temp_level << 16) | log_id;                                           /*fourth word contains current thermopile and probe temperature level and log id*/
+	
+		if(log_id == 0xFFFF)
+		{
+			log_id = 0;
+		}else
+		{
+			log_id++;
+		}
 			
 }
 
