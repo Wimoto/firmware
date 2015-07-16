@@ -63,7 +63,7 @@
 #define MODEL_NUM                            "Wimoto_Water"                             /**< Model number. Will be passed to Device Information Service. */
 #define MANUFACTURER_ID                      0x1122334455                               /**< Manufacturer ID, part of System ID. Will be passed to Device Information Service. */
 #define ORG_UNIQUE_ID                        0x667788                                   /**< Organizational Unique ID, part of System ID. Will be passed to Device Information Service. */
-#define FIRMWARE_ID 												 "1.20"																			
+#define FIRMWARE_ID 												 "1.21"																			
 
 #define APP_ADV_INTERVAL                     0x808                                      /**< The advertising interval (in units of 0.625 ms. This value corresponds to 25 ms). */
 #define APP_ADV_TIMEOUT_IN_SECONDS           0x0000                                     /**< The advertising timeout in units of seconds. */
@@ -72,17 +72,22 @@
 #define APP_TIMER_MAX_TIMERS                 5                                          /**< Maximum number of simultaneously created timers. */
 #define APP_TIMER_OP_QUEUE_SIZE              4                                          /**< Size of timer operation queues. */
 																														
-#define WATER_LEVEL_MEAS_INTERVAL            APP_TIMER_TICKS(60000, APP_TIMER_PRESCALER) /**< water level measurement interval (ticks). */
+#define WATER_LEVEL_MEAS_INTERVAL            APP_TIMER_TICKS(1000, APP_TIMER_PRESCALER) /**< water level measurement interval (ticks). */
 #define CONNECTED_MODE_TIMEOUT_INTERVAL      APP_TIMER_TICKS(30000, APP_TIMER_PRESCALER)/**< Connected mode timeout interval (ticks). */
 #define SECONDS_INTERVAL                     APP_TIMER_TICKS(1000, APP_TIMER_PRESCALER) /**< seconds measurement interval (ticks). */
 #define BROADCAST_INTERVAL       						 APP_TIMER_TICKS(1000, APP_TIMER_PRESCALER) /**< updating interval of broadcast data*/ 
 
 #define WATER_TYPE_AS_CHARACTERISTIC         0                                          /**< Determines if water type is given as characteristic (1) or as a field of measurement (0). */
 
-#define MIN_CONN_INTERVAL                    MSEC_TO_UNITS(500, UNIT_1_25_MS)           /**< Minimum acceptable connection interval (25 milliseconds) */
-#define MAX_CONN_INTERVAL                    MSEC_TO_UNITS(1000, UNIT_1_25_MS)          /**< Maximum acceptable connection interval (125 millisecond). */
-#define SLAVE_LATENCY                        0                                          /**< Slave latency. */
+#define MIN_CONN_INTERVAL                    MSEC_TO_UNITS(100, UNIT_1_25_MS)           /**< Minimum acceptable connection interval (25 milliseconds) */
+#define MAX_CONN_INTERVAL                    MSEC_TO_UNITS(200, UNIT_1_25_MS)          /**< Maximum acceptable connection interval (125 millisecond). */
+#define SLAVE_LATENCY                        4                                          /**< Slave latency. */
 #define CONN_SUP_TIMEOUT                     MSEC_TO_UNITS(4000, UNIT_10_MS)            /**< Connection supervisory timeout (4 seconds). */
+
+#define MIN_CONN_INTERVAL_TRANS              MSEC_TO_UNITS(20, UNIT_1_25_MS)           /**< Minimum acceptable connection interval (25 milliseconds) */
+#define MAX_CONN_INTERVAL_TRANS              MSEC_TO_UNITS(40, UNIT_1_25_MS)          	/**< Maximum acceptable connection interval (125 millisecond). */
+#define SLAVE_LATENCY_TRANS                  0                                          /**< Slave latency. */
+#define CONN_SUP_TIMEOUT_TRANS               MSEC_TO_UNITS(4000, UNIT_10_MS)            /**< Connection supervisory timeout (4 seconds). */
 
 #define FIRST_CONN_PARAMS_UPDATE_DELAY       APP_TIMER_TICKS(5000, APP_TIMER_PRESCALER) /**< Time from initiating event (connect or start of indication) to first time sd_ble_gap_conn_param_update is called (5 seconds). */
 #define NEXT_CONN_PARAMS_UPDATE_DELAY        APP_TIMER_TICKS(5000, APP_TIMER_PRESCALER) /**< Time between each call to sd_ble_gap_conn_param_update . */
@@ -149,6 +154,10 @@ uint8_t				                               curr_waterpresence=0x01;              
 uint8_t                                      battery_lvl;                                 /*battery level for broadcasting*/
 
 static uint8_t															 rev_no;																		/**<Revision number of silicon*/
+uint16_t																		 log_id = 0x00;															/*Record ID for data logs*/
+extern uint32_t						 									 read_pg;
+extern uint32_t						 									 write_pg;
+bool 											 									 param_updated = false;												/* Flag indicating whether or not the conn params have been updated*/
 
 static void device_init(void);
 static void dlogs_init(void);
@@ -253,7 +262,6 @@ static void water_param_meas_timeout_handler(void * p_context)
         minutes_count =0x01;
         DATA_LOG_CHECK=true;
     }
-
 }
 
 
@@ -1053,19 +1061,45 @@ static void create_log_data(uint32_t * data)
 {
     uint8_t current_water_presence;
 		uint8_t waterp_pin_reading;
-		
-		nrf_gpio_pin_set(WATER_SENSOR_ENERGIZE_PIN);                    /* Set the value of energize to high for water presence sensor*/
-		delay_ms(10);
-    waterp_pin_reading = nrf_gpio_pin_read(WATERP_GPIOTE_PIN);			/*Read pin connected to water presence*/		
-		delay_ms(10);																								    /*delay for sensor response*/
-		nrf_gpio_pin_clear(WATER_SENSOR_ENERGIZE_PIN);	                /* Clear the pin after reading*/
 	
-		current_water_presence = !(waterp_pin_reading);									/* Active Low voltage in pin indicates water presence.So invert the waterp_pin_reading */
+		//Set up necessary pins for presence measurement
+		nrf_gpio_cfg_input(WATERP_GPIOTE_PIN,GPIO_PIN_CNF_PULL_Disabled);           /* Configure pin p0.01 as input with pull-up disabled*/
+		nrf_gpio_cfg_output(WATER_SENSOR_ENERGIZE_PIN);                             /* Configure P0.02 as output to energize the water presence sensor */
+		
+		nrf_gpio_pin_set(WATER_SENSOR_ENERGIZE_PIN);                    						/* Set the value of energize to high for water presence sensor*/
+		delay_ms(10);
+    waterp_pin_reading = nrf_gpio_pin_read(WATERP_GPIOTE_PIN);									/*Read pin connected to water presence*/		
+		delay_ms(10);																								    						/*delay for sensor response*/
+		nrf_gpio_pin_clear(WATER_SENSOR_ENERGIZE_PIN);	                						/* Clear the pin after reading*/
+	
+		//Disable presence measurement pins
+		NRF_GPIO->PIN_CNF[WATERP_GPIOTE_PIN] = (GPIO_PIN_CNF_SENSE_Disabled << GPIO_PIN_CNF_SENSE_Pos)
+                                        | (GPIO_PIN_CNF_DRIVE_S0S1 << GPIO_PIN_CNF_DRIVE_Pos)
+                                        | (GPIO_PIN_CNF_PULL_Disabled << GPIO_PIN_CNF_PULL_Pos)
+                                        | (GPIO_PIN_CNF_INPUT_Disconnect << GPIO_PIN_CNF_INPUT_Pos)
+                                        | (GPIO_PIN_CNF_DIR_Input << GPIO_PIN_CNF_DIR_Pos);
+		
+		NRF_GPIO->PIN_CNF[WATER_SENSOR_ENERGIZE_PIN] = (GPIO_PIN_CNF_SENSE_Disabled << GPIO_PIN_CNF_SENSE_Pos)
+                                        | (GPIO_PIN_CNF_DRIVE_S0S1 << GPIO_PIN_CNF_DRIVE_Pos)
+                                        | (GPIO_PIN_CNF_PULL_Disabled << GPIO_PIN_CNF_PULL_Pos)
+                                        | (GPIO_PIN_CNF_INPUT_Disconnect << GPIO_PIN_CNF_INPUT_Pos)
+                                        | (GPIO_PIN_CNF_DIR_Input << GPIO_PIN_CNF_DIR_Pos);
+	
+		current_water_presence = !(waterp_pin_reading);																		/* Active Low voltage in pin indicates water presence.So invert the waterp_pin_reading */
     
-	  data[0]=(m_time_stamp.year<<16)|(m_time_stamp.month<<8)|m_time_stamp.day;				 /* Firt word writeen to memory contains date (YYYYMMDD)*/
-    data[1]=(m_time_stamp.hours<<16)|(m_time_stamp.minutes<<8)|m_time_stamp.seconds; /* Second word contains time HHMMSS*/
+	  data[0]=(m_time_stamp.year<<16)|(m_time_stamp.month<<8)|m_time_stamp.day;				 	/* First word writeen to memory contains date (YYYYMMDD)*/
+    data[1]=(m_time_stamp.hours<<24)|(m_time_stamp.minutes<<16)|(m_time_stamp.seconds<<8); /* Second word contains time HHMMSS*/
 
-    data[2]=current_water_presence;										/* Third word contains water presence*/	
+    data[2]=current_water_presence;																										/* Third word contains water presence*/	
+		data[3]=log_id;																																		/* Fourth word contains log id*/
+	
+		if(log_id == 0xFFFF)
+		{
+			log_id = 0;
+		}else
+		{
+			log_id++;
+		}
 }
 
 
@@ -1073,7 +1107,7 @@ static void create_log_data(uint32_t * data)
 */
 static void data_log_check()
 {
-    uint32_t log_data[4] = {0x00,0x00,0x00,0x00};                                 /* Array storing the data to be logged */
+    uint32_t log_data[4] = {0x00,0x00,0x00,0x00};         /* Array storing the data to be logged */
 
     if(ENABLE_DATA_LOG && !READ_DATA)									    /* If enabled, start data logging functionality*/
     {   
@@ -1280,6 +1314,44 @@ void get_die_revision_no(void)
 
 }
 
+/**@brief Update conn params for data transfer
+*/
+void update_conn_params()
+{
+	uint32_t							err_code;
+	ble_gap_conn_params_t	gap_conn_params;
+	
+	memset(&gap_conn_params, 0, sizeof(gap_conn_params));
+	
+	gap_conn_params.min_conn_interval = MIN_CONN_INTERVAL_TRANS;
+	gap_conn_params.max_conn_interval = MAX_CONN_INTERVAL_TRANS;
+	gap_conn_params.slave_latency			= SLAVE_LATENCY_TRANS;
+	gap_conn_params.conn_sup_timeout 	= CONN_SUP_TIMEOUT_TRANS;
+	
+	err_code = ble_conn_params_change_conn_params(&gap_conn_params);
+	APP_ERROR_CHECK(err_code);
+	
+	param_updated = true;
+}
+
+/**@brief Reset conn params to default after data log upload is complete
+*/
+void reset_conn_params()
+{
+	uint32_t							err_code;
+	ble_gap_conn_params_t	gap_conn_params;
+	
+	memset(&gap_conn_params, 0, sizeof(gap_conn_params));
+	
+	gap_conn_params.min_conn_interval = MIN_CONN_INTERVAL;
+	gap_conn_params.max_conn_interval = MAX_CONN_INTERVAL;
+	gap_conn_params.slave_latency			= SLAVE_LATENCY;
+	gap_conn_params.conn_sup_timeout 	= CONN_SUP_TIMEOUT;
+	
+	err_code = ble_conn_params_change_conn_params(&gap_conn_params);
+	APP_ERROR_CHECK(err_code);
+}
+
 /**@brief Function for application main entry.
 */
 void connectable_mode(void)
@@ -1332,17 +1404,21 @@ void connectable_mode(void)
         // If READ_DATA flag is set, start sending data to the connected device
         if(READ_DATA)																			       
         {
-            err_code=app_timer_stop(water_measurement_timer);		       /* Stop the timers before start sending the historical data*/
-            APP_ERROR_CHECK(err_code);
-            err_code=app_gpiote_user_disable(waterp_measurement_gpiote);/* Disable the water presence gpiote*/
+            err_code=app_timer_stop(water_measurement_timer);		       	/* Stop the timers before start sending the historical data*/
             APP_ERROR_CHECK(err_code);
             READ_DATA=false;
             ENABLE_DATA_LOG = false;                                    /* Disable data logging functionality */
-            send_data(&m_dlogs);																         /* Start sending the data*/												
-            application_timers_start();													       /* Restart the timers when sending is finished*/
-            err_code=app_gpiote_user_enable(waterp_measurement_gpiote); /* Re-enable water presence gpiote*/
-            APP_ERROR_CHECK(err_code);
-            err_code=reset_data_log(&m_dlogs);									         /* Reset the data logger enable and data read switches*/
+						if(((write_pg != 0) && (read_pg < (write_pg - 1))) || (read_pg > write_pg))
+						{
+							update_conn_params();																			/* UPDATE CONNECTION PARAMETERS, THIS NEEDS TO BECOME CONDITIONAL THOUGH*/
+						}
+            send_data(&m_dlogs);																        /* Start sending the data*/	
+						if(param_updated == true)
+						{
+							reset_conn_params();																			/* Reset the conn params to maintain decent power consumption */
+						}
+            application_timers_start();													       	/* Restart the timers when sending is finished*/
+            err_code=reset_data_log(&m_dlogs);									        /* Reset the data logger enable and data read switches*/
             APP_ERROR_CHECK(err_code);	
         }
 

@@ -55,12 +55,12 @@
 #include "pstorage.h"
 #include "boards.h"
 
-#define DEVICE_NAME                          "Grow_"                              /**< Name of device. Will be included in the advertising data. */
+#define DEVICE_NAME                          "Grow_"                              			/**< Name of device. Will be included in the advertising data. */
 #define MANUFACTURER_NAME                    "Wimoto"                                   /**< Manufacturer. Will be passed to Device Information Service. */
 #define MODEL_NUM                            "Wimoto_Grow"                                   /**< Model number. Will be passed to Device Information Service. */
 #define MANUFACTURER_ID                      0x1122334455                               /**< Manufacturer ID, part of System ID. Will be passed to Device Information Service. */
 #define ORG_UNIQUE_ID                        0x667788                                   /**< Organizational Unique ID, part of System ID. Will be passed to Device Information Service. */
-#define FIRMWARE_ID 												 "1.20"
+#define FIRMWARE_ID 												 "1.21"
 
 #define APP_ADV_INTERVAL                     0x808                                      /**< The advertising interval (in units of 0.625 ms. This value corresponds to 25 ms). */
 #define APP_ADV_TIMEOUT_IN_SECONDS           0x0000                                     /**< The advertising timeout in units of seconds. */
@@ -80,10 +80,15 @@
 #define MAX_CELCIUS_DEGRESS                  3972                                       /**< Maximum temperature in celcius for use in the simulated measurement function (multiplied by 100 to avoid floating point arithmetic). */
 #define CELCIUS_DEGREES_INCREMENT            36                                         /**< Value by which temperature is incremented/decremented for each call to the simulated measurement function (multiplied by 100 to avoid floating point arithmetic). */
 
-#define MIN_CONN_INTERVAL                    MSEC_TO_UNITS(500, UNIT_1_25_MS)           /**< Minimum acceptable connection interval (25 milliseconds) */
-#define MAX_CONN_INTERVAL                    MSEC_TO_UNITS(1000, UNIT_1_25_MS)          /**< Maximum acceptable connection interval (125 millisecond). */
-#define SLAVE_LATENCY                        0                                          /**< Slave latency. */
+#define MIN_CONN_INTERVAL                    MSEC_TO_UNITS(100, UNIT_1_25_MS)           /**< Minimum acceptable connection interval (25 milliseconds) */
+#define MAX_CONN_INTERVAL                    MSEC_TO_UNITS(200, UNIT_1_25_MS)          	/**< Maximum acceptable connection interval (125 millisecond). */
+#define SLAVE_LATENCY                        4                                          /**< Slave latency. */
 #define CONN_SUP_TIMEOUT                     MSEC_TO_UNITS(4000, UNIT_10_MS)            /**< Connection supervisory timeout (4 seconds). */
+
+#define MIN_CONN_INTERVAL_TRANS              MSEC_TO_UNITS(20, UNIT_1_25_MS)           	/**< Minimum acceptable connection interval for data trans */
+#define MAX_CONN_INTERVAL_TRANS              MSEC_TO_UNITS(40, UNIT_1_25_MS)          	/**< Maximum acceptable connection interval for data trans. */
+#define SLAVE_LATENCY_TRANS                  0                                          /**< Slave latency. */
+#define CONN_SUP_TIMEOUT_TRANS               MSEC_TO_UNITS(4000, UNIT_10_MS)            /**< Connection supervisory timeout (4 seconds). */
 
 #define FIRST_CONN_PARAMS_UPDATE_DELAY       APP_TIMER_TICKS(5000, APP_TIMER_PRESCALER) /**< Time from initiating event (connect or start of indication) to first time sd_ble_gap_conn_param_update is called (5 seconds). */
 #define NEXT_CONN_PARAMS_UPDATE_DELAY        APP_TIMER_TICKS(5000, APP_TIMER_PRESCALER) /**< Time between each call to sd_ble_gap_conn_param_update after the first (30 seconds). */
@@ -165,6 +170,10 @@ uint8_t				             temperature[2]={0x00,0x00};
 uint8_t				             light_level[2] = {0x00,0x00};
 uint8_t				             curr_soil_mois_level;           															 /* Humidity value from htu21d*/
 uint8_t                    battery_lvl;                                                 /*battery level for broadcasting*/
+uint16_t									 log_id = 0;																									/*record id for data logs*/
+extern uint32_t						 read_pg;
+extern uint32_t						 write_pg;
+bool											 param_updated = false;																				/* Flag indicating whether or not the conn params have been updated*/
 
 #define ADC_REF_VOLTAGE_IN_MILLIVOLTS        1200                                      /**< Reference voltage (in milli volts) used by ADC while doing conversion. */
 #define ADC_PRE_SCALING_COMPENSATION         3                                         /**< The ADC is configured to use VDD with 1/3 prescaling as input. And hence the result of conversion is to be multiplied by 3 to get the actual value of the battery voltage.*/
@@ -273,7 +282,6 @@ static void grow_param_meas_timeout_handler(void * p_context)
 {
     UNUSED_PARAMETER(p_context);
     static uint8_t minutes_15_count = 0x01; 
-	  //static uint8_t sensor_minutes= 0x01;
     if (minutes_15_count < 0x0F)
     {
         minutes_15_count++;
@@ -320,7 +328,7 @@ static void real_time_timeout_handler(void * p_context)
 			CHECK_ALARM_TIMEOUT=true;
 		}*/
     // Increment time stamp
-		NRF_WDT->RR[0] = 0x6E524635;					//kick the dog every second
+		NRF_WDT->RR[0] = 0x6E524635;								//kick the dog every second
     m_time_stamp.seconds += 1;
     if (m_time_stamp.seconds > 59)
     {
@@ -1339,12 +1347,20 @@ static void create_log_data(uint32_t * data)
     current_light_level=read_light_level();
     current_soil_mois_level=read_soil_mois_level();
 
-    data[0]=(m_time_stamp.year<<16)|(m_time_stamp.month<<8)|m_time_stamp.day;				 /* First word written to memory contains date (YYYYMMDD)*/
-    data[1]=(m_time_stamp.hours<<16)|(m_time_stamp.minutes<<8)|m_time_stamp.seconds; /* Second word contains time HHMMSS*/
+    data[0]=(m_time_stamp.year<<16)|(m_time_stamp.month<<8)|m_time_stamp.day;				 			 /* First word written to memory contains date (YYYYMMDD)*/
+    data[1]=(m_time_stamp.hours<<24)|(m_time_stamp.minutes<<16)|(m_time_stamp.seconds<<8); /* Second word contains time HHMMSS*/
 
-    data[2]=current_temperature;
-    data[2]=(current_temperature<<16)|current_light_level;										       /* Third word contains temperature and light level*/	
-    data[3]=current_soil_mois_level;                                                 /* Fourth word contains soil moisture level*/
+    //data[2]=current_temperature;
+    data[2]=(current_temperature<<16)|current_light_level;										      			 /* Third word contains temperature and light level*/	
+    data[3]=(current_soil_mois_level<<16) | log_id;                                        /* Fourth word contains soil moisture level and log id*/
+	
+		if(log_id == 0xFFFF)
+		{
+			log_id = 0;
+		}else
+		{
+			log_id++;
+		}
 }
 
 
@@ -1443,6 +1459,44 @@ void get_die_revision_no(void)
 
 }
 
+/**@brief Update conn params for data transfer
+*/
+void update_conn_params()
+{
+	uint32_t							err_code;
+	ble_gap_conn_params_t	gap_conn_params;
+	
+	memset(&gap_conn_params, 0, sizeof(gap_conn_params));
+	
+	gap_conn_params.min_conn_interval = MIN_CONN_INTERVAL_TRANS;
+	gap_conn_params.max_conn_interval = MAX_CONN_INTERVAL_TRANS;
+	gap_conn_params.slave_latency			= SLAVE_LATENCY_TRANS;
+	gap_conn_params.conn_sup_timeout 	= CONN_SUP_TIMEOUT_TRANS;
+	
+	err_code = ble_conn_params_change_conn_params(&gap_conn_params);
+	APP_ERROR_CHECK(err_code);
+	
+	param_updated = true;
+}
+
+/**@brief Reset conn params to default after data log upload is complete
+*/
+void reset_conn_params()
+{
+	uint32_t							err_code;
+	ble_gap_conn_params_t	gap_conn_params;
+	
+	memset(&gap_conn_params, 0, sizeof(gap_conn_params));
+	
+	gap_conn_params.min_conn_interval = MIN_CONN_INTERVAL;
+	gap_conn_params.max_conn_interval = MAX_CONN_INTERVAL;
+	gap_conn_params.slave_latency			= SLAVE_LATENCY;
+	gap_conn_params.conn_sup_timeout 	= CONN_SUP_TIMEOUT;
+	
+	err_code = ble_conn_params_change_conn_params(&gap_conn_params);
+	APP_ERROR_CHECK(err_code);
+}
+
 /**@brief Function for application main entry.
 */
 void connectable_mode(void)
@@ -1495,15 +1549,24 @@ void connectable_mode(void)
             DATA_LOG_CHECK= false;
         }
 
-        if(READ_DATA)																			   /*If enabled, start sending data to the connected device*/
+        if(READ_DATA)																			   	 	/*If enabled, start sending data to the connected device*/
         {
-            err_code=app_timer_stop(sensor_meas_timer);		     /* Stop the timers before start sending the historical data*/
+            err_code=app_timer_stop(sensor_meas_timer);		     	/* Stop the timers before start sending the historical data*/
             APP_ERROR_CHECK(err_code);
             READ_DATA=false;
-            ENABLE_DATA_LOG = false;                           /* Disable data logging functionality */
-            send_data(&m_dlogs);															 /* Start sending the data*/												
-            application_timers_start();												 /* Restart the timers when sending is finished*/
-            err_code=reset_data_log(&m_dlogs);								 /* Reset the data logger enable and data read switches*/
+            ENABLE_DATA_LOG = false;                           	/* Disable data logging functionality */
+						if(((write_pg != 0) && (read_pg < (write_pg - 1))) || (read_pg > write_pg))
+						{
+							update_conn_params();															/* Update connection parameters if there is enough data*/
+						}
+            send_data(&m_dlogs);															 	/* Start sending the data*/
+						if(param_updated == true)
+						{
+							reset_conn_params();															/* Reset the conn params to maintain decent power consumption */
+							param_updated = false;														/* Reset the flag indicating that the conn params were changed*/
+						}
+            application_timers_start();												 	/* Restart the timers when sending is finished*/
+            err_code=reset_data_log(&m_dlogs);								 	/* Reset the data logger enable and data read switches*/
             APP_ERROR_CHECK(err_code);	
         }
         if(TIME_SET)

@@ -63,7 +63,7 @@ static bool                                  m_memory_access_in_progress = false
 #define MODEL_NUM                            "Wimoto_Thermo"                            /**< Model number. Will be passed to Device Information Service. */
 #define MANUFACTURER_ID                      0x1122334455                               /**< Manufacturer ID, part of System ID. Will be passed to Device Information Service. */
 #define ORG_UNIQUE_ID                        0x667788                                   /**< Organizational Unique ID, part of System ID. Will be passed to Device Information Service. */
-#define FIRMWARE_ID 												 "1.20"
+#define FIRMWARE_ID 												 "1.21"
 
 #define APP_ADV_INTERVAL                     0x808                                      /**< The advertising interval (in units of 0.625 ms. This value corresponds to 25 ms). */
 #define APP_ADV_TIMEOUT_IN_SECONDS           0x0000                                     /**< The advertising timeout in units of seconds. */
@@ -83,10 +83,15 @@ static bool                                  m_memory_access_in_progress = false
 #define MAX_CELCIUS_DEGRESS                  3972                                       /**< Maximum temperature in celcius for use in the simulated measurement function (multiplied by 100 to avoid floating point arithmetic). */
 #define CELCIUS_DEGREES_INCREMENT            36                                         /**< Value by which temperature is incremented/decremented for each call to the simulated measurement function (multiplied by 100 to avoid floating point arithmetic). */
 
-#define MIN_CONN_INTERVAL                    MSEC_TO_UNITS(500, UNIT_1_25_MS)           /**< Minimum acceptable connection interval (25 milliseconds) */
-#define MAX_CONN_INTERVAL                    MSEC_TO_UNITS(1000, UNIT_1_25_MS)          /**< Maximum acceptable connection interval (125 millisecond). */
-#define SLAVE_LATENCY                        0                                          /**< Slave latency. */
+#define MIN_CONN_INTERVAL                    MSEC_TO_UNITS(100, UNIT_1_25_MS)           /**< Minimum acceptable connection interval (25 milliseconds) */
+#define MAX_CONN_INTERVAL                    MSEC_TO_UNITS(200, UNIT_1_25_MS)          /**< Maximum acceptable connection interval (125 millisecond). */
+#define SLAVE_LATENCY                        4                                          /**< Slave latency. */
 #define CONN_SUP_TIMEOUT                     MSEC_TO_UNITS(4000, UNIT_10_MS)            /**< Connection supervisory timeout (4 seconds). */
+
+#define MIN_CONN_INTERVAL_TRANS              MSEC_TO_UNITS(20, UNIT_1_25_MS)           	/**< Minimum connection interval for data trans */
+#define MAX_CONN_INTERVAL_TRANS              MSEC_TO_UNITS(40, UNIT_1_25_MS)          	/**< Maximum connection interval for data trans*/
+#define SLAVE_LATENCY_TRANS                  0                                          /**< Slave latency for trans. */
+#define CONN_SUP_TIMEOUT_TRANS               MSEC_TO_UNITS(4000, UNIT_10_MS)            /**< Connection supervisory timeout (4 seconds). */
 
 #define FIRST_CONN_PARAMS_UPDATE_DELAY       APP_TIMER_TICKS(5000, APP_TIMER_PRESCALER) /**< Time from initiating event (connect or start of indication) to first time sd_ble_gap_conn_param_update is called (5 seconds). */
 #define NEXT_CONN_PARAMS_UPDATE_DELAY        APP_TIMER_TICKS(5000, APP_TIMER_PRESCALER) /**< Time between each call to sd_ble_gap_conn_param_update after the first (30 seconds). */
@@ -156,7 +161,11 @@ static uint8_t															 rev_no;																		/**<Revision number of si
 uint32_t buf[4];  													 					/*buffer for flash write operation*/
 uint8_t	 thermopile[5];    														/*variable to store current Thermopile temperature to broadcast*/
 uint8_t	 curr_probe_temp_level[2];										/*variable to store current probe temperature to broadcast*/
-uint8_t  battery_lvl;                                 /*battery level for broadcasting*/		
+uint8_t  battery_lvl;                                 /*battery level for broadcasting*/
+uint16_t									 log_id = 0x00;																/* Record ID for data logs*/
+extern uint32_t						 read_pg;
+extern uint32_t						 write_pg;
+bool 											 param_updated = false;												/* Flag indicating whether or not the conn params have been updated*/
 
 static void device_init(void);
 static void thermops_init(void);
@@ -275,7 +284,6 @@ static void thermo_param_meas_timeout_handler(void * p_context)
         minutes_count =0x01;
         DATA_LOG_CHECK=true;
     }
-
 
 
 }
@@ -1233,11 +1241,18 @@ static void create_log_data(uint32_t * data)
 
     current_probe_temp_level=read_probe_temp_level();
 
-    data[0]=(m_time_stamp.year<<16)|(m_time_stamp.month<<8)|m_time_stamp.day;				 /*firt word writeen to memory contains date (YYYYMMDD)*/
-    data[1]=(m_time_stamp.hours<<16)|(m_time_stamp.minutes<<8)|m_time_stamp.seconds; /*second word contains time 00HHMMSS*/
-
-    data[2]=current_thermopile_temp_store[0]<<24|current_thermopile_temp_store[1]<<16|current_thermopile_temp_store[2]<<8|current_thermopile_temp_store[3];
-    data[3]=current_thermopile_temp_store[4]<<24|current_probe_temp_level;                                           /*fourth word contains current thermopile and probe temperature level*/
+    data[0]=(m_time_stamp.year<<16)|(m_time_stamp.month<<8)|m_time_stamp.day;			/*firt word writeen to memory contains date (YYYYMMDD)*/
+    data[1]=(m_time_stamp.hours<<24)|(m_time_stamp.minutes<<16)|(m_time_stamp.seconds<<8)|current_thermopile_temp_store[0]; 	/*second word contains time and first char of IR temp*/
+    data[2]=current_thermopile_temp_store[1]<<24|current_thermopile_temp_store[2]<<16|current_thermopile_temp_store[3]<<8|current_thermopile_temp_store[4]; /*third word contains last four char of ir temp*/
+    data[3]= (current_probe_temp_level<<16)|log_id; 	                                          /*fourth word contains probe temp and log id*/
+	
+		if(log_id == 0xFFFF)
+		{
+			log_id = 0x0000;
+		}else
+		{
+			log_id++;
+		}
 			
 }
 
@@ -1386,31 +1401,69 @@ void get_die_revision_no(void)
 
 }
 
+/**@brief Update conn params for data transfer
+*/
+void update_conn_params()
+{
+	uint32_t							err_code;
+	ble_gap_conn_params_t	gap_conn_params;
+	
+	memset(&gap_conn_params, 0, sizeof(gap_conn_params));
+	
+	gap_conn_params.min_conn_interval = MIN_CONN_INTERVAL_TRANS;
+	gap_conn_params.max_conn_interval = MAX_CONN_INTERVAL_TRANS;
+	gap_conn_params.slave_latency			= SLAVE_LATENCY_TRANS;
+	gap_conn_params.conn_sup_timeout 	= CONN_SUP_TIMEOUT_TRANS;
+	
+	err_code = ble_conn_params_change_conn_params(&gap_conn_params);
+	APP_ERROR_CHECK(err_code);
+	
+	param_updated = true;
+}
+
+/**@brief Reset conn params to default after data log upload is complete
+*/
+void reset_conn_params()
+{
+	uint32_t							err_code;
+	ble_gap_conn_params_t	gap_conn_params;
+	
+	memset(&gap_conn_params, 0, sizeof(gap_conn_params));
+	
+	gap_conn_params.min_conn_interval = MIN_CONN_INTERVAL;
+	gap_conn_params.max_conn_interval = MAX_CONN_INTERVAL;
+	gap_conn_params.slave_latency			= SLAVE_LATENCY;
+	gap_conn_params.conn_sup_timeout 	= CONN_SUP_TIMEOUT;
+	
+	err_code = ble_conn_params_change_conn_params(&gap_conn_params);
+	APP_ERROR_CHECK(err_code);
+}
+
 /**@brief Function for application main entry.
 */
 void connectable_mode(void)
 {    
     uint32_t err_code;
     // Initialize.
-		get_die_revision_no();								 	/*Get silicon revision before init*/
+		get_die_revision_no();								 /*Get silicon revision before init*/
     ble_stack_init();
-    twi_master_init();                    /*configure twi*/
+    twi_master_init();                     /*configure twi*/
 		timers_init();
     gpiote_init();
     device_manager_init();
     gap_params_init();
-		init_battery_level();                 /*measure the battery level before advertisement*/
+		init_battery_level();                  /*measure the battery level before advertisement*/
     advertising_init();
     services_init();
     conn_params_init();
     sec_params_init();
     radio_notification_init();
-		TMP006_enable_powerdown_mode();				/*power down TMP006 */
+		TMP006_enable_powerdown_mode();				 /*power down TMP006 */
     twi_turn_OFF();
 
     // Start execution.
     application_timers_start(); 
-		if(rev_no == 0x01){											/* Activate HFCLK workaround for PAN14 if rev 1 silicon*/
+		if(rev_no == 0x01){										 /*Activate HFCLK workaround for PAN14 if rev 1 silicon*/
 			HFCLK_request();
 		}
 		
@@ -1443,7 +1496,16 @@ void connectable_mode(void)
             APP_ERROR_CHECK(err_code);
             READ_DATA=false;
             ENABLE_DATA_LOG = false;                           /* Disable data logging functionality */
-            send_data(&m_dlogs);																/*start sending the data*/												
+						if(((write_pg != 0) && (read_pg < (write_pg - 1))) || (read_pg > write_pg))
+						{
+							update_conn_params();															/* UPDATE CONNECTION PARAMETERS, THIS NEEDS TO BECOME CONDITIONAL THOUGH*/
+						}
+            send_data(&m_dlogs);																/*start sending the data*/
+						if(param_updated == true)
+						{
+							reset_conn_params();															/* Reset the conn params to maintain decent power consumption */
+							param_updated = false;														/* Reset the flag indicating that the conn params were changed*/
+						}
             application_timers_start();												/*restart the timers when sending is finished*/
             err_code=reset_data_log(&m_dlogs);									/*reset the data logger enable and data read switches*/
             APP_ERROR_CHECK(err_code);	

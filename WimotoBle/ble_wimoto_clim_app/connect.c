@@ -53,13 +53,13 @@
 #include "pstorage.h"
 #include "wimoto.h"
 
-#define DEVICE_NAME                          "Climate_"                          /**< Name of device. Will be included in the advertising data. */
+#define DEVICE_NAME                          "Climate_"                          			 /**< Name of device. Will be included in the advertising data. */
 #define MANUFACTURER_NAME                    "Wimoto"                                  /**< Manufacturer. Will be passed to Device Information Service. */
 #define MODEL_NUM                            "Wimoto_Climate"                          /**< Model number. Will be passed to Device Information Service. */
 #define MANUFACTURER_ID                      0x1122334455                              /**< Manufacturer ID, part of System ID. Will be passed to Device Information Service. */
 #define ORG_UNIQUE_ID                        0x667788                                  /**< Organizational Unique ID, part of System ID. Will be passed to Device Information Service. */
 #define HARDWARE_ID													 "1"
-#define FIRMWARE_ID 												 "1.20"
+#define FIRMWARE_ID 												 "1.21"
 
 #define APP_ADV_INTERVAL                     0x808                                     /**< The advertising interval (in units of 0.625 ms. This value corresponds to 25 ms). */
 #define APP_ADV_TIMEOUT_IN_SECONDS           0x0000                                    /**< The advertising timeout in units of seconds. */
@@ -68,7 +68,7 @@
 #define APP_TIMER_MAX_TIMERS                 5                                          /**< Maximum number of simultaneously created timers. */
 #define APP_TIMER_OP_QUEUE_SIZE              4                                          /**< Size of timer operation queues. */
 
-#define TEMPERATURE_LEVEL_MEAS_INTERVAL      APP_TIMER_TICKS(60000, APP_TIMER_PRESCALER)/**< temperature level measurement interval (ticks). */
+#define TEMPERATURE_LEVEL_MEAS_INTERVAL      APP_TIMER_TICKS(60000, APP_TIMER_PRESCALER)	/**< temperature level measurement interval (ticks). */
 #define CONNECTED_MODE_TIMEOUT_INTERVAL      APP_TIMER_TICKS(30000, APP_TIMER_PRESCALER)/**< Connected mode timeout interval (ticks). */
 #define SECONDS_INTERVAL                     APP_TIMER_TICKS(1000, APP_TIMER_PRESCALER) /**< seconds measurement interval (ticks). */
 
@@ -78,14 +78,19 @@
 #define MAX_CELCIUS_DEGRESS                  3972                                       /**< Maximum temperature in celcius for use in the simulated measurement function (multiplied by 100 to avoid floating point arithmetic). */
 #define CELCIUS_DEGREES_INCREMENT            36                                         /**< Value by which temperature is incremented/decremented for each call to the simulated measurement function (multiplied by 100 to avoid floating point arithmetic). */
 
-#define MIN_CONN_INTERVAL                    MSEC_TO_UNITS(500, UNIT_1_25_MS)           /**< Minimum acceptable connection interval CHANGED FROM 500 TO 100 BY MARC */
-#define MAX_CONN_INTERVAL                    MSEC_TO_UNITS(1000, UNIT_1_25_MS)          /**< Maximum acceptable connection interval CHANGED FROM 100000 TO 200 BY MARC*/
-#define SLAVE_LATENCY                        0                                          /**< Slave latency. */
+#define MIN_CONN_INTERVAL                    MSEC_TO_UNITS(100, UNIT_1_25_MS)           /**< Minimum acceptable connection interval*/
+#define MAX_CONN_INTERVAL                    MSEC_TO_UNITS(200, UNIT_1_25_MS)           /**< Maximum acceptable connection interval*/
+#define SLAVE_LATENCY                        4                                          /**< Slave latency. */
 #define CONN_SUP_TIMEOUT                     MSEC_TO_UNITS(4000, UNIT_10_MS)            /**< Connection supervisory timeout (4 seconds). */
+
+#define MIN_CONN_INTERVAL_TRANS              MSEC_TO_UNITS(20, UNIT_1_25_MS)           	/**< Minimum connection interval for data trans */
+#define MAX_CONN_INTERVAL_TRANS              MSEC_TO_UNITS(40, UNIT_1_25_MS)          	/**< Maximum connection interval for data trans*/
+#define SLAVE_LATENCY_TRANS                  0                                          /**< Slave latency for trans. */
+#define CONN_SUP_TIMEOUT_TRANS               MSEC_TO_UNITS(4000, UNIT_10_MS)            /**< Connection supervisory timeout (4 seconds). */
 
 #define FIRST_CONN_PARAMS_UPDATE_DELAY       APP_TIMER_TICKS(5000, APP_TIMER_PRESCALER) /**< Time from initiating event (connect or start of indication) to first time sd_ble_gap_conn_param_update is called (5 seconds). */
 #define NEXT_CONN_PARAMS_UPDATE_DELAY        APP_TIMER_TICKS(5000, APP_TIMER_PRESCALER) /**< Time between each call to sd_ble_gap_conn_param_update after the first (30 seconds). */
-#define MAX_CONN_PARAMS_UPDATE_COUNT         10                                          /**< Number of attempts before giving up the connection parameter negotiation. CHANGED FROM 3 TO 10 BY MARC */
+#define MAX_CONN_PARAMS_UPDATE_COUNT         10                                         /**< Number of attempts before giving up the connection parameter negotiation. CHANGED FROM 3 TO 10 BY MARC */
 
 #define APP_GPIOTE_MAX_USERS                 1                                          /**< Maximum number of users of the GPIOTE handler. */
 
@@ -156,14 +161,18 @@ static void advertising_init(void);
 static uint8_t															 rev_no;																		/**<Revision number of silicon*/
 
 uint32_t buf[4];																																				/*buffer for flash write operation*/
-uint8_t				             temperature[2]   = {0x00,0x00};              /* Temperature value*/
-uint8_t				             light_level[2]   = {0x00,0x00};              /* Light value*/
-uint8_t				             htu_hum_level[2] = {0x00,0x00};              /* Humidity value*/
-uint8_t                    battery_lvl;                                 /*battery level for broadcasting*/ 
+uint8_t				             temperature[2]   = {0x00,0x00};              								/* Temperature value*/
+uint8_t				             light_level[2]   = {0x00,0x00};              								/* Light value*/
+uint8_t				             htu_hum_level[2] = {0x00,0x00};              								/* Humidity value*/
+uint8_t                    battery_lvl;                                 								/* battery level for broadcasting*/
+uint16_t									 log_id = 0x00;																								/* Record ID for data logs*/
+extern uint32_t						 read_pg;
+extern uint32_t						 write_pg;
+bool 											 param_updated = false;																				/* Flag indicating whether or not the conn params have been updated*/
 
-#define ADC_REF_VOLTAGE_IN_MILLIVOLTS        1200                                      /**< Reference voltage (in milli volts) used by ADC while doing conversion. */
-#define ADC_PRE_SCALING_COMPENSATION         3                                         /**< The ADC is configured to use VDD with 1/3 prescaling as input. And hence the result of conversion is to be multiplied by 3 to get the actual value of the battery voltage.*/
-#define DIODE_FWD_VOLT_DROP_MILLIVOLTS       0                                         /**< Typical forward voltage drop of the diode (Part no: SD103ATW-7-F) that is connected in series with the voltage supply. This is the voltage drop when the forward current is 1mA. Source: Data sheet of 'SURFACE MOUNT SCHOTTKY BARRIER DIODE ARRAY' available at www.diodes.com. */
+#define ADC_REF_VOLTAGE_IN_MILLIVOLTS        1200                                      	/**< Reference voltage (in milli volts) used by ADC while doing conversion. */
+#define ADC_PRE_SCALING_COMPENSATION         3                                         	/**< The ADC is configured to use VDD with 1/3 prescaling as input. And hence the result of conversion is to be multiplied by 3 to get the actual value of the battery voltage.*/
+#define DIODE_FWD_VOLT_DROP_MILLIVOLTS       0                                         	/**< Typical forward voltage drop of the diode (Part no: SD103ATW-7-F) that is connected in series with the voltage supply. This is the voltage drop when the forward current is 1mA. Source: Data sheet of 'SURFACE MOUNT SCHOTTKY BARRIER DIODE ARRAY' available at www.diodes.com. */
 /** No diode, therefore 0 DIODE_FWD_VOLT_DROP_MILLIVOLTS
 **/
 
@@ -345,7 +354,6 @@ static void climate_param_meas_timeout_handler(void * p_context)
         DATA_LOG_CHECK=true;
     }
 
-
 }
 
 
@@ -369,10 +377,9 @@ static void real_time_timeout_handler(void * p_context)
     {
         days_in_month[2] = 28;
     }
-		
-		//meas_interval_seconds += 1;													
+													
 			
-		if(meas_interval_seconds < 0x1e)			   //set the sensor measurement timeout interval to 5 sec				
+		if(meas_interval_seconds < 0x1e)			   //set the sensor measurement timeout interval to 30 sec				
 		{
 			meas_interval_seconds++;
 		}
@@ -383,7 +390,7 @@ static void real_time_timeout_handler(void * p_context)
 		}
 		
     //Increment the time stamp
-		NRF_WDT->RR[0] = 0x6E524635; //kick dog every second
+		NRF_WDT->RR[0] = 0x6E524635; 						//kick dog every second
     m_time_stamp.seconds += 1;
     if (m_time_stamp.seconds > 59)
     {
@@ -471,13 +478,13 @@ static void timers_init(void)
     APP_TIMER_INIT(APP_TIMER_PRESCALER, APP_TIMER_MAX_TIMERS, APP_TIMER_OP_QUEUE_SIZE, false);
 
     // Create timer for sensor measurement
-    err_code = app_timer_create(&sensor_meas_timer,    /* Timer for climate parameters measurement timeout*/
+    err_code = app_timer_create(&sensor_meas_timer,   /* Timer for climate parameters measurement timeout*/
     APP_TIMER_MODE_REPEATED,
     climate_param_meas_timeout_handler);
     APP_ERROR_CHECK(err_code);
 
     // Create timer for time keeping 
-    err_code = app_timer_create(&real_time_timer,      /* Timer for real time tracking*/
+    err_code = app_timer_create(&real_time_timer,     /* Timer for real time tracking*/
     APP_TIMER_MODE_REPEATED,
     real_time_timeout_handler);
     APP_ERROR_CHECK(err_code);
@@ -576,7 +583,7 @@ static void advertising_init(void)
     memset(&m_adv_params, 0, sizeof(m_adv_params));
 
     m_adv_params.type        = BLE_GAP_ADV_TYPE_ADV_IND;
-    m_adv_params.p_peer_addr = NULL;                           /* Undirected advertisement*/
+    m_adv_params.p_peer_addr = NULL;                           		/* Undirected advertisement*/
     m_adv_params.fp          = BLE_GAP_ADV_FP_ANY;
     m_adv_params.interval    = APP_ADV_INTERVAL;
     m_adv_params.timeout     = APP_ADV_TIMEOUT_IN_SECONDS;
@@ -973,6 +980,15 @@ static void on_conn_params_evt(ble_conn_params_evt_t * p_evt)
         err_code = sd_ble_gap_disconnect(m_conn_handle, BLE_HCI_CONN_INTERVAL_UNACCEPTABLE);
         APP_ERROR_CHECK(err_code);
     }
+		
+		//if((p_evt->evt_type == BLE_CONN_PARAMS_EVT_SUCCEEDED) && READ_DATA)														//CHECK TO SEE IF WE ARE UPLOADING DATA IN ORDER TO SET APPROPRIATE CONN PARAM FLAG
+		//{
+		//		param_updated = true;
+		//		READ_DATA=false;
+		//}
+		
+		
+		
 }
 
 
@@ -1324,11 +1340,18 @@ static void create_log_data(uint32_t * data)
 		current_temperature=read_temperature();					
 		current_light_level=read_light_level();
 		current_humidity_level=read_hum_level();
-		data[0]=(m_time_stamp.year<<16)|(m_time_stamp.month<<8)|m_time_stamp.day;	       /* First word writeen to memory contains date (YYYYMMDD)*/
-		data[1]=(m_time_stamp.hours<<16)|(m_time_stamp.minutes<<8)|m_time_stamp.seconds; /* Second word contains time HHMMSS*/
-		data[2]=current_temperature;
-		data[2]=(current_temperature<<16)|current_light_level;										/* Third word contains temperature and light level*/	
-		data[3]=current_humidity_level;                                           /* Fouth word contains soil moisture level*/
+		data[0]=(m_time_stamp.year<<16)|(m_time_stamp.month<<8)|m_time_stamp.day;	      			  /* First word writeen to memory contains date (YYYYMMDD)*/
+		data[1]=(m_time_stamp.hours<<24)|(m_time_stamp.minutes<<16)|(m_time_stamp.seconds<<8);  /* Second word contains time HHMMSS*/
+		data[2]=(current_temperature<<16)|current_light_level;																	/* Third word contains temperature and light level*/	
+		data[3]= (current_humidity_level<<16)|log_id;                                           /* Fouth word contains humidity and log ID*/
+		
+		if(log_id ==65535)
+		{
+			log_id=0;
+		}else
+		{
+			log_id++;
+		}
 }
 
 
@@ -1441,6 +1464,44 @@ void get_die_revision_no(void)
 
 }
 
+/**@brief Update conn params for data transfer
+*/
+void update_conn_params()
+{
+	uint32_t							err_code;
+	ble_gap_conn_params_t	gap_conn_params;
+	
+	memset(&gap_conn_params, 0, sizeof(gap_conn_params));
+	
+	gap_conn_params.min_conn_interval = MIN_CONN_INTERVAL_TRANS;
+	gap_conn_params.max_conn_interval = MAX_CONN_INTERVAL_TRANS;
+	gap_conn_params.slave_latency			= SLAVE_LATENCY_TRANS;
+	gap_conn_params.conn_sup_timeout 	= CONN_SUP_TIMEOUT_TRANS;
+	
+	err_code = ble_conn_params_change_conn_params(&gap_conn_params);
+	APP_ERROR_CHECK(err_code);
+	
+	param_updated = true;
+}
+
+/**@brief Reset conn params to default after data log upload is complete
+*/
+void reset_conn_params()
+{
+	uint32_t							err_code;
+	ble_gap_conn_params_t	gap_conn_params;
+	
+	memset(&gap_conn_params, 0, sizeof(gap_conn_params));
+	
+	gap_conn_params.min_conn_interval = MIN_CONN_INTERVAL;
+	gap_conn_params.max_conn_interval = MAX_CONN_INTERVAL;
+	gap_conn_params.slave_latency			= SLAVE_LATENCY;
+	gap_conn_params.conn_sup_timeout 	= CONN_SUP_TIMEOUT;
+	
+	err_code = ble_conn_params_change_conn_params(&gap_conn_params);
+	APP_ERROR_CHECK(err_code);
+}
+
 
 /**@brief Function for application main entry.
 */
@@ -1499,7 +1560,16 @@ void connectable_mode(void)
             APP_ERROR_CHECK(err_code); 
             READ_DATA=false;
             ENABLE_DATA_LOG = false;                          /* Disable data logging functionality */
-            send_data(&m_dlogs);															/* Start sending the data*/												
+						if(((write_pg != 0) && (read_pg < (write_pg - 1))) || (read_pg > write_pg))
+						{
+							update_conn_params();														/* Update connection parameters if there is enough data*/
+						}
+            send_data(&m_dlogs);															/* Start sending the data*/	
+						if(param_updated == true)
+						{
+							reset_conn_params();														/* Reset the conn params to maintain decent power consumption */
+							param_updated = false;													/* Reset the flag indicating that the conn params were changed*/
+						}
             application_timers_start();												/* Restart the timers when sending is finished*/
             err_code=reset_data_log(&m_dlogs);								/* Reset the data logger enable and data read switches*/
             APP_ERROR_CHECK(err_code);	
@@ -1514,7 +1584,7 @@ void connectable_mode(void)
         if (CHECK_ALARM_TIMEOUT)                              /* Check for sensor measurement timeout*/
         {
             alarm_check();                                    /* Checks for alarm in all services*/
-            CHECK_ALARM_TIMEOUT = false;                        /* Reset the flag*/
+            CHECK_ALARM_TIMEOUT = false;                      /* Reset the flag*/
         }
         if(MEAS_BATTERY_LEVEL)
 				{

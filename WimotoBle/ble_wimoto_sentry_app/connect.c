@@ -55,7 +55,7 @@
 #include "pstorage.h"
 
 
-#define DEVICE_NAME                          "Sentry_"                            /**< Name of device. Will be included in the advertising data. */
+#define DEVICE_NAME                          "Sentry_"                            			/**< Name of device. Will be included in the advertising data. */
 #define MANUFACTURER_NAME                    "Wimoto"                                   /**< Manufacturer. Will be passed to Device Information Service. */
 #define MODEL_NUM                            "Wimoto_Sentry"                            /**< Model number. Will be passed to Device Information Service. */
 #define MANUFACTURER_ID                      0x1122334455                               /**< Manufacturer ID, part of System ID. Will be passed to Device Information Service. */
@@ -76,10 +76,15 @@
 
 #define WATER_TYPE_AS_CHARACTERISTIC         0                                          /**< Determines if water type is given as characteristic (1) or as a field of measurement (0). */
 
-#define MIN_CONN_INTERVAL                    MSEC_TO_UNITS(500, UNIT_1_25_MS)           /**< Minimum acceptable connection interval (25 milliseconds) */
-#define MAX_CONN_INTERVAL                    MSEC_TO_UNITS(1000, UNIT_1_25_MS)          /**< Maximum acceptable connection interval (125 millisecond). */
-#define SLAVE_LATENCY                        0                                          /**< Slave latency. */
+#define MIN_CONN_INTERVAL                    MSEC_TO_UNITS(100, UNIT_1_25_MS)           /**< Minimum acceptable connection interval (25 milliseconds) */
+#define MAX_CONN_INTERVAL                    MSEC_TO_UNITS(200, UNIT_1_25_MS)          	/**< Maximum acceptable connection interval (125 millisecond). */
+#define SLAVE_LATENCY                        4                                          /**< Slave latency. */
 #define CONN_SUP_TIMEOUT                     MSEC_TO_UNITS(4000, UNIT_10_MS)            /**< Connection supervisory timeout (4 seconds). */
+
+#define MIN_CONN_INTERVAL_TRANS              MSEC_TO_UNITS(20, UNIT_1_25_MS)           	/**< Minimum acceptable connection interval for data transfer */
+#define MAX_CONN_INTERVAL_TRANS              MSEC_TO_UNITS(40, UNIT_1_25_MS)          	/**< Maximum acceptable connection interval for data transfer */
+#define SLAVE_LATENCY_TRANS                  0                                          /**< Slave latency for data transfer */
+#define CONN_SUP_TIMEOUT_TRANS               MSEC_TO_UNITS(4000, UNIT_10_MS)            /**< Connection supervisory timeout for data transfer*/
 
 #define FIRST_CONN_PARAMS_UPDATE_DELAY       APP_TIMER_TICKS(5000, APP_TIMER_PRESCALER) /**< Time from initiating event (connect or start of indication) to first time sd_ble_gap_conn_param_update is called (5 seconds). */
 #define NEXT_CONN_PARAMS_UPDATE_DELAY        APP_TIMER_TICKS(5000, APP_TIMER_PRESCALER) /**< Time between each call to sd_ble_gap_conn_param_update . */
@@ -159,11 +164,15 @@ void data_log_sys_event_handler(uint32_t sys_evt);																			/**<functio
 static void advertising_init(void);
 
 static uint8_t															 rev_no;																		/**<Revision number of silicon*/
+static bool																	 param_updated = false;											/**<Flag indicating if the connection parameters were updated for log transfer*/
 
 uint8_t										 var_receive_uuid;    											                  /**< varible for receiving the uuid type>**/
 uint8_t				             curr_pir_presence;                              	            /* water pir value for broadcast*/
 uint32_t                   xyz_coordinates;                                             /*accelerometer value for broadcast*/
 uint8_t                    battery_lvl;                                                 /*battery level for broadcasting*/
+uint16_t									 log_id = 0x00;																								/*Record ID for data logs*/
+extern uint32_t						 read_pg;
+extern uint32_t						 write_pg;
 #define ADC_REF_VOLTAGE_IN_MILLIVOLTS        1200                                       /**< Reference voltage (in milli volts) used by ADC while doing conversion. */
 #define ADC_PRE_SCALING_COMPENSATION         3                                          /**< The ADC is configured to use VDD with 1/3 prescaling as input. And hence the result of conversion is to be multiplied by 3 to get the actual value of the battery voltage.*/
 #define DIODE_FWD_VOLT_DROP_MILLIVOLTS       0                                        /**< Typical forward voltage drop of the diode (Part no: SD103ATW-7-F) that is connected in series with the voltage supply. This is the voltage drop when the forward current is 1mA. Source: Data sheet of 'SURFACE MOUNT SCHOTTKY BARRIER DIODE ARRAY' available at www.diodes.com. */
@@ -1096,10 +1105,10 @@ static void gpiote_init(void)
     // Configure GPIO pin as input which is connected INT1 pin of MMA7660 accelerometer
     nrf_gpio_cfg_input(MOVEMENT_GPIOTE_PIN, NRF_GPIO_PIN_PULLUP);
 
-    // Calls an event handler whenever a HIGH->LOW or LOW->HIGH transition is incurred on P0.02 GPIO pin
+    // Calls an event handler whenever a HIGH->LOW or LOW->HIGH transition is incurred on P0.17 GPIO pin
     err_code = app_gpiote_user_register(&pir_measurement_gpiote, 
     PIR_PINS_LOW_TO_HIGH_MASK, 
-    PIR_PINS_HIGH_TO_LOW_MASK, 
+    NULL, 
     pir_gpiote_evt_handler);        /* Register the gpiote user for PIR sensor*/
     if (err_code != NRF_SUCCESS )                                     
     {                                                                 
@@ -1113,7 +1122,7 @@ static void gpiote_init(void)
     }                                                                 
 
 
-    // Calls an event handler whenever a HIGH->LOW or LOW->HIGH transition is incurred on P0.04 GPIO pin
+    // Calls an event handler whenever a HIGH->LOW or LOW->HIGH transition is incurred on P0.11 GPIO pin
     err_code = app_gpiote_user_register(&movement_measurement_gpiote, 
     NULL, 
     MOVEMENT_PINS_HIGH_TO_LOW_MASK, 
@@ -1240,11 +1249,18 @@ static void create_log_data(uint32_t * data)
     current_pir_presence = nrf_gpio_pin_read(PIR_GPIOTE_PIN);					
 
     data[0] = (m_time_stamp.year<<16)|(m_time_stamp.month<<8)|m_time_stamp.day;				 /* First word written to memory contains date (YYYYMMDD)*/
-    data[1] = (m_time_stamp.hours<<16)|(m_time_stamp.minutes<<8)|m_time_stamp.seconds; /* Second word contains time HHMMSS*/
+    data[1] = (m_time_stamp.hours<<24)|(m_time_stamp.minutes<<16)|(m_time_stamp.seconds<<8); /* Second word contains time HHMMSS*/
     // first word is X data,second word is Y data and third word is Z data 
     data[2] = (current_xyz_array[0] << 16) | (current_xyz_array[1] << 8) | current_xyz_array[2] ;			
-    data[3] = current_pir_presence;                                                    /* Fourth word contains PIR state */
-
+    data[3] = (current_pir_presence<<16) | log_id;                                                    /* Fourth word contains PIR state */
+		
+		if(log_id == 0xFFFF)
+		{
+			log_id = 0;
+		}else
+		{
+			log_id++;
+		}
 }
 
 /**@brief Function for checking whether to log data.
@@ -1341,6 +1357,44 @@ void get_die_revision_no(void)
 
 }
 
+/**@brief Update conn params for data transfer
+*/
+void update_conn_params()
+{
+	uint32_t							err_code;
+	ble_gap_conn_params_t	gap_conn_params;
+	
+	memset(&gap_conn_params, 0, sizeof(gap_conn_params));
+	
+	gap_conn_params.min_conn_interval = MIN_CONN_INTERVAL_TRANS;
+	gap_conn_params.max_conn_interval = MAX_CONN_INTERVAL_TRANS;
+	gap_conn_params.slave_latency			= SLAVE_LATENCY_TRANS;
+	gap_conn_params.conn_sup_timeout 	= CONN_SUP_TIMEOUT_TRANS;
+	
+	err_code = ble_conn_params_change_conn_params(&gap_conn_params);
+	APP_ERROR_CHECK(err_code);
+	
+	param_updated = true;
+}
+
+/**@brief Reset conn params to default after data log upload is complete
+*/
+void reset_conn_params()
+{
+	uint32_t							err_code;
+	ble_gap_conn_params_t	gap_conn_params;
+	
+	memset(&gap_conn_params, 0, sizeof(gap_conn_params));
+	
+	gap_conn_params.min_conn_interval = MIN_CONN_INTERVAL;
+	gap_conn_params.max_conn_interval = MAX_CONN_INTERVAL;
+	gap_conn_params.slave_latency			= SLAVE_LATENCY;
+	gap_conn_params.conn_sup_timeout 	= CONN_SUP_TIMEOUT;
+	
+	err_code = ble_conn_params_change_conn_params(&gap_conn_params);
+	APP_ERROR_CHECK(err_code);
+}
+
 /**@brief Function for application main entry.
 */
 void connectable_mode(void)
@@ -1358,7 +1412,7 @@ void connectable_mode(void)
     gpiote_init();
     device_manager_init();
     gap_params_init();
-	  init_battery_level();                 /*measure the battery level before advertisement*/
+	  init_battery_level();                 	/*measure the battery level before advertisement*/
     advertising_init();
     services_init();
     conn_params_init();
@@ -1394,14 +1448,15 @@ void connectable_mode(void)
         }          
 
 				if(MMA_SWITCH)
-				{
+				{	
+					err_code = NRF_SUCCESS;																				//Reset the error code//
 					twi_turn_ON();
 					if(MMA_STATUS == 0x01)
 					{
 						if(MMA7660_config_standby_and_initialize() == false)				//Turn on MMA7660. If it fails, reset characteristic to 0 indicating off.
 						{
 							val = 0;
-							sd_ble_gatts_value_set(m_device.mma_switch_handles.value_handle, 0, &len, &val);
+							err_code = sd_ble_gatts_value_set(m_device.mma_switch_handles.value_handle, 0, &len, &val);
 						}
 					}
 					if(MMA_STATUS == 0x00)
@@ -1409,8 +1464,12 @@ void connectable_mode(void)
 						if(MMA7660_enable_standby_mode() == false)									//Turn off MMA7660. If it fails, reset characteristic to 1 indicating on.
 						{
 							val = 1;
-							sd_ble_gatts_value_set(m_device.mma_switch_handles.value_handle, 0, &len, &val);
+							err_code = sd_ble_gatts_value_set(m_device.mma_switch_handles.value_handle, 0, &len, &val);
 						}
+					}
+					if(err_code != NRF_SUCCESS)
+					{
+						APP_ERROR_CHECK(err_code);
 					}
 					twi_turn_OFF();
 					MMA_SWITCH = false;
@@ -1469,35 +1528,44 @@ void connectable_mode(void)
 
 
         // If READ_DATA flag is set, start sending data to the connected device	
-        if(READ_DATA)																			                /* If enabled, start sending data to the connected device */
+        if(READ_DATA)																			                				/* If enabled, start sending data to the connected device */
         {
-            err_code=app_timer_stop(sentry_measurement_timer);		        /* Stop the timers before start sending the historical data */
+            err_code=app_timer_stop(sentry_measurement_timer);		       				  /* Stop the timers before start sending the historical data */
             APP_ERROR_CHECK(err_code);
-            err_code=app_gpiote_user_disable(pir_measurement_gpiote);     /* Disable the PIR gpiote*/
-            err_code=app_gpiote_user_disable(movement_measurement_gpiote);/* Disable the movement gpiote*/
+            err_code=app_gpiote_user_disable(pir_measurement_gpiote);     				/* Disable the PIR gpiote*/
+            err_code=app_gpiote_user_disable(movement_measurement_gpiote);				/* Disable the movement gpiote*/
             APP_ERROR_CHECK(err_code);
             READ_DATA = false;
-            ENABLE_DATA_LOG = false;                                      /* Disable data logging functionality */
-            send_data(&m_dlogs);																          /* Start sending the data */												
-            application_timers_start();												            /* Restart the timers when sending is finished */
-            err_code=app_gpiote_user_enable(pir_measurement_gpiote);      /* Re-enable PIR gpiote */
-            err_code=app_gpiote_user_enable(movement_measurement_gpiote); /* Re-enable movement gpiote */
+            ENABLE_DATA_LOG = false;                                      				/* Disable data logging functionality */
+						if(((write_pg != 0) && (read_pg < (write_pg - 1))) || (read_pg > write_pg))
+						{
+							update_conn_params();																								/* Update connection parameters if there is enoguh data*/
+						}
+            send_data(&m_dlogs);																          				/* Start sending the data */	
+						if(param_updated == true)
+						{
+							reset_conn_params();																								/* Reset the conn params to maintain decent power consumption */
+							param_updated = false;																							/* Reset the flag indicating that the conn params were changed*/
+						}
+            application_timers_start();												            				/* Restart the timers when sending is finished */
+            err_code=app_gpiote_user_enable(pir_measurement_gpiote);      				/* Re-enable PIR gpiote */
+            err_code=app_gpiote_user_enable(movement_measurement_gpiote); 				/* Re-enable movement gpiote */
             APP_ERROR_CHECK(err_code);
-            err_code=reset_data_log(&m_dlogs);									          /* Reset the data logger enable and data read switches*/
+            err_code=reset_data_log(&m_dlogs);									          				/* Reset the data logger enable and data read switches*/
             APP_ERROR_CHECK(err_code);	
         }    
 
         // If TIME_SET flag is set, create new time stamp
         if(TIME_SET)
         {
-            create_time_stamp(&m_device, &m_time_stamp);          /* Create new time stamp from user set time*/
-            TIME_SET = false;                                              /* Reset the flag*/
+            create_time_stamp(&m_device, &m_time_stamp);          								/* Create new time stamp from user set time*/
+            TIME_SET = false;                                              				/* Reset the flag*/
             
         }                                                                 
 
         if (CLEAR_MOVE_ALARM)	
         {   
-            err_code = reset_alarm(&m_movement);             /* Check whether alarm clear in movement service is set */
+            err_code = reset_alarm(&m_movement);             											/* Check whether alarm clear in movement service is set */
             if ((err_code != NRF_SUCCESS) &&
                     (err_code != NRF_ERROR_INVALID_STATE) &&
                     (err_code != BLE_ERROR_NO_TX_BUFFERS) &&
@@ -1513,9 +1581,9 @@ void connectable_mode(void)
 				
 				if(CENTRAL_DEVICE_CONNECTED)
 				{
-					update_movement_alarmtimestamp_on_connect(&m_movement,&m_device);   	/*Function to update the last occurance of movement alarm when a central device is connected*/         
+					update_movement_alarmtimestamp_on_connect(&m_movement,&m_device);   		/*Function to update the last occurance of movement alarm when a central device is connected*/         
           
-					err_code = update_pir_alarmtimestamp_on_connect(&m_pir,&m_device);     /*Function to update the last occurance of pir alarm when a central device is connected*/                 
+					err_code = update_pir_alarmtimestamp_on_connect(&m_pir,&m_device);     	/*Function to update the last occurance of pir alarm when a central device is connected*/                 
             if ((err_code != NRF_SUCCESS) &&									 
                     (err_code != NRF_ERROR_INVALID_STATE) &&
                     (err_code != BLE_ERROR_NO_TX_BUFFERS) &&
