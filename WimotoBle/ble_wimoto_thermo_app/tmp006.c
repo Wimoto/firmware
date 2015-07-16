@@ -199,7 +199,9 @@ float TMP006_ObjTempC_conversion()
     {	
         return previous_val;
     }
+		twi_turn_OFF();
     delay_ms(1100);
+		twi_turn_ON();
 
     volatile float Tdie = readRawDieTemperature();
     volatile float Vobj = readRawVoltage();
