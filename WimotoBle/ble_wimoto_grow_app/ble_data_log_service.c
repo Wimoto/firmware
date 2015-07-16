@@ -43,6 +43,7 @@ bool   flash_comp_evt = false;			              /*flag to indicate flash operatio
 extern ble_date_time_t m_time_stamp;              /* time stamp structure*/ 
 extern uint8_t	 var_receive_uuid;  							/*variable for receiving uuid*/
 extern uint32_t buf[4];														/*buffer for flash write operation*/
+static bool reread = false;												/*flag to indicate whether or not a data log has to be resent*/
 /**@brief Function for handling the Connect event.
 *
 * @param[in]   ble_dlogs     Data logger service structure.
@@ -598,7 +599,7 @@ void write_data_flash(uint32_t *data)
         }
         
     }
-    else
+    if(write_pg > pg_end)
     {
         write_pg  = DATA_LOGGER_BUFFER_START_PAGE;        /* when the last page is reached, go back to the first page*/
         read_pg = write_pg + 1;
@@ -641,31 +642,38 @@ void send_data(ble_dlogs_t * ble_dlogs)
         switch(state)
         {
         case READ:
-            read_data_flash(ble_dlogs,data);							/* read data from the flash*/
+            read_data_flash(ble_dlogs,data);														/* read data from the flash*/
             if(done_read)                                               /* If all the data has been read set the next state to read complete*/
             {
                 state=READ_COMPLETE;
+								break;
             }
-            else																					
-            {	
-                state=TXMIT;                                            /* If data read is not complete set the next state to trasmit*/
-            }
+						
+						err_code=send_data_to_central(ble_dlogs,data);              /* trasmit data to the connected central device*/
+						
+            if(err_code == BLE_ERROR_NO_TX_BUFFERS)
+						{
+							reread = true;
+							state  = TXMIT;
+							break;
+						}else if (err_code != NRF_SUCCESS)
+						{
+							APP_ERROR_HANDLER(err_code);
+						}
             
             break;
 
-        case TXMIT: 		
-            err_code=send_data_to_central(ble_dlogs,data);              /* trasmit data to the connected central device*/
-            APP_ERROR_CHECK(err_code);
-
-            while(!TX_COMPLETE)                                        /* Wait for TX complete event*/
+        case TXMIT: 																										/* Enter this case when TX Buffer has become full */	
+            
+            while(!TX_COMPLETE)                                        	/* Wait for TX complete event*/
             {
                 uint32_t err_code = sd_app_evt_wait();
                 APP_ERROR_CHECK(err_code);
             }
-            state=READ;                                               /* Set next state to READ*/															
+            state=READ;                                                	/* Set next state to READ*/															
             break;
 
-        case READ_COMPLETE:                                           /* If the read is completed, exit the loop*/			
+        case READ_COMPLETE:                                            	/* If the read is completed, exit the loop*/			
             
             exit_loop=true;
             state=READ;
@@ -695,10 +703,22 @@ uint32_t read_data_flash(ble_dlogs_t * ble_dlogs, uint32_t * data)
     static uint32_t pg_size;
     static uint32_t *read_addr;
     static uint32_t *buffer_end_addr;
+		static uint32_t *prev_addr;
+		static uint32_t prev_read_page;
     static bool first_read=true;
     int i;
     pg_size = NRF_FICR->CODEPAGESIZE;
     buffer_end_addr = (uint32_t *)(pg_size * (pg_end + 1));
+	
+		if(reread == true)											/*Check if there was a TX FULL error and data needs to be resent*/																						
+		{
+			read_addr = prev_addr;								/*Roll back the read address and read page to what they were previously*/
+			read_pg = prev_read_page;
+			reread = false;
+		}
+		
+		prev_addr = read_addr;									/*Store current address and page for future use incase of TX full error*/
+		prev_read_page = read_pg;
 
     if(first_read)
     {																				/*in the first read operation, set the address to be read as the first word of read page set by the write routine. i.e the oldest data*/	
@@ -723,7 +743,7 @@ uint32_t read_data_flash(ble_dlogs_t * ble_dlogs, uint32_t * data)
         }
     }
     else
-    {																		  /*if read page is above write page, read up-to the last memory location*/
+    {																		  	/*if read page is above write page, read up-to the last memory location*/
         if(read_addr <  buffer_end_addr)
         {
             for(i=0;i<4;i++)
