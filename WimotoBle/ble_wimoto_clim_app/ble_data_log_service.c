@@ -24,6 +24,7 @@
 #include "app_error.h"
 
 extern bool         ENABLE_DATA_LOG;              /* Flag to enable data logger */
+extern bool					ENABLE_DLOG_TIMER;						/* Flag to start the data logger timer */
 extern bool         READ_DATA;                    /* flag to start reading data from flash*/
 extern bool         START_DATA_READ;              /* flag to start data logging*/
 extern bool         TX_COMPLETE;                  /* flag to indicate transmission complete*/
@@ -81,6 +82,7 @@ static void write_evt_handler (ble_dlogs_t * ble_dlogs, ble_dlogs_write_evt_t * 
         if(ble_dlogs->data_logger_enable != 0x00)				/*if the user has set the data logger enable characteristics set the flag to true*/
         {
             ENABLE_DATA_LOG =true;
+						ENABLE_DLOG_TIMER = true; 									/*Set flag to initiate the data log timer*/
         }
         else
         {

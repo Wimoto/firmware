@@ -60,7 +60,7 @@
 #define MODEL_NUM                            "Wimoto_Grow"                                   /**< Model number. Will be passed to Device Information Service. */
 #define MANUFACTURER_ID                      0x1122334455                               /**< Manufacturer ID, part of System ID. Will be passed to Device Information Service. */
 #define ORG_UNIQUE_ID                        0x667788                                   /**< Organizational Unique ID, part of System ID. Will be passed to Device Information Service. */
-#define FIRMWARE_ID 												 "1.21"
+#define FIRMWARE_ID 												 "1.21b"
 
 #define APP_ADV_INTERVAL                     0x808                                      /**< The advertising interval (in units of 0.625 ms. This value corresponds to 25 ms). */
 #define APP_ADV_TIMEOUT_IN_SECONDS           0x0000                                     /**< The advertising timeout in units of seconds. */
@@ -131,6 +131,8 @@ ble_bas_t                             			 bas;                                  
 
 volatile bool 												       m_radio_event = false;                     /**< TRUE if radio is active (or about to become active), FALSE otherwise. */
 bool 																				 ENABLE_DATA_LOG=false;											/**< Flag to enable data logger */
+bool																				 ENABLE_DLOG_TIMER=false;										/**< Flag to start the data logger timer */
+bool																				 RESET_DLOG_TIMER = false;									/**< Flag to reset the data logger timer and make sure first log is 15 minutes later*/
 bool 																				 READ_DATA=false;
 bool 																				 START_DATA_READ=true;											/**< Flag to start data logging*/
 bool 																				 TX_COMPLETE=false;
@@ -281,16 +283,20 @@ static void alarm_check(void)
 static void grow_param_meas_timeout_handler(void * p_context)
 {
     UNUSED_PARAMETER(p_context);
-    static uint8_t minutes_15_count = 0x01; 
-    if (minutes_15_count < 0x0F)
+    static uint8_t minutes_count = 0x01; 
+		if (RESET_DLOG_TIMER)
+		{
+				minutes_count = 0x01;
+				RESET_DLOG_TIMER = false; 
+		}
+    if (minutes_count < 0x0F)
     {
-        minutes_15_count++;
+        minutes_count++;
     }
     else 
     {
-        minutes_15_count =0x01;
+        minutes_count =0x01;
         DATA_LOG_CHECK=true;
-				CHECK_ALARM_TIMEOUT = true;
     }
 
 
@@ -304,7 +310,7 @@ static void real_time_timeout_handler(void * p_context)
     uint32_t err_code;
     // Store days in every month in an array
     uint8_t days_in_month[]={0,31,28,31,30,31,30,31,31,30,31,30,31};
-		static uint8_t meas_interval_seconds = 0x01;
+		static uint16_t meas_interval_seconds = 0x01;
 		static uint8_t battery_meas_timeout  = 0x00;
 		
     // Check for leap year
@@ -318,7 +324,7 @@ static void real_time_timeout_handler(void * p_context)
     }
 
 	
-		/*if(meas_interval_seconds < 0x02)			   //set the sensor measurement timeout interval to 2 sec				
+		if(meas_interval_seconds < 0x384)			   //set the sensor measurement timeout interval to 15 minutes				
 		{
 			meas_interval_seconds++;
 		}
@@ -326,7 +332,7 @@ static void real_time_timeout_handler(void * p_context)
 		{
 			meas_interval_seconds = 0x00;
 			CHECK_ALARM_TIMEOUT=true;
-		}*/
+		}
     // Increment time stamp
 		NRF_WDT->RR[0] = 0x6E524635;								//kick the dog every second
     m_time_stamp.seconds += 1;
@@ -508,8 +514,8 @@ static void application_timers_start(void)
     uint32_t err_code;
 
     // Start application timers
-    err_code = app_timer_start(sensor_meas_timer, TEMPERATURE_LEVEL_MEAS_INTERVAL, NULL);
-    APP_ERROR_CHECK(err_code);
+    //err_code = app_timer_start(sensor_meas_timer, TEMPERATURE_LEVEL_MEAS_INTERVAL, NULL);
+    //APP_ERROR_CHECK(err_code);
 
     err_code = app_timer_start(real_time_timer, SECONDS_INTERVAL, NULL);
     APP_ERROR_CHECK(err_code);
@@ -1542,6 +1548,15 @@ void connectable_mode(void)
 						
 						sd_nvic_SystemReset();                            /* Apply a system reset for jumping into bootloader*/
         }
+				
+				if (ENABLE_DLOG_TIMER)																/* If the data logger has been enabled, start the timer*/
+				{
+					err_code = app_timer_start(sensor_meas_timer, TEMPERATURE_LEVEL_MEAS_INTERVAL, NULL);
+					APP_ERROR_CHECK(err_code);
+					ENABLE_DLOG_TIMER = false;
+					DATA_LOG_CHECK = true;															/* Create a data log immediately upon enabling logging functionality*/
+					RESET_DLOG_TIMER = true;														/* Make sure that the timer gets reset so that first log is 15 minutes later*/
+				}
 
         if (DATA_LOG_CHECK)
         {
@@ -1565,7 +1580,6 @@ void connectable_mode(void)
 							reset_conn_params();															/* Reset the conn params to maintain decent power consumption */
 							param_updated = false;														/* Reset the flag indicating that the conn params were changed*/
 						}
-            application_timers_start();												 	/* Restart the timers when sending is finished*/
             err_code=reset_data_log(&m_dlogs);								 	/* Reset the data logger enable and data read switches*/
             APP_ERROR_CHECK(err_code);	
         }

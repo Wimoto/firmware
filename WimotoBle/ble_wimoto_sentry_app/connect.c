@@ -60,7 +60,7 @@
 #define MODEL_NUM                            "Wimoto_Sentry"                            /**< Model number. Will be passed to Device Information Service. */
 #define MANUFACTURER_ID                      0x1122334455                               /**< Manufacturer ID, part of System ID. Will be passed to Device Information Service. */
 #define ORG_UNIQUE_ID                        0x667788                                   /**< Organizational Unique ID, part of System ID. Will be passed to Device Information Service. */
-#define FIRMWARE_ID 												 "1.21"
+#define FIRMWARE_ID 												 "1.21b"
 
 #define APP_ADV_INTERVAL                     0x808                                      /**< The advertising interval (in units of 0.625 ms. This value corresponds to 25 ms). */
 #define APP_ADV_TIMEOUT_IN_SECONDS           0x0000                                     /**< The advertising timeout in units of seconds. */
@@ -128,6 +128,8 @@ uint8_t 																		 battery_level=0;                           /**< Batte
 ble_bas_t                             			 bas;                                       /**< Structure used to identify the battery service. */
 
 bool 																				 ENABLE_DATA_LOG = false;										/**< Flag to enable data logger */
+bool																				 ENABLE_DLOG_TIMER=false;										/**< Flag to start the data logger timer */
+bool																				 RESET_DLOG_TIMER = false;									/**< Flag to reset the data logger timer and make sure first log is 15 minutes later*/
 bool 																				 READ_DATA       = false;
 bool 																				 START_DATA_READ = true;									  /**< flag to start data logging */
 bool 																				 TX_COMPLETE     = false;
@@ -223,6 +225,11 @@ static void sentry_param_meas_timeout_handler(void * p_context)
 {
     UNUSED_PARAMETER(p_context);
     static uint8_t minutes_count = 0x01;
+		if (RESET_DLOG_TIMER)
+		{
+				minutes_count = 0x01;
+				RESET_DLOG_TIMER = false; 
+		}
     if (minutes_count < 0x0F)
     {
         minutes_count++;
@@ -429,8 +436,8 @@ static void application_timers_start(void)
     uint32_t err_code;
 
     // Start measurement time-out timer
-    err_code = app_timer_start(sentry_measurement_timer, SENTRY_LEVEL_MEAS_INTERVAL, NULL);
-    APP_ERROR_CHECK(err_code);
+    //err_code = app_timer_start(sentry_measurement_timer, SENTRY_LEVEL_MEAS_INTERVAL, NULL);
+    //APP_ERROR_CHECK(err_code);
 
     // Start the time keeping timer
     err_code = app_timer_start(real_time_timer, SECONDS_INTERVAL, NULL);
@@ -1520,6 +1527,16 @@ void connectable_mode(void)
 							advertising_nonconn_init();
             MOVEMENT_EVENT_FLAG=false;					 /* Reset the gpiote event flag*/
         }
+				
+				if (ENABLE_DLOG_TIMER)																/* If the data logger has been enabled, start the timer*/
+				{
+					err_code = app_timer_start(sentry_measurement_timer, SENTRY_LEVEL_MEAS_INTERVAL, NULL);
+					APP_ERROR_CHECK(err_code);
+					ENABLE_DLOG_TIMER = false;
+					DATA_LOG_CHECK = true;															/* Create a data log immediately upon enabling logging functionality*/
+					RESET_DLOG_TIMER = true;														/* Make sure that the timer gets reset so that first log is 15 minutes later*/
+				}
+				
         if (DATA_LOG_CHECK)
         {
 						data_log_check();
@@ -1547,7 +1564,7 @@ void connectable_mode(void)
 							reset_conn_params();																								/* Reset the conn params to maintain decent power consumption */
 							param_updated = false;																							/* Reset the flag indicating that the conn params were changed*/
 						}
-            application_timers_start();												            				/* Restart the timers when sending is finished */
+            //application_timers_start();												            				/* Restart the timers when sending is finished */
             err_code=app_gpiote_user_enable(pir_measurement_gpiote);      				/* Re-enable PIR gpiote */
             err_code=app_gpiote_user_enable(movement_measurement_gpiote); 				/* Re-enable movement gpiote */
             APP_ERROR_CHECK(err_code);
