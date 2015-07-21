@@ -1564,7 +1564,6 @@ void connectable_mode(void)
 							reset_conn_params();																								/* Reset the conn params to maintain decent power consumption */
 							param_updated = false;																							/* Reset the flag indicating that the conn params were changed*/
 						}
-            //application_timers_start();												            				/* Restart the timers when sending is finished */
             err_code=app_gpiote_user_enable(pir_measurement_gpiote);      				/* Re-enable PIR gpiote */
             err_code=app_gpiote_user_enable(movement_measurement_gpiote); 				/* Re-enable movement gpiote */
             APP_ERROR_CHECK(err_code);

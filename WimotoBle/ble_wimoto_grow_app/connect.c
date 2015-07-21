@@ -324,7 +324,7 @@ static void real_time_timeout_handler(void * p_context)
     }
 
 	
-		if(meas_interval_seconds < 0x384)			   //set the sensor measurement timeout interval to 15 minutes				
+		if(meas_interval_seconds < 0x383)			   //set the sensor measurement timeout interval to 15 minutes				
 		{
 			meas_interval_seconds++;
 		}

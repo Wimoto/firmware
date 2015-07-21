@@ -1520,7 +1520,6 @@ void connectable_mode(void)
 							reset_conn_params();															/* Reset the conn params to maintain decent power consumption */
 							param_updated = false;														/* Reset the flag indicating that the conn params were changed*/
 						}
-            //application_timers_start();												/*restart the timers when sending is finished*/
             err_code=reset_data_log(&m_dlogs);									/*reset the data logger enable and data read switches*/
             APP_ERROR_CHECK(err_code);	
         }

@@ -72,7 +72,7 @@
 #define APP_TIMER_MAX_TIMERS                 5                                          /**< Maximum number of simultaneously created timers. */
 #define APP_TIMER_OP_QUEUE_SIZE              4                                          /**< Size of timer operation queues. */
 																														
-#define WATER_LEVEL_MEAS_INTERVAL            APP_TIMER_TICKS(1000, APP_TIMER_PRESCALER) /**< water level measurement interval (ticks). */
+#define WATER_LEVEL_MEAS_INTERVAL            APP_TIMER_TICKS(60000, APP_TIMER_PRESCALER) /**< water level measurement interval (ticks). */
 #define CONNECTED_MODE_TIMEOUT_INTERVAL      APP_TIMER_TICKS(30000, APP_TIMER_PRESCALER)/**< Connected mode timeout interval (ticks). */
 #define SECONDS_INTERVAL                     APP_TIMER_TICKS(1000, APP_TIMER_PRESCALER) /**< seconds measurement interval (ticks). */
 #define BROADCAST_INTERVAL       						 APP_TIMER_TICKS(1000, APP_TIMER_PRESCALER) /**< updating interval of broadcast data*/ 
@@ -1431,7 +1431,6 @@ void connectable_mode(void)
 						{
 							reset_conn_params();																			/* Reset the conn params to maintain decent power consumption */
 						}
-            //application_timers_start();													       /* Restart the timers when sending is finished*/
             err_code=reset_data_log(&m_dlogs);									        /* Reset the data logger enable and data read switches*/
             APP_ERROR_CHECK(err_code);	
         }
