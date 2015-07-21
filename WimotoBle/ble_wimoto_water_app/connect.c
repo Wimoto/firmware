@@ -63,7 +63,7 @@
 #define MODEL_NUM                            "Wimoto_Water"                             /**< Model number. Will be passed to Device Information Service. */
 #define MANUFACTURER_ID                      0x1122334455                               /**< Manufacturer ID, part of System ID. Will be passed to Device Information Service. */
 #define ORG_UNIQUE_ID                        0x667788                                   /**< Organizational Unique ID, part of System ID. Will be passed to Device Information Service. */
-#define FIRMWARE_ID 												 "1.21b"																			
+#define FIRMWARE_ID 												 "1.21"																			
 
 #define APP_ADV_INTERVAL                     0x808                                      /**< The advertising interval (in units of 0.625 ms. This value corresponds to 25 ms). */
 #define APP_ADV_TIMEOUT_IN_SECONDS           0x0000                                     /**< The advertising timeout in units of seconds. */
