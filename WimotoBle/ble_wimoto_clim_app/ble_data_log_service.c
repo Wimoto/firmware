@@ -870,7 +870,14 @@ uint32_t reset_data_log(ble_dlogs_t * ble_dlogs)
         hvx_params.p_data   = &data_logger_enable;
         
 				TX_COMPLETE = false;																	/*Set the TX Complete flag to false before updating characteristics value*/
-        err_code = sd_ble_gatts_hvx(ble_dlogs->conn_handle, &hvx_params);
+				while(1)
+				{
+        err_code = sd_ble_gatts_hvx(ble_dlogs->conn_handle, &hvx_params);									/*Make sure TX BUFFERS are not full*/
+				if (err_code != BLE_ERROR_NO_TX_BUFFERS)
+					{
+						break;
+					}
+				}
 				
     }
     else
@@ -901,7 +908,14 @@ uint32_t reset_data_log(ble_dlogs_t * ble_dlogs)
         hvx_params.p_len    = &len;
         hvx_params.p_data   = &read_data_switch;
         
+				while(1)
+				{
         err_code = sd_ble_gatts_hvx(ble_dlogs->conn_handle, &hvx_params);
+				if (err_code != BLE_ERROR_NO_TX_BUFFERS)																					/*Make sure that the TX BUFFERS are not full*/
+					{	
+						break;
+					}
+				}
     }
     else
     {
