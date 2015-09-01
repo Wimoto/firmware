@@ -143,7 +143,7 @@ bool 																				 TX_COMPLETE=false;				      						/**< flag to indicat
 bool                                         TIME_SET = false;                          /**< flag to indicate user set time*/
 bool                                         CHECK_ALARM_TIMEOUT = false;               /**< Flag to indicate whether to check for alarm conditions*/
 bool                                         DATA_LOG_CHECK=false;                      /**< Flag to indicate whether to check for data logging*/
-bool                                         MEAS_BATTERY_LEVEL = false;                /**< Flag for measuring the battery level */
+bool                                         MEAS_BATTERY_LEVEL = true;                /**< Flag for measuring the battery level */
 bool                                         delay_complete = false;                    /**< Flag to indicate the completion of delay*/
 
 extern bool                                  THERMOPS_CONNECTED_STATE;                  /**< This flag indicates thermopile temperature service is in connected start or now*/
@@ -1459,7 +1459,7 @@ void connectable_mode(void)
     gpiote_init();
     device_manager_init();
     gap_params_init();
-		init_battery_level();                  /*measure the battery level before advertisement*/
+		//init_battery_level();                  /*measure the battery level before advertisement*/
     advertising_init();
     services_init();
     conn_params_init();

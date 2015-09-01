@@ -140,7 +140,7 @@ bool                                         CHECK_ALARM_TIMEOUT=false;         
 bool                                         DATA_LOG_CHECK=false;
 bool                                         CLEAR_MOVE_ALARM=false;
 bool                                         CENTRAL_DEVICE_CONNECTED = false;          /**<Flag to indicate when a central device is connected >**/    
-bool                                         MEAS_BATTERY_LEVEL = false;                /**< Flag for measuring the battery level */
+bool                                         MEAS_BATTERY_LEVEL = true;                	/**< Flag for measuring the battery level */
 bool                                         delay_complete = false;                    /**< Flag to indicate the completion of delay*/
 
 extern bool																	 DLOGS_CONNECTED_STATE;                     /**< Specifies data logger service is connected or not */
@@ -1419,7 +1419,7 @@ void connectable_mode(void)
     gpiote_init();
     device_manager_init();
     gap_params_init();
-	  init_battery_level();                 	/*measure the battery level before advertisement*/
+	  //init_battery_level();                 	/*measure the battery level before advertisement*/
     advertising_init();
     services_init();
     conn_params_init();
