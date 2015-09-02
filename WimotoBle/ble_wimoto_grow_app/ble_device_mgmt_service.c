@@ -23,6 +23,7 @@
 
 bool   DEVICE_CONNECTED_STATE = false;                  /* This flag indicates whether a client is connected to the peripheral or not*/
 bool   DFU_ENABLE             = false;                  /* Flah to check whether DFU feature has been enabled or not*/
+bool 	 LED_FLASH							= false;									/* Flag to indicate whether or not to flash LED*/
 extern ble_date_time_t m_time_stamp;                    /* Time stamp defined in connect.c. */
 extern bool TIME_SET;                                   /* Flag to start time updation, defined in connect.c*/
 extern uint8_t	 var_receive_uuid;											/*variable to receive uuid*/
@@ -64,10 +65,14 @@ static void write_evt_handler (ble_device_t * p_device, ble_device_write_evt_t *
     switch (p_evt->evt_type)
     {
     case BLE_DEVICE_DFU_WRITE:
-        if(p_device->device_dfu_mode_set != 0x00)
+        if(p_device->device_dfu_mode_set == 0x01)
         {
             DFU_ENABLE = true;
         }	
+				else if(p_device->device_dfu_mode_set == 0x80)
+				{
+						LED_FLASH = true;
+				}
         else
         {
             DFU_ENABLE = false;

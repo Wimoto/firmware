@@ -136,12 +136,13 @@ bool                                         TIME_SET = false;                  
 bool                                         CHECK_ALARM_TIMEOUT=false;                 /**< Flag to indicate whether to check for alarm conditions*/
 bool                                         DATA_LOG_CHECK=false;
 bool                                         delay_complete = false;                    /**< Flag to indicate the completion of delay*/
-bool                                         MEAS_BATTERY_LEVEL = true;                /**< Flag for measuring the battery level */
+bool                                         MEAS_BATTERY_LEVEL = true;                 /**< Flag for measuring the battery level */
 
 extern bool                                  TEMPS_CONNECTED_STATE;                     /**< This flag indicates temperature service is in connected state*/
 extern bool                                  LIGHTS_CONNECTED_STATE;                    /**< This flag indicates light service is in connected state*/
 extern bool                                  HUMS_CONNECTED_STATE;                      /**< This flag indicates humidity service is in connected state*/
-extern bool  																 DFU_ENABLE;                                /**< This flag indicates DFU mode is enabled/not*/       
+extern bool  																 DFU_ENABLE;                                /**< This flag indicates DFU mode is enabled/not*/
+extern bool																	 LED_FLASH;																	/**< This flag indicates whether or not to flash the LED*/
 extern bool                                  DEVICE_CONNECTED_STATE;                    /**< This flag indicates device management service is in connected state*/
 extern bool																	 DLOGS_CONNECTED_STATE;                     /**< This flag indicates whether data logging service is in connected state*/ 
 
@@ -232,7 +233,7 @@ void assert_nrf_callback(uint16_t line_num, const uint8_t * p_file_name)
 
 /* This function measures the battery voltage using the band gap as a reference.
 * 3.6 V will return 100 %, so depending on battery voltage, it might need scaling. */
-void init_battery_level(void)
+/*void init_battery_level(void)
 {
     uint8_t     adc_result;
     uint16_t    batt_lvl_in_milli_volts;
@@ -255,7 +256,7 @@ void init_battery_level(void)
 
     battery_lvl     = battery_level_in_percent(batt_lvl_in_milli_volts);
 
-}
+}*/
 
 
 /**@brief Function for initializing the non-connectable Advertising[broadcasting] functionality.
@@ -987,15 +988,7 @@ static void on_conn_params_evt(ble_conn_params_evt_t * p_evt)
         err_code = sd_ble_gap_disconnect(m_conn_handle, BLE_HCI_CONN_INTERVAL_UNACCEPTABLE);
         APP_ERROR_CHECK(err_code);
     }
-		
-		//if((p_evt->evt_type == BLE_CONN_PARAMS_EVT_SUCCEEDED) && READ_DATA)														//CHECK TO SEE IF WE ARE UPLOADING DATA IN ORDER TO SET APPROPRIATE CONN PARAM FLAG
-		//{
-		//		param_updated = true;
-		//		READ_DATA=false;
-		//}
-		
-		
-		
+				
 }
 
 
@@ -1397,16 +1390,6 @@ void twi_turn_ON(void)
 void WDT_init(void)
 {		
 			
-		//CODE FOR DEBUG ON CLIMATE DEVICE
-		//nrf_gpio_cfg_output(18);					//set LED pins to output
-		//nrf_gpio_cfg_output(19);
-		
-	
-		//nrf_gpio_pin_write(19, NRF_POWER->RESETREAS & 0x00000002);
-		//nrf_gpio_pin_write(18, NRF_POWER->RESETREAS & 0x00000008);
-		
-		//sd_power_reset_reason_clr(0xFFFFFFFF);	//clear reset reason register */
-	
 		NRF_WDT->CONFIG = WDT_CONFIG_HALT_Pause << WDT_CONFIG_HALT_Pos |							//pause WDT when device in debug mode
 											WDT_CONFIG_SLEEP_Run << WDT_CONFIG_SLEEP_Pos;								//continue WDT when device is in sleep mode
 		
@@ -1440,18 +1423,34 @@ void HFCLK_request(void)
 	
 }
 
-void LED_ON(void)
+/**@brief Turn on the specified LEDs for 1.5s 
+*/
+void LED_ON(uint8_t LED_num, uint8_t LED_num2)
 {
 		// ON LED indicator
-		nrf_gpio_cfg_output(20);
-		nrf_gpio_pin_write(20, 1);
-		nrf_delay_ms(1000);
-		NRF_GPIO->PIN_CNF[20] = (GPIO_PIN_CNF_SENSE_Disabled << GPIO_PIN_CNF_SENSE_Pos)
-                                        | (GPIO_PIN_CNF_DRIVE_S0S1 << GPIO_PIN_CNF_DRIVE_Pos)
-                                        | (GPIO_PIN_CNF_PULL_Disabled << GPIO_PIN_CNF_PULL_Pos)
-                                        | (GPIO_PIN_CNF_INPUT_Disconnect << GPIO_PIN_CNF_INPUT_Pos)
-                                        | (GPIO_PIN_CNF_DIR_Input << GPIO_PIN_CNF_DIR_Pos);
+		nrf_gpio_cfg_output(LED_num);
+		nrf_gpio_pin_write(LED_num, 1);
 	
+		nrf_gpio_cfg_output(LED_num2);
+		nrf_gpio_pin_write(LED_num2,1);
+	
+		nrf_delay_ms(1500);
+		NRF_GPIO->PIN_CNF[LED_num] = (GPIO_PIN_CNF_SENSE_Disabled << GPIO_PIN_CNF_SENSE_Pos)
+                                 | (GPIO_PIN_CNF_DRIVE_S0S1 << GPIO_PIN_CNF_DRIVE_Pos)
+                                 | (GPIO_PIN_CNF_PULL_Disabled << GPIO_PIN_CNF_PULL_Pos)
+                                 | (GPIO_PIN_CNF_INPUT_Disconnect << GPIO_PIN_CNF_INPUT_Pos)
+                                 | (GPIO_PIN_CNF_DIR_Input << GPIO_PIN_CNF_DIR_Pos);
+	
+		NRF_GPIO->PIN_CNF[LED_num2] = (GPIO_PIN_CNF_SENSE_Disabled << GPIO_PIN_CNF_SENSE_Pos)
+                                 | (GPIO_PIN_CNF_DRIVE_S0S1 << GPIO_PIN_CNF_DRIVE_Pos)
+                                 | (GPIO_PIN_CNF_PULL_Disabled << GPIO_PIN_CNF_PULL_Pos)
+                                 | (GPIO_PIN_CNF_INPUT_Disconnect << GPIO_PIN_CNF_INPUT_Pos)
+                                 | (GPIO_PIN_CNF_DIR_Input << GPIO_PIN_CNF_DIR_Pos);
+		
+		
+		
+		
+
 }
 
 /**@brief Get silicon revision
@@ -1515,6 +1514,8 @@ void reset_conn_params()
 void connectable_mode(void)
 {
     uint32_t err_code;
+		uint16_t len = 1;
+		uint8_t	 val = 0;
 		// Initialize.
 		get_die_revision_no();								 /*Get silicon revision before init*/
     ble_stack_init();
@@ -1540,13 +1541,13 @@ void connectable_mode(void)
 		
 		WDT_init();	
     advertising_start();
-		LED_ON();
+		LED_ON(20, NULL);
 
     // Enter main loop.
     for (;;)  
     {
        
-        if(DFU_ENABLE)                                        /*If the dfu enable flag is true go to the bootloader*/ 
+        if(DFU_ENABLE)                                        /* If the dfu enable flag is true go to the bootloader*/ 
         {
             sd_power_gpregret_set(1);                         /* If DFU mode is enabled , set the value of general purpose retention register to 1*/
 						
@@ -1554,6 +1555,15 @@ void connectable_mode(void)
 						
 						sd_nvic_SystemReset();                            /* Apply a system reset for jumping into bootloader*/
         }
+				if(LED_FLASH)																					/* If LED flash flag is enabled, flash the red LED*/
+				{		
+						val = 0;
+						err_code = sd_ble_gatts_value_set(m_device.dfu_mode_handles.value_handle , 0, &len, &val);	/* Reset characteristic value */
+						APP_ERROR_CHECK(err_code);
+						LED_ON(18,19);
+						LED_FLASH = false;
+						
+				}
 				if (ENABLE_DLOG_TIMER)																/* If the data logger has been enabled, start the timer*/
 				{
 					err_code = app_timer_start(sensor_meas_timer, TEMPERATURE_LEVEL_MEAS_INTERVAL, NULL);
