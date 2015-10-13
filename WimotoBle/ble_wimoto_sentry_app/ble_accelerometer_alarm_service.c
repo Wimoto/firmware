@@ -303,6 +303,7 @@ void ble_movement_on_ble_evt(ble_movement_t * p_movement, ble_evt_t * p_ble_evt)
         break;
 
     case BLE_GAP_EVT_DISCONNECTED:
+				m_movement_alarm_ind_conf_pending = false;															//Clear confirmation pending flag incase disconnect occurs beforehand
         on_disconnect(p_movement, p_ble_evt);
         break;
 

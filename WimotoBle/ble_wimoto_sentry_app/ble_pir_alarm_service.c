@@ -222,6 +222,7 @@ void ble_pir_on_ble_evt(ble_pir_t * p_pir, ble_evt_t * p_ble_evt)
         break;
 
     case BLE_GAP_EVT_DISCONNECTED:
+				m_pir_alarm_ind_conf_pending = false;																//Clear confirmation pending flag incase disconnect occurs beforehand
         on_disconnect(p_pir, p_ble_evt);
         break;
 

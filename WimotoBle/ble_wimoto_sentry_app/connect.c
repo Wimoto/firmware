@@ -1116,7 +1116,7 @@ static void gpiote_init(void)
     // Calls an event handler whenever a HIGH->LOW or LOW->HIGH transition is incurred on P0.17 GPIO pin
     err_code = app_gpiote_user_register(&pir_measurement_gpiote, 
     PIR_PINS_LOW_TO_HIGH_MASK, 
-    NULL, 
+    PIR_PINS_HIGH_TO_LOW_MASK, 
     pir_gpiote_evt_handler);        /* Register the gpiote user for PIR sensor*/
     if (err_code != NRF_SUCCESS )                                     
     {                                                                 
