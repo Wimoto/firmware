@@ -309,6 +309,7 @@ void ble_temps_on_ble_evt(ble_temps_t * p_temps, ble_evt_t * p_ble_evt)
         break;
 
     case BLE_GAP_EVT_DISCONNECTED:
+				m_temps_alarm_ind_conf_pending = false;													//Clear pending confirmation flag if a disconnect occurs												
         on_disconnect(p_temps, p_ble_evt);
         break;
 

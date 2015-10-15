@@ -301,6 +301,7 @@ void ble_lights_on_ble_evt(ble_lights_t * p_lights, ble_evt_t * p_ble_evt)
         break;
 
     case BLE_GAP_EVT_DISCONNECTED:
+				m_lights_alarm_ind_conf_pending = false;													//Clear pending confirmation flag if a disconnect occurs
         on_disconnect(p_lights, p_ble_evt);
         break;
 

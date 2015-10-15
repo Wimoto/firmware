@@ -304,6 +304,7 @@ void ble_hums_on_ble_evt(ble_hums_t * p_hums, ble_evt_t * p_ble_evt)
         break;
 
     case BLE_GAP_EVT_DISCONNECTED:
+				m_hums_alarm_ind_conf_pending = false;												//Clear pending confirmation flag if a disconnect occurs	
         on_disconnect(p_hums, p_ble_evt);
         break;
 

@@ -304,6 +304,7 @@ void ble_probes_on_ble_evt(ble_probes_t * p_probes, ble_evt_t * p_ble_evt)
         break;
 
     case BLE_GAP_EVT_DISCONNECTED:
+				m_probes_alarm_ind_conf_pending = false;													//Clear pending confirmation flag if a disconnect occurs
         on_disconnect(p_probes, p_ble_evt);
         break;
 
