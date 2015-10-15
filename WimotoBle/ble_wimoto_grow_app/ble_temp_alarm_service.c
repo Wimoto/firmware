@@ -308,6 +308,7 @@ void ble_temps_on_ble_evt(ble_temps_t * p_temps, ble_evt_t * p_ble_evt)
         break;
 
     case BLE_GAP_EVT_DISCONNECTED:
+				m_temps_alarm_ind_conf_pending = false;													//Clear pending confirmation flag if a disconnect occurs
         on_disconnect(p_temps, p_ble_evt);
         break;
 
@@ -811,15 +812,16 @@ uint32_t ble_temps_level_alarm_check(ble_temps_t * p_temps,ble_device_t *p_devic
 
     // Get the temperature high value set by the user from the service 
     temperature_high_value            = 	(p_temps->temperature_high_level[0])<<8;	/*convert the 8 bit arrays to a 16 bit data*/
-    temperature_high_value 			 			= 	temperature_high_value | (p_temps->temperature_low_level[1]);
+    temperature_high_value 			 			= 	temperature_high_value | (p_temps->temperature_high_level[1]);
     temperature_user_high_value_float	=  	convert_temperature_to_float(temperature_high_value);
 
 
     // Check whether the temperature is out of range if alarm is set by user 		
     if(p_temps->temperature_alarm_set != 0x00)
     {
-        current_temperature_float = 	convert_temperature_to_float(current_temperature); 
-
+						
+				current_temperature_float = convert_temperature_to_float(current_temperature);
+			
         if(current_temperature_float < temperature_user_low_value_float)
         {   
             alarm[0] = SET_ALARM_LOW;												/*set alarm to 01 if temperature is low */
@@ -925,16 +927,20 @@ float convert_temperature_to_float(uint16_t temp_unsigned)
     int16_t temp_signed;
     float temp_float;
 
-    if(temp_unsigned & TWELTH_BIT_SIGN_MASK)				/* Check whether 12th bit is set to find negative values*/
+    if(temp_unsigned & TWELTH_BIT_SIGN_MASK)													/* Check whether 12th bit is set to find negative values*/
     {
-        temp_signed = temp_unsigned | 0xF000;       /* If negative, sign extend the 12 bit unsigned int to 16 bit signed int*/
+				temp_signed = ~temp_unsigned + 1; 														/* Get the 2s compliment of the number */
+				temp_signed = temp_signed & 0x0FFF;														/* Clear 4msbs */
+				temp_float = (float)temp_signed * TMP102_RESOLUTION * (-1);  	/* Multiply with resolution of tmp102 (0.0625) to convert to float*/
+				
     }
     else
     {
-        temp_signed = temp_unsigned;
+        temp_signed = temp_unsigned;																	/* If positive temperature, keep value unchanged */
+				temp_float = (float)temp_signed * TMP102_RESOLUTION;  				/* Multiply with resolution of tmp102 (0.0625) */
     }	
 
-    temp_float = (float)temp_signed * TMP102_RESOLUTION;   /* Multiply with resolution of tmp102 (0.0625) to convert to float*/
+    
 
     return temp_float;
 }

@@ -301,6 +301,7 @@ void ble_soils_on_ble_evt(ble_soils_t * p_soils, ble_evt_t * p_ble_evt)
         break;
 
     case BLE_GAP_EVT_DISCONNECTED:
+				m_soils_alarm_ind_conf_pending = false;													//Clear pending confirmation flag if a disconnect occurs
         on_disconnect(p_soils, p_ble_evt);
         break;
 
